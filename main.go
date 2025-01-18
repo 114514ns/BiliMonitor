@@ -197,6 +197,10 @@ type GiftList struct {
 					Price int    `json:"price"`
 				} `json:"list"`
 			} `json:"base_config"`
+			RoomConfig []struct {
+				Name  string `json:"name"`
+				Price int    `json:"price"`
+			} `json:"room_config"`
 		} `json:"gift_config"`
 	} `json:"data"`
 }
@@ -233,7 +237,8 @@ type GiftBox struct {
 	} `json:"data"`
 }
 type LiveAction struct {
-	gorm.Model
+	ID         uint `gorm:"primarykey"`
+	CreatedAt  time.Time
 	Live       uint
 	FromName   string
 	FromId     string
@@ -242,7 +247,7 @@ type LiveAction struct {
 	LiveRoom   string
 	ActionName string
 	GiftName   string
-	GiftPrice  float64
+	GiftPrice  float64 `gorm:"scale:2;precision:7"`
 	GiftAmount int
 	Extra      string
 }
@@ -262,6 +267,14 @@ type Live struct {
 	UserName string
 	UserID   string
 	Area     string
+}
+type EnterLive struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		TriggerTime int64  `json:"trigger_time"`
+		UID         int    `json:"uid"`
+		Uname       string `json:"uname"`
+	} `json:"data"`
 }
 
 func UpdateCommon() {
@@ -284,8 +297,8 @@ func RefreshCookie() {
 	Cookie = strings.Split(cookie, ";")[0]
 	config.Cookie = Cookie
 }
-func FillGiftPrice() {
-	res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?platform=pc&room_id=30849380")
+func FillGiftPrice(room string) {
+	res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?platform=pc&room_id=" + room)
 	var gift = GiftList{}
 	sonic.Unmarshal(res.Body(), &gift)
 	for i := range gift.Data.GiftConfig.BaseConfig.List {
@@ -305,6 +318,11 @@ func FillGiftPrice() {
 		}
 
 	}
+	for i := range gift.Data.GiftConfig.RoomConfig {
+		var item = gift.Data.GiftConfig.RoomConfig[i]
+		GiftPrice[item.Name] = float32(item.Price) / 1000.0
+	}
+	fmt.Println()
 
 }
 func PushDynamic(title, msg string) {
@@ -363,6 +381,15 @@ func BuildMessage(str string, opCode int) []byte {
 
 	return buffer.Bytes()
 }
+func FixPrice() {
+	var actions []LiveAction
+	db.Where("action_name = ? AND gift_price = ?", "gift", 0).Find(&actions)
+
+	for _, action := range actions {
+		action.GiftPrice = float64(GiftPrice[action.GiftName] * float32(action.GiftAmount))
+		db.Save(&action) // 分别更新每条记录
+	}
+}
 func TraceLive(roomId string) {
 
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
@@ -389,11 +416,40 @@ func TraceLive(roomId string) {
 
 		*/
 
-		db.Where("id=?", roomInfo.Data.UID).Last(foundLive)
+		db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
 
 		var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
 
 		log.Println("diff  " + strconv.Itoa(diff))
+		htmlRes, _ := client.R().Get("https://live.bilibili.com/" + roomId)
+		startStr := `meta name="keywords" content="`
+		startIndex := strings.Index(htmlRes.String(), startStr)
+		if startIndex == -1 {
+			fmt.Println("Meta tag not found")
+			return
+		}
+
+		// 计算content内容起始的实际索引
+		contentStartIndex := startIndex + len(startStr)
+
+		// 找到content内容的结束引号位置
+		contentEndIndex := strings.Index(htmlRes.String()[contentStartIndex:], `"`)
+		if contentEndIndex == -1 {
+			fmt.Println("Content end quote not found")
+			return
+		}
+
+		// 提取完整的content字符串
+		fullContent := htmlRes.String()[contentStartIndex : contentStartIndex+contentEndIndex]
+
+		// 找到第一个逗号的位置
+		commaIndex := strings.Index(fullContent, ",")
+
+		if commaIndex == -1 {
+			liver = fullContent // 如果没有逗号，则使用完整的content内容
+		} else {
+			liver = fullContent[:commaIndex] // 提取逗号之前的内容
+		}
 		if diff < 90 {
 			log.Println("续")
 
@@ -407,36 +463,6 @@ func TraceLive(roomId string) {
 			new.Title = roomInfo.Data.Title
 			new.Area = roomInfo.Data.Area
 			//new.UserName = roomInfo.Data
-
-			htmlRes, _ := client.R().Get("https://live.bilibili.com/" + roomId)
-			startStr := `meta name="keywords" content="`
-			startIndex := strings.Index(htmlRes.String(), startStr)
-			if startIndex == -1 {
-				fmt.Println("Meta tag not found")
-				return
-			}
-
-			// 计算content内容起始的实际索引
-			contentStartIndex := startIndex + len(startStr)
-
-			// 找到content内容的结束引号位置
-			contentEndIndex := strings.Index(htmlRes.String()[contentStartIndex:], `"`)
-			if contentEndIndex == -1 {
-				fmt.Println("Content end quote not found")
-				return
-			}
-
-			// 提取完整的content字符串
-			fullContent := htmlRes.String()[contentStartIndex : contentStartIndex+contentEndIndex]
-
-			// 找到第一个逗号的位置
-			commaIndex := strings.Index(fullContent, ",")
-
-			if commaIndex == -1 {
-				liver = fullContent // 如果没有逗号，则使用完整的content内容
-			} else {
-				liver = fullContent[:commaIndex] // 提取逗号之前的内容
-			}
 
 			new.UserName = liver
 			liver = strings.TrimSpace(liver) // 去除前后的空白字符
@@ -559,7 +585,20 @@ func TraceLive(roomId string) {
 					action.GiftAmount = info.Data.Num
 					db.Create(&action)
 					log.Printf("%s 赠送了 %d 个 %s，%.2f元", info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
-				} else {
+				} else if strings.Contains(obj, "INTERACT_WORD") {
+
+					var entet = EnterLive{}
+					sonic.Unmarshal(msgData, &entet)
+					action.FromId = strconv.Itoa(entet.Data.UID)
+					action.FromName = entet.Data.Uname
+					action.ActionName = "enter"
+					db.Create(&action)
+				} else if strings.Contains(obj, "PREPARING") {
+					//猜测是下播
+					db.Model(&Live{}).Where("id= ?", dbLiveId).Update("end_at", time.Now().Unix())
+					log.Println("下拨")
+
+				} else if strings.Contains(obj, "PREPARATION") {
 
 				}
 
@@ -693,8 +732,9 @@ func main() {
 		os.WriteFile("config.json", content, 666)
 	}
 	err = sonic.Unmarshal(content, &config)
-	FillGiftPrice()
-	TraceLive("24988171")
+	FillGiftPrice("761662")
+	FixPrice()
+	TraceLive("761662")
 	c := cron.New()
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 
