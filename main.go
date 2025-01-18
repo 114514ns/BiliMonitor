@@ -2,19 +2,18 @@ package main
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/binary"
 	"fmt"
 	"github.com/andybalholm/brotli"
 	"github.com/bytedance/sonic"
+	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
 	"github.com/gorilla/websocket"
-	"github.com/jordan-wright/email"
+	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"gorm.io/gorm"
 	"io"
 	"log"
-	"net/smtp"
 	"net/url"
 	"os"
 	"strconv"
@@ -28,7 +27,8 @@ var client = resty.New()
 var Cookie = ""
 var Special = make([]User, 0)
 var RecordedDynamic = make([]string, 0)
-var GiftPrice = map[string]int{}
+var GiftPrice = map[string]float32{}
+var mailClient = resend.NewClient("re_TLeNcEDu_Ht8QFPBRPH6JyKZjfnxmztwB")
 
 type Config struct {
 	SpecialDelay           string
@@ -39,17 +39,14 @@ type Config struct {
 	Cookie                 string
 	LoginMode              bool
 	EnableEmail            bool
-	SMTPServer             string
 	FromMail               string
-	Code                   string
-	ToMail                 string
+	ToMail                 []string
 	EnableQQBot            bool
 	ReportTo               []string
 	BackServer             string
 }
 
 type FansList struct {
-	Code int `json:"code"`
 	Data struct {
 		List []struct {
 			Mid                string `json:"mid"`
@@ -93,8 +90,7 @@ type UserDynamic struct {
 	Message string `json:"message"`
 	TTL     int    `json:"ttl"`
 	Data    struct {
-		HasMore bool `json:"has_more"`
-		Items   []struct {
+		Items []struct {
 			Basic   Basic
 			IDStr   string `json:"id_str"`
 			Modules struct {
@@ -153,32 +149,11 @@ type UserDynamic struct {
 						Type  string `json:"type"`
 					} `json:"three_point_items"`
 				} `json:"module_more"`
-				ModuleStat struct {
-					Comment struct {
-						Count     int  `json:"count"`
-						Forbidden bool `json:"forbidden"`
-					} `json:"comment"`
-					Forward struct {
-						Count     int  `json:"count"`
-						Forbidden bool `json:"forbidden"`
-					} `json:"forward"`
-					Like struct {
-						Count     int  `json:"count"`
-						Forbidden bool `json:"forbidden"`
-						Status    bool `json:"status"`
-					} `json:"like"`
-				} `json:"module_stat"`
-				ModuleTag struct {
-					Text string `json:"text"`
-				} `json:"module_tag"`
 			} `json:"modules"`
 			Type    string `json:"type"`
 			Visible bool   `json:"visible"`
 			Basic0  Basic
 		} `json:"items"`
-		Offset         string `json:"offset"`
-		UpdateBaseline string `json:"update_baseline"`
-		UpdateNum      int    `json:"update_num"`
 	} `json:"data"`
 }
 type User struct {
@@ -197,10 +172,7 @@ type Certificate struct {
 	Type     int    `json:"type"`
 }
 type LiveInfo struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	TTL     int    `json:"ttl"`
-	Data    struct {
+	Data struct {
 		Group            string  `json:"group"`
 		BusinessID       int     `json:"business_id"`
 		RefreshRowFactor float64 `json:"refresh_row_factor"`
@@ -216,89 +188,80 @@ type LiveInfo struct {
 	} `json:"data"`
 }
 type GiftList struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	TTL     int    `json:"ttl"`
-	Data    struct {
+	Data struct {
 		GiftConfig struct {
 			BaseConfig struct {
-				Hited bool `json:"hited"`
-				List  []struct {
-					ID                int    `json:"id"`
-					Name              string `json:"name"`
-					Price             int    `json:"price"`
-					Type              int    `json:"type"`
-					CoinType          string `json:"coin_type"`
-					BagGift           int    `json:"bag_gift"`
-					Effect            int    `json:"effect"`
-					CornerMark        string `json:"corner_mark"`
-					CornerBackground  string `json:"corner_background"`
-					Broadcast         int    `json:"broadcast"`
-					Draw              int    `json:"draw"`
-					StayTime          int    `json:"stay_time"`
-					AnimationFrameNum int    `json:"animation_frame_num"`
-					Desc              string `json:"desc"`
-					Rule              string `json:"rule"`
-					Rights            string `json:"rights"`
-					PrivilegeRequired int    `json:"privilege_required"`
-					CountMap          []struct {
-						Num            int    `json:"num"`
-						Text           string `json:"text"`
-						Desc           string `json:"desc"`
-						WebSvga        string `json:"web_svga"`
-						VerticalSvga   string `json:"vertical_svga"`
-						HorizontalSvga string `json:"horizontal_svga"`
-						SpecialColor   string `json:"special_color"`
-						EffectID       int    `json:"effect_id"`
-					} `json:"count_map"`
-					ImgBasic             string      `json:"img_basic"`
-					ImgDynamic           string      `json:"img_dynamic"`
-					FrameAnimation       string      `json:"frame_animation"`
-					Gif                  string      `json:"gif"`
-					Webp                 string      `json:"webp"`
-					FullScWeb            string      `json:"full_sc_web"`
-					FullScHorizontal     string      `json:"full_sc_horizontal"`
-					FullScVertical       string      `json:"full_sc_vertical"`
-					FullScHorizontalSvga string      `json:"full_sc_horizontal_svga"`
-					FullScVerticalSvga   string      `json:"full_sc_vertical_svga"`
-					BulletHead           string      `json:"bullet_head"`
-					BulletTail           string      `json:"bullet_tail"`
-					LimitInterval        int         `json:"limit_interval"`
-					BindRuid             int         `json:"bind_ruid"`
-					BindRoomid           int         `json:"bind_roomid"`
-					GiftType             int         `json:"gift_type"`
-					ComboResourcesID     int         `json:"combo_resources_id"`
-					MaxSendLimit         int         `json:"max_send_limit"`
-					Weight               int         `json:"weight"`
-					GoodsID              int         `json:"goods_id"`
-					HasImagedGift        int         `json:"has_imaged_gift"`
-					LeftCornerText       string      `json:"left_corner_text"`
-					LeftCornerBackground string      `json:"left_corner_background"`
-					GiftBanner           interface{} `json:"gift_banner"`
-					DiyCountMap          int         `json:"diy_count_map"`
-					EffectID             int         `json:"effect_id"`
-					FirstTips            string      `json:"first_tips"`
-					GiftAttrs            []int       `json:"gift_attrs"`
-					CornerMarkColor      string      `json:"corner_mark_color"`
-					CornerColorBg        string      `json:"corner_color_bg"`
-					WebLight             struct {
-						CornerMark       string `json:"corner_mark"`
-						CornerBackground string `json:"corner_background"`
-						CornerMarkColor  string `json:"corner_mark_color"`
-						CornerColorBg    string `json:"corner_color_bg"`
-					} `json:"web_light"`
-					WebDark struct {
-						CornerMark       string `json:"corner_mark"`
-						CornerBackground string `json:"corner_background"`
-						CornerMarkColor  string `json:"corner_mark_color"`
-						CornerColorBg    string `json:"corner_color_bg"`
-					} `json:"web_dark"`
+				List []struct {
+					ID    int    `json:"id"`
+					Name  string `json:"name"`
+					Price int    `json:"price"`
 				} `json:"list"`
-				Version int64 `json:"version"`
-				TTL     int64 `json:"ttl"`
 			} `json:"base_config"`
 		} `json:"gift_config"`
 	} `json:"data"`
+}
+type GiftInfo struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		GiftName        string `json:"giftName"`
+		Num             int    `json:"num"`
+		ReceiveUserInfo struct {
+			UID   int    `json:"uid"`
+			Uname string `json:"uname"`
+		} `json:"receive_user_info"`
+		SenderUinfo struct {
+			Base struct {
+				Name string `json:"name"`
+			} `json:"base"`
+			UID int `json:"uid"`
+		} `json:"sender_uinfo"`
+		UID   int    `json:"uid"`
+		Uname string `json:"uname"`
+	} `json:"data"`
+}
+type LiveText struct {
+	Cmd  string        `json:"cmd"`
+	DmV2 string        `json:"dm_v2"`
+	Info []interface{} `json:"info"`
+}
+type GiftBox struct {
+	Data struct {
+		Gifts []struct {
+			Price    int    `json:"price"`
+			GiftName string `json:"gift_name"`
+		} `json:"gifts"`
+	} `json:"data"`
+}
+type LiveAction struct {
+	gorm.Model
+	Live       uint
+	FromName   string
+	FromId     string
+	ToId       string
+	ToName     string
+	LiveRoom   string
+	ActionName string
+	GiftName   string
+	GiftPrice  float64
+	GiftAmount int
+	Extra      string
+}
+type RoomInfo struct {
+	Data struct {
+		LiveTime string `json:"live_time"`
+		UID      int    `json:"uid"`
+		Title    string `json:"title"`
+		Area     string `json:"area"`
+	} `json:"data"`
+}
+type Live struct {
+	gorm.Model
+	Title    string
+	StartAt  int64
+	EndAt    int64
+	UserName string
+	UserID   string
+	Area     string
 }
 
 func UpdateCommon() {
@@ -327,10 +290,24 @@ func FillGiftPrice() {
 	sonic.Unmarshal(res.Body(), &gift)
 	for i := range gift.Data.GiftConfig.BaseConfig.List {
 		var item = gift.Data.GiftConfig.BaseConfig.List[i]
-		GiftPrice[item.Name] = item.Price / 1000
+
+		if strings.Contains(item.Name, "盲盒") {
+			res, _ := client.R().SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/general-interface/v1/blindFirstWin/getInfo?gift_id=" + strconv.Itoa(item.ID))
+
+			var box = GiftBox{}
+			sonic.Unmarshal(res.Body(), &box)
+			for i2 := range box.Data.Gifts {
+				var item0 = box.Data.Gifts[i2]
+				GiftPrice[item0.GiftName] = float32(item0.Price) / 1000.0
+			}
+		} else {
+			GiftPrice[item.Name] = float32(item.Price) / 1000.0
+		}
+
 	}
+
 }
-func PushDynamic(msg string) {
+func PushDynamic(title, msg string) {
 
 	for i := range config.ReportTo {
 		if config.EnableQQBot {
@@ -356,14 +333,15 @@ func PushDynamic(msg string) {
 
 	}
 	if config.EnableEmail {
-		e := email.NewEmail()
-		e.From = config.FromMail
-		e.To = []string{config.FromMail}
-		e.Subject = msg
-		e.Text = []byte("Text Body is, of course, supported!")
-		err := e.SendWithStartTLS(config.SMTPServer, smtp.PlainAuth("", config.FromMail, config.Code, strings.Split(config.SMTPServer, ":")[0]), &tls.Config{InsecureSkipVerify: true})
+		params := &resend.SendEmailRequest{
+			From:    config.FromMail,
+			To:      config.ToMail,
+			Subject: title,
+			Html:    msg,
+		}
+		_, err := mailClient.Emails.Send(params)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	}
 
@@ -387,12 +365,96 @@ func BuildMessage(str string, opCode int) []byte {
 }
 func TraceLive(roomId string) {
 
+	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
+	var rRes, _ = client.R().Get(roomUrl)
+	var liver string
+	var roomInfo = RoomInfo{}
+	sonic.Unmarshal(rRes.Body(), &roomInfo)
+	var dbLiveId = 0
+	var liverId = strconv.Itoa(roomInfo.Data.UID)
+	var startAt = roomInfo.Data.LiveTime
+	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
+		//当前是开播状态
+		var serverStartAt, _ = time.Parse(time.DateTime, startAt)
+
+		var foundLive = Live{}
+		/*
+					_ = db.Raw(`
+				SELECT *
+				FROM lives
+				WHERE user_id = '?'
+				ORDER BY id DESC
+				LIMIT 1;
+			    `, strconv.Itoa(roomInfo.Data.UID)).Scan(&foundLive).Error
+
+		*/
+
+		db.Where("id=?", roomInfo.Data.UID).Last(foundLive)
+
+		var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
+
+		log.Println("diff  " + strconv.Itoa(diff))
+		if diff < 90 {
+			log.Println("续")
+
+			dbLiveId = int(foundLive.ID)
+		} else {
+
+			var new = Live{}
+			new.UserID = liverId
+			new.StartAt = serverStartAt.Unix()
+			//new.ID,_ : = strconv.Atoi(roomId)
+			new.Title = roomInfo.Data.Title
+			new.Area = roomInfo.Data.Area
+			//new.UserName = roomInfo.Data
+
+			htmlRes, _ := client.R().Get("https://live.bilibili.com/" + roomId)
+			startStr := `meta name="keywords" content="`
+			startIndex := strings.Index(htmlRes.String(), startStr)
+			if startIndex == -1 {
+				fmt.Println("Meta tag not found")
+				return
+			}
+
+			// 计算content内容起始的实际索引
+			contentStartIndex := startIndex + len(startStr)
+
+			// 找到content内容的结束引号位置
+			contentEndIndex := strings.Index(htmlRes.String()[contentStartIndex:], `"`)
+			if contentEndIndex == -1 {
+				fmt.Println("Content end quote not found")
+				return
+			}
+
+			// 提取完整的content字符串
+			fullContent := htmlRes.String()[contentStartIndex : contentStartIndex+contentEndIndex]
+
+			// 找到第一个逗号的位置
+			commaIndex := strings.Index(fullContent, ",")
+
+			if commaIndex == -1 {
+				liver = fullContent // 如果没有逗号，则使用完整的content内容
+			} else {
+				liver = fullContent[:commaIndex] // 提取逗号之前的内容
+			}
+
+			new.UserName = liver
+			liver = strings.TrimSpace(liver) // 去除前后的空白字符
+
+			db.Create(&new)
+			dbLiveId = int(new.ID)
+		}
+	}
+
 	var url0 = "https://api.bilibili.com/x/web-interface/nav"
 	url0 = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId
 	res, _ := client.R().SetHeader("Cookie", config.Cookie).Get(url0)
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
 
+	if len(liveInfo.Data.HostList) == 0 {
+		log.Println(res.String())
+	}
 	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
 	log.Printf("Connecting to %s", u.String())
 
@@ -417,12 +479,9 @@ func TraceLive(roomId string) {
 
 		c.WriteMessage(websocket.TextMessage, BuildMessage(string(json), 7))
 
-		var print = 0
-		var send = 0
 		for {
 			// 读取从服务端传来的消息
 			_, message, err := c.ReadMessage()
-			send++
 			if err != nil {
 				log.Println("Read error:", err)
 				return
@@ -440,13 +499,79 @@ func TraceLive(roomId string) {
 			} else {
 				msg = string(decompressedData.Bytes())
 			}
+			buffer := bytes.NewReader([]byte(msg))
 
-			if !strings.Contains(msg, "[object") {
-				print++
-				log.Printf("Received: %s", msg)
+			for {
+				// 检查是否有足够的数据来解码头部
+				if buffer.Len() < 16 {
+					log.Println("Insufficient data to read header")
+					break
+				}
 
+				// 解码头部
+				var totalSize uint32
+				var headerLength uint16
+				var protocolVersion uint16
+				var operation uint32
+				var sequence uint32
+
+				binary.Read(buffer, binary.BigEndian, &totalSize)
+				binary.Read(buffer, binary.BigEndian, &headerLength)
+				binary.Read(buffer, binary.BigEndian, &protocolVersion)
+				binary.Read(buffer, binary.BigEndian, &operation)
+				binary.Read(buffer, binary.BigEndian, &sequence)
+
+				// 验证数据完整性
+				if buffer.Len() < int(totalSize-16) {
+					log.Println("Insufficient data for complete packet")
+					break
+				}
+
+				// 读取消息体部分
+				msgData := make([]byte, totalSize-16)
+				buffer.Read(msgData)
+
+				var obj = string(msgData)
+				var action = LiveAction{}
+				action.Live = uint(dbLiveId)
+				action.ToName = liver
+				action.LiveRoom = roomId
+				action.ToId = liverId
+				if strings.Contains(obj, "DANMU_MSG") {
+					var text = LiveText{}
+					sonic.Unmarshal(msgData, &text)
+					action.ActionName = "msg"
+					action.FromName = text.Info[2].([]interface{})[1].(string)
+					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
+					action.Extra = text.Info[1].(string)
+					db.Create(&action)
+					log.Println(text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
+
+				} else if strings.Contains(obj, "SEND_GIFT") {
+					var info = GiftInfo{}
+					sonic.Unmarshal(msgData, &info)
+					action.ActionName = "gift"
+					action.FromName = info.Data.Uname
+					action.GiftName = info.Data.GiftName
+					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
+					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
+					action.GiftPrice = price
+					action.GiftAmount = info.Data.Num
+					db.Create(&action)
+					log.Printf("%s 赠送了 %d 个 %s，%.2f元", info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
+				} else {
+
+				}
+
+				// 假设读取完一个封包，如果已没有足够数据来读取下一个头部，退出循环
+				if buffer.Len() < 16 {
+					break
+				}
 			}
-			log.Println("" + strconv.Itoa(print) + "" + strconv.Itoa(send))
+			if !strings.Contains(msg, "[object") {
+
+				//log.Printf("Received: %s", substr(msg, 16, len(msg)))
+			}
 		}
 	}()
 	for {
@@ -458,7 +583,6 @@ func TraceLive(roomId string) {
 				log.Println("write:", err)
 				return
 			}
-			log.Println("Send heart")
 		}
 
 	}
@@ -487,12 +611,11 @@ func UpdateSpecial() {
 				}
 				if ShouldPush {
 					RecordedDynamic = append(RecordedDynamic, item.IDStr)
-					//PushDynamic()
+					log.Println(item)
 				}
 			}
 		}
 
-		fmt.Println(result)
 	}
 }
 func RefreshFollowings() {
@@ -529,13 +652,14 @@ func RefreshFollowings() {
 
 var config = Config{}
 var Followings = make([]User, 0)
+var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 
 func main() {
-
+	db.AutoMigrate(&Live{})
+	db.AutoMigrate(&LiveAction{})
 	content, err := os.ReadFile("config.json")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 
-	FillGiftPrice()
 	if err != nil {
 		content = []byte("")
 
@@ -559,10 +683,8 @@ func main() {
 		config.LoginMode = true
 		config.EnableQQBot = true
 		config.EnableEmail = false
-		config.FromMail = "pprocket@imgbed.onmicrosoft.com"
-		config.SMTPServer = "smtp.office365.com:587"
-		config.ToMail = "3212329718@qq.com"
-		config.Code = "rhybghptfswxlwbk"
+		config.FromMail = "bili@ikun.dev"
+		config.ToMail = []string{"3212329718@qq.com"}
 		config.ReportTo = []string{"3212329718"}
 		config.BackServer = "http://127.0.0.1:3090"
 		Cookie = config.Cookie
@@ -571,12 +693,12 @@ func main() {
 		os.WriteFile("config.json", content, 666)
 	}
 	err = sonic.Unmarshal(content, &config)
-	TraceLive("30849380")
-	//PushDynamic("Hello World")
+	FillGiftPrice()
+	TraceLive("24988171")
 	c := cron.New()
-	c.AddFunc("@every 2s", func() { fmt.Println("Every hour thirty") })
+	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 
-	//UpdateSpecial()
+	UpdateSpecial()
 	c.Start()
 	select {}
 }
