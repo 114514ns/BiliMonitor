@@ -17,66 +17,54 @@ import (
 	"time"
 )
 
+type SelfInfo struct {
+	Data struct {
+		Mid int `json:"mid"`
+	} `json:"data"`
+}
+
+func SelfUID(cookie string) string {
+	res, _ := client.R().Get("https://api.bilibili.com/x/web-interface/nav")
+
+	var self = SelfInfo{}
+	sonic.Unmarshal(res.Body(), &self)
+	return strconv.Itoa(self.Data.Mid)
+}
+
 func TraceLive(roomId string) {
-	FillGiftPrice(roomId)
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
 	var liver string
 	var roomInfo = RoomInfo{}
 	sonic.Unmarshal(rRes.Body(), &roomInfo)
+	FillGiftPrice(roomId, roomInfo.Data.AreaId, roomInfo.Data.ParentAreaId)
 	var dbLiveId = 0
 	var liverId = strconv.Itoa(roomInfo.Data.UID)
 	var startAt = roomInfo.Data.LiveTime
+
+	var liverInfoUrl = "https://api.live.bilibili.com/live_user/v1/Master/info?uid=" + liverId
+	liverRes, _ := client.R().Get(liverInfoUrl)
+	var liverObj = LiverInfo{}
+	sonic.Unmarshal(liverRes.Body(), &liverObj)
+	liver = liverObj.Data.Info.Uname
+	lives[roomId].UName = liver
+
+	lives[roomId].UID = liverId
+	lives[roomId].Area = roomInfo.Data.Area
 	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
+		lives[roomId].Live = true
+
 		//当前是开播状态
 		var serverStartAt, _ = time.Parse(time.DateTime, startAt)
 
 		var foundLive = Live{}
-		/*
-					_ = db.Raw(`
-				SELECT *
-				FROM lives
-				WHERE user_id = '?'
-				ORDER BY id DESC
-				LIMIT 1;
-			    `, strconv.Itoa(roomInfo.Data.UID)).Scan(&foundLive).Error
-
-		*/
 
 		db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
 
 		var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
 
 		log.Println("diff  " + strconv.Itoa(diff))
-		htmlRes, _ := client.R().Get("https://live.bilibili.com/" + roomId)
-		startStr := `meta name="keywords" content="`
-		startIndex := strings.Index(htmlRes.String(), startStr)
-		if startIndex == -1 {
-			fmt.Println("Meta tag not found")
-			return
-		}
 
-		// 计算content内容起始的实际索引
-		contentStartIndex := startIndex + len(startStr)
-
-		// 找到content内容的结束引号位置
-		contentEndIndex := strings.Index(htmlRes.String()[contentStartIndex:], `"`)
-		if contentEndIndex == -1 {
-			fmt.Println("Content end quote not found")
-			return
-		}
-
-		// 提取完整的content字符串
-		fullContent := htmlRes.String()[contentStartIndex : contentStartIndex+contentEndIndex]
-
-		// 找到第一个逗号的位置
-		commaIndex := strings.Index(fullContent, ",")
-
-		if commaIndex == -1 {
-			liver = fullContent // 如果没有逗号，则使用完整的content内容
-		} else {
-			liver = fullContent[:commaIndex] // 提取逗号之前的内容
-		}
 		if diff < 90 {
 			log.Println("续")
 
@@ -111,17 +99,14 @@ func TraceLive(roomId string) {
 		log.Println(res.String())
 	}
 	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
-	log.Printf("Connecting to %s", u.String())
 
-	// 建立连接
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("Dial:", err)
 	}
 	ticker := time.NewTicker(45 * time.Second)
-	// 启动一个goroutine来接收消息
 	go func() {
-		log.Println("成功连接ws服务器")
+		log.Printf("[%s] 成功连接到弹幕服务器", liver)
 		var cer = Certificate{}
 		cer.Uid = 3546580934199673
 		id, _ := strconv.Atoi(roomId)
@@ -132,13 +117,15 @@ func TraceLive(roomId string) {
 		cer.Protover = 3
 		json, _ := sonic.Marshal(&cer)
 
-		c.WriteMessage(websocket.TextMessage, BuildMessage(string(json), 7))
-
+		err := c.WriteMessage(websocket.TextMessage, BuildMessage(string(json), 7))
+		if err != nil {
+			return
+		}
 		for {
-			// 读取从服务端传来的消息
 			_, message, err := c.ReadMessage()
 			if err != nil {
 				log.Println("Read error:", err)
+				lives[roomId].LastActive = 114514
 				return
 			}
 			// 打印接收到的消息
@@ -193,7 +180,7 @@ func TraceLive(roomId string) {
 				action.GiftPrice = sql.NullFloat64{Float64: 0, Valid: false}
 				action.GiftAmount = sql.NullInt16{Int16: 0, Valid: false}
 				var text = LiveText{}
-				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") {
+				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
 					sonic.Unmarshal(msgData, &text)
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
@@ -202,7 +189,7 @@ func TraceLive(roomId string) {
 					db.Create(&action)
 					log.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
-				} else if strings.Contains(obj, "SEND_GIFT") {
+				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
 					var info = GiftInfo{}
 					sonic.Unmarshal(msgData, &info)
 					action.ActionName = "gift"
@@ -214,7 +201,7 @@ func TraceLive(roomId string) {
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
 					db.Create(&action)
 					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
-				} else if strings.Contains(obj, "INTERACT_WORD") {
+				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
 
 					var entet = EnterLive{}
 					sonic.Unmarshal(msgData, &entet)
@@ -222,12 +209,11 @@ func TraceLive(roomId string) {
 					action.FromName = entet.Data.Uname
 					action.ActionName = "enter"
 					db.Create(&action)
-				} else if strings.Contains(obj, "PREPARING") {
-					//猜测是下播
+				} else if strings.Contains(obj, "PREPARING") { //下播
+					lives[roomId].Live = false
 					db.Model(&Live{}).Where("id= ?", dbLiveId).Update("end_at", time.Now().Unix())
-					log.Println("下拨")
 
-				} else if text.Cmd == "LIVE" {
+				} else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW_EVENT_CHANGE") { //开播
 					var new = Live{}
 					new.UserID = liverId
 					new.StartAt = time.Now().Unix()
@@ -246,6 +232,33 @@ func TraceLive(roomId string) {
 					var msg = "你关注的主播： " + liver + " 开始直播"
 					PushDynamic(msg, roomInfo.Data.Title)
 
+				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
+					var sc = SuperChatInfo{}
+					sonic.Unmarshal(msgData, &sc)
+
+					action.ActionName = "sc"
+					action.FromName = sc.Data.UserInfo.Uname
+					action.FromId = strconv.Itoa(sc.Data.Uid)
+					action.GiftPrice = sql.NullFloat64{Float64: sc.Data.Price, Valid: true}
+
+					action.Extra = sc.Data.Message
+					db.Create(&action)
+				} else if strings.Contains(obj, "GUARD_BUY") { //上舰
+					var guard = GuardInfo{}
+					sonic.Unmarshal(msgData, &guard)
+					action.FromId = strconv.Itoa(guard.Data.Uid)
+					action.FromName = guard.Data.Username
+					action.GiftName = guard.Data.GiftName
+					switch action.GiftName {
+					case "舰长":
+						action.GiftPrice = sql.NullFloat64{Float64: 138, Valid: true}
+					case "提督":
+						action.GiftPrice = sql.NullFloat64{Float64: 1998, Valid: true}
+					case "总督":
+						action.GiftPrice = sql.NullFloat64{Float64: 19998, Valid: true}
+					}
+
+					db.Create(&action)
 				}
 
 				// 假设读取完一个封包，如果已没有足够数据来读取下一个头部，退出循环
@@ -265,6 +278,7 @@ func TraceLive(roomId string) {
 			// 每30秒向服务端发送一次消息
 			err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
 			if err != nil {
+				lives[roomId].LastActive = 114514
 				log.Println("write:", err)
 				return
 			}
@@ -289,8 +303,21 @@ func BuildMessage(str string, opCode int) []byte {
 
 	return buffer.Bytes()
 }
-func FillGiftPrice(room string) {
-	res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?platform=pc&room_id=" + room)
+func Index(s string, index int) string {
+	runes := bytes.Runes([]byte(s))
+	for i, rune := range runes {
+		if i == int(index) {
+			return string(rune)
+		}
+	}
+	return ""
+}
+func FillGiftPrice(room string, area int, parent int) {
+	htmlRes, _ := client.R().Get("https://live.bilibili.com/13878454")
+	htmlStr := htmlRes.String()
+	strings.Index(htmlStr, `"area_id"`)
+	Index(htmlStr, strings.Index(htmlStr, `"area_id"`))
+	res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?platform=pc&room_id=" + room + "&area_id=" + strconv.Itoa(area) + "&area_parent_id" + strconv.Itoa(parent))
 	var gift = GiftList{}
 	sonic.Unmarshal(res.Body(), &gift)
 	for i := range gift.Data.GiftConfig.BaseConfig.List {
@@ -406,10 +433,12 @@ type LiveAction struct {
 }
 type RoomInfo struct {
 	Data struct {
-		LiveTime string `json:"live_time"`
-		UID      int    `json:"uid"`
-		Title    string `json:"title"`
-		Area     string `json:"area_name"`
+		LiveTime     string `json:"live_time"`
+		UID          int    `json:"uid"`
+		Title        string `json:"title"`
+		Area         string `json:"area_name"`
+		AreaId       int    `json:"area_id"`
+		ParentAreaId int    `json:"parent_area_id"`
 	} `json:"data"`
 }
 type Live struct {
@@ -428,5 +457,40 @@ type EnterLive struct {
 		TriggerTime int64  `json:"trigger_time"`
 		UID         int    `json:"uid"`
 		Uname       string `json:"uname"`
+	} `json:"data"`
+}
+
+type LiverInfo struct {
+	Data struct {
+		Info struct {
+			Uname string `json:"uname"`
+		} `json:"info"`
+	} `json:"data"`
+}
+
+type SuperChatInfo struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		Message  string  `json:"message"`
+		Price    float64 `json:"price"`
+		Uid      int     `json:"uid"`
+		UserInfo struct {
+			Uname string `json:"uname"`
+		} `json:"user_info"`
+	} `json:"data"`
+}
+
+type GuardInfo struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		Uid        int    `json:"uid"`
+		Username   string `json:"username"`
+		GuardLevel int    `json:"guard_level"`
+		Num        int    `json:"num"`
+		Price      int    `json:"price"`
+		GiftId     int    `json:"gift_id"`
+		GiftName   string `json:"gift_name"`
+		StartTime  int    `json:"start_time"`
+		EndTime    int    `json:"end_time"`
 	} `json:"data"`
 }

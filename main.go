@@ -39,6 +39,7 @@ type Config struct {
 	EnableQQBot            bool
 	ReportTo               []string
 	BackServer             string
+	Tracing                []string
 }
 
 type FansList struct {
@@ -158,8 +159,19 @@ type User struct {
 	Fans   int
 }
 
+type Status struct {
+	Live       bool
+	LastActive int64
+	UName      string
+	UID        string
+	Area       string
+}
+
 func UpdateCommon() {
 	for i := range Followings {
+		if i > len(Followings)-1 {
+			continue
+		}
 		var id = Followings[i].UserID
 		res, _ := client.R().Get("https://api.bilibili.com/x/relation/stat?vmid=" + id)
 		var state = UserState{}
@@ -300,6 +312,8 @@ var config = Config{}
 var Followings = make([]User, 0)
 var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 
+var lives = map[string]*Status{} //[]string{}
+
 func main() {
 	db.AutoMigrate(&Live{})
 	db.AutoMigrate(&LiveAction{})
@@ -340,28 +354,14 @@ func main() {
 		os.WriteFile("config.json", content, 666)
 	}
 	err = sonic.Unmarshal(content, &config)
+	go InitHTTP()
+	for i := range config.Tracing {
+		var roomId = config.Tracing[i]
 
-	var lives = []string{}
-
-	lives = append(lives, "13878454") // 夜车Azuya
-	lives = append(lives, "22696653") //兰音
-	lives = append(lives, "23174842") // 软软
-	lives = append(lives, "958617")   //梦音茶糯
-	lives = append(lives, "30071855") // 可洛Cro_
-	lives = append(lives, "22816111") // 東雪蓮Official
-	lives = append(lives, "22389206") // 折原露露
-	lives = append(lives, "24988171") // 夏露露Ruru
-	lives = append(lives, "30291463") // 失眠的涵白
-	lives = append(lives, "32430435") // 衣宁ovo
-	lives = append(lives, "21402309") // 眞白花音_Official
-	lives = append(lives, "22758221") // 夏川玥玥Official
-	lives = append(lives, "761662")   // 少年五之歌
-
-	for i := range lives {
-
-		var live = lives[i]
-		go TraceLive(live)
+		lives[roomId] = &Status{}
+		go TraceLive(config.Tracing[i])
 		time.Sleep(45 * time.Second)
+
 	}
 	c := cron.New()
 	RefreshFollowings()
@@ -371,5 +371,6 @@ func main() {
 	c.AddFunc("@every 10m", UpdateCommon)
 
 	c.Start()
+
 	select {}
 }
