@@ -165,6 +165,7 @@ type Status struct {
 	UName      string
 	UID        string
 	Area       string
+	Title      string
 }
 
 func UpdateCommon() {
@@ -315,9 +316,12 @@ var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 var lives = map[string]*Status{} //[]string{}
 
 func main() {
+
 	db.AutoMigrate(&Live{})
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
+	FixMoney()
+	db.Exec("PRAGMA journal_mode=WAL;")
 	content, err := os.ReadFile("config.json")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 
@@ -360,7 +364,7 @@ func main() {
 
 		lives[roomId] = &Status{}
 		go TraceLive(config.Tracing[i])
-		time.Sleep(45 * time.Second)
+		time.Sleep(30 * time.Second)
 
 	}
 	c := cron.New()
