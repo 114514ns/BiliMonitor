@@ -30,7 +30,21 @@ func SelfUID(cookie string) string {
 	sonic.Unmarshal(res.Body(), &self)
 	return strconv.Itoa(self.Data.Mid)
 }
+func FixMoney() {
+	var lives0 []Live
+	db.Find(&lives0)
 
+	for _, v := range lives0 {
+		var sum float64
+		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", v.ID).Scan(&sum)
+		result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sum), 64)
+		var msgCount int64
+		db.Model(&LiveAction{}).Where("live = ? and action_name = 'msg'", v.ID).Count(&msgCount)
+		v.Money = result
+		v.Message = int(msgCount)
+		db.Save(&v) // 分别更新每条记录
+	}
+}
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
@@ -51,6 +65,7 @@ func TraceLive(roomId string) {
 
 	lives[roomId].UID = liverId
 	lives[roomId].Area = roomInfo.Data.Area
+	lives[roomId].Title = roomInfo.Data.Title
 	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
 		lives[roomId].Live = true
 
@@ -94,7 +109,6 @@ func TraceLive(roomId string) {
 	res, _ := client.R().SetHeader("Cookie", config.Cookie).Get(url0)
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
-
 	if len(liveInfo.Data.HostList) == 0 {
 		log.Println(res.String())
 	}
@@ -197,7 +211,8 @@ func TraceLive(roomId string) {
 					action.GiftName = info.Data.GiftName
 					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
-					action.GiftPrice = sql.NullFloat64{Float64: price, Valid: true}
+					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", price), 64)
+					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
 					db.Create(&action)
 					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
@@ -211,9 +226,12 @@ func TraceLive(roomId string) {
 					db.Create(&action)
 				} else if strings.Contains(obj, "PREPARING") { //下播
 					lives[roomId].Live = false
-					db.Model(&Live{}).Where("id= ?", dbLiveId).Update("end_at", time.Now().Unix())
+					var sum float64
+					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
-				} else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW_EVENT_CHANGE") { //开播
+					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+
+				} else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW") && !strings.Contains(obj, "live_time") && !strings.Contains(obj, "LIVE_INTERACT_GAME") { //开播
 					var new = Live{}
 					new.UserID = liverId
 					new.StartAt = time.Now().Unix()
@@ -239,7 +257,8 @@ func TraceLive(roomId string) {
 					action.ActionName = "sc"
 					action.FromName = sc.Data.UserInfo.Uname
 					action.FromId = strconv.Itoa(sc.Data.Uid)
-					action.GiftPrice = sql.NullFloat64{Float64: sc.Data.Price, Valid: true}
+					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sc.Data.Price), 64)
+					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 
 					action.Extra = sc.Data.Message
 					db.Create(&action)
@@ -450,6 +469,8 @@ type Live struct {
 	UserID   string
 	Area     string
 	RoomId   int
+	Money    float64 `gorm:"type:decimal(7,2)"`
+	Message  int
 }
 type EnterLive struct {
 	Cmd  string `json:"cmd"`
