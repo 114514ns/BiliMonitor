@@ -10,7 +10,7 @@ function LiveCard({ liveData }) {
         <div>
             <Card
                 key={UID}
-                style={{ width: 300, marginRight: '20px' }}
+                style={{ width: 300, marginRight: '20px' ,margin:'15px'}}
                 actions={[
                     <Text strong type="secondary">Area: {Area}</Text>,
                     <Text strong type="secondary" onClick={() => {

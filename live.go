@@ -45,6 +45,9 @@ func FixMoney() {
 		db.Save(&v) // 分别更新每条记录
 	}
 }
+func RemoveEmpty() {
+	db.Where("money = 0 and message = 0").Delete(&Live{})
+}
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
@@ -194,8 +197,8 @@ func TraceLive(roomId string) {
 				action.GiftPrice = sql.NullFloat64{Float64: 0, Valid: false}
 				action.GiftAmount = sql.NullInt16{Int16: 0, Valid: false}
 				var text = LiveText{}
+				sonic.Unmarshal(msgData, &text)
 				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
-					sonic.Unmarshal(msgData, &text)
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
@@ -231,24 +234,36 @@ func TraceLive(roomId string) {
 
 					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
 
-				} else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW") && !strings.Contains(obj, "live_time") && !strings.Contains(obj, "LIVE_INTERACT_GAME") { //开播
+				} else if text.Cmd == "LIVE" {
+
+					//else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW") && !strings.Contains(obj, "live_time") && !strings.Contains(obj, "LIVE_INTERACT_GAME") && !strings.Contains(obj, "LIVE_OPEN_PLATFORM") && !strings.Contains(obj, "LIVE_ROOM_TOAST") { //开播
 					var new = Live{}
 					new.UserID = liverId
-					new.StartAt = time.Now().Unix()
-					//new.ID,_ : = strconv.Atoi(roomId)
-					new.Title = roomInfo.Data.Title
-					new.Area = roomInfo.Data.Area
-					//new.UserName = roomInfo.Data
+					client.R().Get(roomUrl)
+					sonic.Unmarshal(rRes.Body(), &roomInfo)
 
-					var i, _ = strconv.Atoi(roomId)
-					new.RoomId = i
-					new.UserName = liver
-					liver = strings.TrimSpace(liver) // 去除前后的空白字符
+					var serverStartAt, _ = time.Parse(time.DateTime, roomInfo.Data.LiveTime)
 
-					db.Create(&new)
-					dbLiveId = int(new.ID)
-					var msg = "你关注的主播： " + liver + " 开始直播"
-					PushDynamic(msg, roomInfo.Data.Title)
+					var foundLive = Live{}
+
+					db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
+
+					var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
+
+					if diff != 0 {
+						new.StartAt = time.Now().Unix()
+						new.Title = roomInfo.Data.Title
+						new.Area = roomInfo.Data.Area
+						var i, _ = strconv.Atoi(roomId)
+						new.RoomId = i
+						new.UserName = liver
+						liver = strings.TrimSpace(liver) // 去除前后的空白字符
+
+						db.Create(&new)
+						dbLiveId = int(new.ID)
+						var msg = "你关注的主播： " + liver + " 开始直播"
+						PushDynamic(msg, roomInfo.Data.Title)
+					}
 
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
 					var sc = SuperChatInfo{}
@@ -261,7 +276,9 @@ func TraceLive(roomId string) {
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 
 					action.Extra = sc.Data.Message
-					db.Create(&action)
+					if action.FromId != "0" {
+						db.Create(&action)
+					}
 				} else if strings.Contains(obj, "GUARD_BUY") { //上舰
 					var guard = GuardInfo{}
 					sonic.Unmarshal(msgData, &guard)

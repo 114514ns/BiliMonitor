@@ -53,6 +53,7 @@ func InitHTTP() {
 	})
 	r.GET("/live", func(c *gin.Context) {
 		var f []Live
+		name := c.DefaultQuery("name", "1")    // 默认为第一页
 		pageStr := c.DefaultQuery("page", "1") // 默认为第一页
 		page, _ := strconv.Atoi(pageStr)
 		limitStr := c.DefaultQuery("limit", "10") // 默认为第一页
@@ -66,7 +67,12 @@ func InitHTTP() {
 
 		// 计算总页数
 		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
-		db.Offset(offset).Limit(limit).Find(&f)
+		if name == "1" {
+			db.Offset(offset).Limit(limit).Find(&f)
+		} else {
+			db.Where("user_name = ?", name).Offset(offset).Limit(limit).Find(&f)
+		}
+
 		c.JSON(http.StatusOK, gin.H{
 
 			"totalPage": totalPages,

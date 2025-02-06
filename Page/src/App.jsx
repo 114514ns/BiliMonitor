@@ -36,7 +36,7 @@ class BasicLayout extends React.Component {
                         </Menu.Item>
                     </Menu>
                 </Sider>
-                <Layout className="site-layout">
+                <div className="site-layout">
                     <Content style={{margin: '0 16px'}}>
                         <div className="site-layout-background" style={{padding: 24, width: '100%', height: '100%'}}>
                             <Routes>
@@ -49,7 +49,7 @@ class BasicLayout extends React.Component {
                             </Routes>
                         </div>
                     </Content>
-                </Layout>
+                </div>
             </Layout>
         );
     }
