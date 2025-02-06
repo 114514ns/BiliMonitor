@@ -168,6 +168,18 @@ type Status struct {
 	Title      string
 }
 
+type GuardResponse struct {
+	Data struct {
+		List []struct {
+			UID      int64  `json:"uid"`
+			UserName string `json:"username"`
+		} `json:"guard_top_list"`
+	} `json:"data"`
+}
+
+type Guard struct {
+}
+
 func UpdateCommon() {
 	for i := range Followings {
 		if i > len(Followings)-1 {
@@ -184,6 +196,19 @@ func UpdateCommon() {
 		db.Save(&user)
 		time.Sleep(3 * time.Second)
 	}
+
+	for i := range config.Tracing {
+		var id = config.Tracing[i]
+		var live0 = Live{}
+		db.Model(&Live{}).Where("user_id = ?", id).First(&live0)
+		if live0.RoomId != 0 {
+
+		}
+	}
+}
+
+func UpdateGuard() {
+
 }
 
 func RefreshCookie() {
@@ -321,6 +346,7 @@ func main() {
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
 	FixMoney()
+	RemoveEmpty()
 	db.Exec("PRAGMA journal_mode=WAL;")
 	content, err := os.ReadFile("config.json")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
@@ -371,7 +397,7 @@ func main() {
 	RefreshFollowings()
 	UpdateCommon()
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
-	c.AddFunc("@every 20m", RefreshFollowings)
+	c.AddFunc("@every 120m", RefreshFollowings)
 	c.AddFunc("@every 10m", UpdateCommon)
 
 	c.Start()
