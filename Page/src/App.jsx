@@ -6,6 +6,7 @@ import Monitor from "./pages/Monitor.jsx";
 import './App.css'
 import { redirect } from "react-router";
 import LivePage from "./pages/LivePage.jsx";
+import Charts from "./pages/Charts.jsx";
 
 const {Header, Content, Footer, Sider} = Layout;
 const {SubMenu} = Menu;
@@ -34,6 +35,10 @@ class BasicLayout extends React.Component {
                             Lives
                             <Link to="/lives"> </Link>
                         </Menu.Item>
+                        <Menu.Item key="/charts" icon={<DesktopOutlined/>}>
+                            Trending
+                            <Link to="/charts"> </Link>
+                        </Menu.Item>
                     </Menu>
                 </Sider>
                 <div className="site-layout">
@@ -44,6 +49,9 @@ class BasicLayout extends React.Component {
                                     {/* 页面主体 */}
                                 </Route>
                                 <Route path="/lives" element={<LivePage/>}>
+
+                                </Route>
+                                <Route path={'/charts'} element={<Charts/>}>
 
                                 </Route>
                             </Routes>
