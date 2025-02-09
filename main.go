@@ -81,19 +81,18 @@ type Basic struct {
 	} `json:"like_icon"`
 	RidStr string `json:"rid_str"`
 }
+
 type UserDynamic struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	TTL     int    `json:"ttl"`
 	Data    struct {
 		Items []struct {
-			Basic   Basic
-			IDStr   string `json:"id_str"`
+			IDStr   string      `json:"id_str"`
+			Orig    UserDynamic `json:"orig"`
 			Modules struct {
 				ModuleDynamic struct {
-					Additional interface{} `json:"additional"`
-					Desc       interface{} `json:"desc"`
-					Major      struct {
+					Major struct {
 						Archive struct {
 							Aid   string `json:"aid"`
 							Badge struct {
@@ -116,39 +115,26 @@ type UserDynamic struct {
 							Type  int    `json:"type"`
 						} `json:"archive"`
 						Opus struct {
-							FoldAction []string `json:"fold_action"`
-							JumpURL    string   `json:"jump_url"`
-							Pics       []struct {
-								Height  int         `json:"height"`
-								LiveURL interface{} `json:"live_url"`
-								Size    float64     `json:"size"`
-								URL     string      `json:"url"`
-								Width   int         `json:"width"`
+							Pics []struct {
+								URL string `json:"url"`
 							} `json:"pics"`
 							Summary struct {
-								RichTextNodes []struct {
-									OrigText string `json:"orig_text"`
-									Text     string `json:"text"`
-									Type     string `json:"type"`
-								} `json:"rich_text_nodes"`
 								Text string `json:"text"`
 							} `json:"summary"`
-							Title interface{} `json:"title"`
 						} `json:"opus"`
+						Desc struct {
+							Text string `json:"text"`
+						} `json:"desc"`
 						Type string `json:"type"`
 					} `json:"major"`
 					Topic interface{} `json:"topic"`
 				} `json:"module_dynamic"`
-				ModuleMore struct {
-					ThreePointItems []struct {
-						Label string `json:"label"`
-						Type  string `json:"type"`
-					} `json:"three_point_items"`
-				} `json:"module_more"`
+				ModuleAuthor struct {
+					Name string `json:"name"`
+					Mid  int64  `json:"mid"`
+				} `json:"module_author"`
 			} `json:"modules"`
-			Type    string `json:"type"`
-			Visible bool   `json:"visible"`
-			Basic0  Basic
+			Type string `json:"type"`
 		} `json:"items"`
 	} `json:"data"`
 }
@@ -178,6 +164,17 @@ type GuardResponse struct {
 }
 
 type Guard struct {
+}
+
+type Archive struct {
+	ID        uint `gorm:"primarykey"`
+	CreatedAt time.Time
+	UName     string
+	UID       int64
+	Images    string
+	Type      string
+	Title     string
+	Text      string
 }
 
 func UpdateCommon() {
@@ -275,9 +272,9 @@ func UpdateSpecial() {
 	if len(RecordedDynamic) == 0 {
 		flag = true
 	}
-	for i := range config.SpecialList {
-		var id = config.SpecialList[i]
-		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + strconv.Itoa(id) + "&timezone_offset=-480&features=itemOpusStyle")
+	for i := range config.Tracing {
+		var id = config.Tracing[i]
+		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (id) + "&timezone_offset=-480&features=itemOpusStyle")
 		var result UserDynamic
 		sonic.Unmarshal(resp.Body(), &result)
 		for i2 := range result.Data.Items {
@@ -294,12 +291,41 @@ func UpdateSpecial() {
 				}
 				if ShouldPush {
 					RecordedDynamic = append(RecordedDynamic, item.IDStr)
-					log.Println(item)
+					var Type = item.Type
+					var userName = item.Modules.ModuleAuthor.Name
+					var archive = Archive{}
+					archive.UName = userName
+					archive.UID = item.Modules.ModuleAuthor.Mid
+
+					if Type == "DYNAMIC_TYPE_FORWARD" { //转发
+						archive.Type = "f"
+						PushDynamic("你关注的up主：转发了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+						db.Save(&archive)
+					} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
+						archive.Type = "v"
+						archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
+						PushDynamic("你关注的up主：发布了视频 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+					} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
+						archive.Type = "i"
+						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
+						db.Save(&archive)
+						PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+					} else if Type == "DYNAMIC_TYPE_WORD" { //文字
+						archive.Type = "t"
+						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
+						db.Save(&archive)
+						PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+					}
+
 				}
 			}
 		}
 
+		time.Sleep(time.Second * 10)
+
 	}
+
+	//log.Printf(RecordedDynamic)
 }
 func RefreshFollowings() {
 
@@ -334,6 +360,11 @@ func RefreshFollowings() {
 	Special = Special0
 }
 
+func SaveConfig() {
+	content, _ := sonic.Marshal(&config)
+	os.WriteFile("config.json", content, 666)
+}
+
 var config = Config{}
 var Followings = make([]User, 0)
 var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
@@ -345,6 +376,7 @@ func main() {
 	db.AutoMigrate(&Live{})
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
+	db.AutoMigrate(&Archive{})
 	FixMoney()
 	RemoveEmpty()
 	db.Exec("PRAGMA journal_mode=WAL;")
@@ -399,6 +431,7 @@ func main() {
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 	c.AddFunc("@every 120m", RefreshFollowings)
 	c.AddFunc("@every 10m", UpdateCommon)
+	c.AddFunc("@every 5m", FixMoney)
 
 	c.Start()
 

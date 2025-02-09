@@ -141,7 +141,7 @@ func TraceLive(roomId string) {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("Read error:", err)
+				log.Println("[System] 登录失败，请更换Cookie")
 				lives[roomId].LastActive = 114514
 				return
 			}
@@ -220,13 +220,15 @@ func TraceLive(roomId string) {
 					db.Create(&action)
 					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
+					/*
+						var entet = EnterLive{}
+						sonic.Unmarshal(msgData, &entet)
+						action.FromId = strconv.Itoa(entet.Data.UID)
+						action.FromName = entet.Data.Uname
+						action.ActionName = "enter"
+						db.Create(&action)
 
-					var entet = EnterLive{}
-					sonic.Unmarshal(msgData, &entet)
-					action.FromId = strconv.Itoa(entet.Data.UID)
-					action.FromName = entet.Data.Uname
-					action.ActionName = "enter"
-					db.Create(&action)
+					*/
 				} else if strings.Contains(obj, "PREPARING") { //下播
 					lives[roomId].Live = false
 					var sum float64
@@ -239,10 +241,11 @@ func TraceLive(roomId string) {
 					//else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW") && !strings.Contains(obj, "live_time") && !strings.Contains(obj, "LIVE_INTERACT_GAME") && !strings.Contains(obj, "LIVE_OPEN_PLATFORM") && !strings.Contains(obj, "LIVE_ROOM_TOAST") { //开播
 					var new = Live{}
 					new.UserID = liverId
+					time.Sleep(time.Second * 5) //如果马上去请求直播间信息会有问题
 					client.R().Get(roomUrl)
 					sonic.Unmarshal(rRes.Body(), &roomInfo)
 
-					var serverStartAt, _ = time.Parse(time.DateTime, roomInfo.Data.LiveTime)
+					var serverStartAt = time.Now() //time.Parse(time.DateTime, roomInfo.Data.LiveTime)
 
 					var foundLive = Live{}
 
@@ -250,19 +253,23 @@ func TraceLive(roomId string) {
 
 					var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
 
-					if diff != 0 {
-						new.StartAt = time.Now().Unix()
+					if diff > 90 /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
+						v, _ := time.Parse(time.DateTime, startAt)
+						new.StartAt = v.Unix()
 						new.Title = roomInfo.Data.Title
 						new.Area = roomInfo.Data.Area
 						var i, _ = strconv.Atoi(roomId)
 						new.RoomId = i
 						new.UserName = liver
+						lives[roomId].Live = true
 						liver = strings.TrimSpace(liver) // 去除前后的空白字符
 
 						db.Create(&new)
 						dbLiveId = int(new.ID)
 						var msg = "你关注的主播： " + liver + " 开始直播"
 						PushDynamic(msg, roomInfo.Data.Title)
+					} else {
+						strings.Contains("", "")
 					}
 
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC

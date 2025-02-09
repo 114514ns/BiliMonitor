@@ -118,6 +118,28 @@ func InitHTTP() {
 			"records":      records,
 		})
 	})
+	r.GET("/add/:id", func(context *gin.Context) {
+		id := context.Param("id")
+		if lives[id] == nil {
+			lives[id] = &Status{}
+			go TraceLive(id)
+			config.Tracing = append(config.Tracing, id)
+			SaveConfig()
+			context.JSON(http.StatusOK, gin.H{
+				"message": "success",
+			})
+		} else {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "live has already exist",
+			})
+		}
+	})
+	r.GET("/refreshMoney", func(context *gin.Context) {
+		go FixMoney()
+		context.JSON(http.StatusOK, gin.H{
+			"message": "success",
+		})
+	})
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {Input, Table} from "antd";
+import {Button, FloatButton, Input, Table} from "antd";
 import axios from "axios";
 
 function LivePage(props) {
@@ -20,7 +20,7 @@ function LivePage(props) {
         axios.get(url).then(res => {
 
             res.data.lives.forEach((item, index) => {
-                res.data.lives[index].StartAt = new Date(item.StartAt * 1000).toLocaleString()
+                res.data.lives[index].StartAt = new Date(item.StartAt * 1000 - 8 * 3600 * 1000).toLocaleString()
                 res.data.lives[index].EndAt = new Date(item.EndAt * 1000).toLocaleString()
             })
             setTotal(res.data.totalPage * size)
@@ -64,7 +64,7 @@ function LivePage(props) {
             },
             {
                 title: 'EndAt',
-                dataIndex:'EndAt',
+                dataIndex: 'EndAt',
                 key: 'EndAt'
             },
             {
@@ -87,11 +87,14 @@ function LivePage(props) {
     }, [])
     const [currentPage, setCurrentPage] = useState(1);
 
+    const [pageSize,setPageSize] = useState(10);
+
     // 处理页码改变事件
     const handlePageChange = (page, pageSize) => {
         console.log(`page=${page}  pageSize=${pageSize}`)
         refreshData(page, pageSize)
         setCurrentPage(page)
+        setPageSize(pageSize)
 
     }
 
@@ -132,6 +135,11 @@ function LivePage(props) {
     return (
 
         <div>
+            <FloatButton  onClick={() => {
+                axios.get("http://localhost:8080/refreshMoney").then(res => {
+                    refreshData(currentPage, pageSize)
+                })
+            }} type="primary">Refresh Money</FloatButton >
             <Input
                 placeholder="Search Filters"
                 style={{marginBottom: 16}}
