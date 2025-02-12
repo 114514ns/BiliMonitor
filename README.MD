@@ -8,5 +8,11 @@
  - 记录主播大航海
  - 有一个后台web，可以在上面查看记录到的数据
 
+# Screenshots
+
+![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212231124.png)
+![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212231407.png)
+![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212231538.png)
+
 # Referer
 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)

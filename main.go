@@ -272,9 +272,9 @@ func UpdateSpecial() {
 	if len(RecordedDynamic) == 0 {
 		flag = true
 	}
-	for i := range config.Tracing {
-		var id = config.Tracing[i]
-		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (id) + "&timezone_offset=-480&features=itemOpusStyle")
+	for i := range config.SpecialList {
+		var id = config.SpecialList[i]
+		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.Itoa(id)) + "&timezone_offset=-480&features=itemOpusStyle")
 		var result UserDynamic
 		sonic.Unmarshal(resp.Body(), &result)
 		for i2 := range result.Data.Items {
@@ -315,7 +315,14 @@ func UpdateSpecial() {
 						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
 						db.Save(&archive)
 						PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+					} else {
+						archive.Type = Type
+						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
+						db.Save(&archive)
 					}
+					json := make([]byte, 0)
+					sonic.Unmarshal(json, item)
+					PushDynamic("动态json", string(json))
 
 				}
 			}

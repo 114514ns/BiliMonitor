@@ -7,6 +7,7 @@ import './App.css'
 import { redirect } from "react-router";
 import LivePage from "./pages/LivePage.jsx";
 import Charts from "./pages/Charts.jsx";
+import LiveDetailPage from "./pages/LiveDetailPage.jsx";
 
 const {Header, Content, Footer, Sider} = Layout;
 const {SubMenu} = Menu;
@@ -52,6 +53,9 @@ class BasicLayout extends React.Component {
 
                                 </Route>
                                 <Route path={'/charts'} element={<Charts/>}>
+
+                                </Route>
+                                <Route path={'/lives/:id'} element={<LiveDetailPage/>}>
 
                                 </Route>
                             </Routes>
