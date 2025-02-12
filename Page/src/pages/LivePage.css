@@ -1,0 +1,7 @@
+.even-row {
+    background-color: rgba(197, 207, 216, 0.25); /* 浅蓝色 */
+}
+
+.odd-row {
+    background-color: #ffffff; /* 白色 */
+}

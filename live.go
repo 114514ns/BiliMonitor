@@ -59,6 +59,7 @@ func TraceLive(roomId string) {
 	var liverId = strconv.Itoa(roomInfo.Data.UID)
 	var startAt = roomInfo.Data.LiveTime
 
+	var living = false
 	var liverInfoUrl = "https://api.live.bilibili.com/live_user/v1/Master/info?uid=" + liverId
 	liverRes, _ := client.R().Get(liverInfoUrl)
 	var liverObj = LiverInfo{}
@@ -74,6 +75,7 @@ func TraceLive(roomId string) {
 
 		//当前是开播状态
 		var serverStartAt, _ = time.Parse(time.DateTime, startAt)
+		living = true
 
 		var foundLive = Live{}
 
@@ -235,11 +237,13 @@ func TraceLive(roomId string) {
 					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
 					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+					living = false
 
 				} else if text.Cmd == "LIVE" {
 
 					//else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW") && !strings.Contains(obj, "live_time") && !strings.Contains(obj, "LIVE_INTERACT_GAME") && !strings.Contains(obj, "LIVE_OPEN_PLATFORM") && !strings.Contains(obj, "LIVE_ROOM_TOAST") { //开播
 					var new = Live{}
+					living = true
 					new.UserID = liverId
 					time.Sleep(time.Second * 5) //如果马上去请求直播间信息会有问题
 					client.R().Get(roomUrl)
@@ -253,8 +257,10 @@ func TraceLive(roomId string) {
 
 					var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
 
-					if diff > 90 /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
-						v, _ := time.Parse(time.DateTime, startAt)
+					if diff-8*3600 > 60*15 && !strings.Contains(msg, "WATCHED_CHANGE") /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
+
+						v := serverStartAt
+						v = v.Add(time.Hour * 8)
 						new.StartAt = v.Unix()
 						new.Title = roomInfo.Data.Title
 						new.Area = roomInfo.Data.Area
@@ -272,6 +278,8 @@ func TraceLive(roomId string) {
 						strings.Contains("", "")
 					}
 
+					PushDynamic("直播json", (msg))
+
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
 					var sc = SuperChatInfo{}
 					sonic.Unmarshal(msgData, &sc)
@@ -282,6 +290,7 @@ func TraceLive(roomId string) {
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sc.Data.Price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 
+					action.GiftAmount = sql.NullInt16{Valid: true, Int16: 1}
 					action.Extra = sc.Data.Message
 					if action.FromId != "0" {
 						db.Create(&action)
@@ -302,6 +311,10 @@ func TraceLive(roomId string) {
 					}
 
 					db.Create(&action)
+				} else if text.Cmd == "WATCHED_CHANGE" {
+					if living {
+						log.Println("[" + liver + "] " + string(msgData))
+					}
 				}
 
 				// 假设读取完一个封包，如果已没有足够数据来读取下一个头部，退出循环

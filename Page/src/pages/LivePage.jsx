@@ -1,6 +1,8 @@
 import React, {useEffect, useState} from 'react';
-import {Button, FloatButton, Input, Table} from "antd";
+import {FloatButton, Input, Table} from "antd";
 import axios from "axios";
+import {useNavigate} from "react-router";
+import "./LivePage.css"
 
 function LivePage(props) {
 
@@ -11,7 +13,10 @@ function LivePage(props) {
 
     const [selected, isSelected] = useState(false)
 
+    const [name, setName] = useState(null)
 
+
+    const redirect = useNavigate()
     const refreshData = (page, size, name) => {
         var url = "http://localhost:8080/live?page=" + page + "&limit=" + size
         if (name != null) {
@@ -20,8 +25,13 @@ function LivePage(props) {
         axios.get(url).then(res => {
 
             res.data.lives.forEach((item, index) => {
+                if (item.EndAt == 0) {
+                    res.data.lives[index].EndAt = "直播中"
+                } else {
+                    res.data.lives[index].EndAt = new Date(item.EndAt * 1000).toLocaleString()
+                }
                 res.data.lives[index].StartAt = new Date(item.StartAt * 1000 - 8 * 3600 * 1000).toLocaleString()
-                res.data.lives[index].EndAt = new Date(item.EndAt * 1000).toLocaleString()
+                //res.data.lives[index].EndAt = new Date(item.EndAt * 1000).toLocaleString()
             })
             setTotal(res.data.totalPage * size)
             console.log(total)
@@ -75,7 +85,12 @@ function LivePage(props) {
             {
                 title: 'Money',
                 dataIndex: 'Money',
-                key: 'Money'
+                key: 'Money',
+                render: (text) => (
+                    <span style={{color: text > 1000 ? "red" : "green"}}>
+        {text}
+      </span>
+                ),
 
             },
             {
@@ -87,12 +102,12 @@ function LivePage(props) {
     }, [])
     const [currentPage, setCurrentPage] = useState(1);
 
-    const [pageSize,setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(10);
 
     // 处理页码改变事件
     const handlePageChange = (page, pageSize) => {
         console.log(`page=${page}  pageSize=${pageSize}`)
-        refreshData(page, pageSize)
+        refreshData(page, pageSize, name)
         setCurrentPage(page)
         setPageSize(pageSize)
 
@@ -105,7 +120,7 @@ function LivePage(props) {
             isSelected(true)
             if (JSON.stringify(element.getEventListeners()) === `{}`) {
                 const btn = document.querySelector(".ant-table-filter-dropdown-btns").childNodes[1]
-                const labelGroup = document.querySelector(".ant-dropdown-menu-title-content").childNodes
+                const labelGroup = document.querySelector(".ant-dropdown-menu").childNodes
                 document.querySelector(".ant-table-filter-dropdown-search-input").addEventListener('input', (e) => {
                     var text = element.childNodes[1].value
                     axios.get("http://localhost:8080/liver?key=" + text).then(res => {
@@ -115,15 +130,21 @@ function LivePage(props) {
                             array.push({text: item, value: item})
                         })
                         setFilters(array)
-                        columns[0].filters = array
-                        setColumn(columns)
+                        if (columns.length !== 0) {
+                            columns[0].filters = array
+                            setColumn(columns)
+                        }
 
                     })
                 })
                 btn.addEventListener('click', (e) => {
+                    console.log(e)
                     labelGroup.forEach((item, index) => {
-                        if (item.className.indexOf('checked') !== -1) {
-                            console.log(item)
+
+                        if (item.className.indexOf('selected') !== -1) {
+                            //console.log(textContent)
+                            setName(item.textContent)
+                            refreshData(currentPage, pageSize, item.textContent)
                         }
                     })
 
@@ -135,11 +156,11 @@ function LivePage(props) {
     return (
 
         <div>
-            <FloatButton  onClick={() => {
+            <FloatButton onClick={() => {
                 axios.get("http://localhost:8080/refreshMoney").then(res => {
                     refreshData(currentPage, pageSize)
                 })
-            }} type="primary">Refresh Money</FloatButton >
+            }} type="primary">Refresh Money</FloatButton>
             <Input
                 placeholder="Search Filters"
                 style={{marginBottom: 16}}
@@ -149,7 +170,20 @@ function LivePage(props) {
                 total: total,
                 onChange: handlePageChange,
 
-            }}/>
+            }}
+                   onRow={(record) => {
+                       return {
+                           onClick: (event) => {
+                               console.log(record);
+                               redirect(`/lives/${record.ID}`)
+                           }, // 点击行
+                       };
+                   }}
+                   rowClassName={(record, index) => {
+                       return index % 2 === 0 ? "even-row" : "odd-row"
+                   }
+                   }
+            />
         </div>
     )
 }

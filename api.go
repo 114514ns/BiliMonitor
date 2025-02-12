@@ -90,10 +90,13 @@ func InitHTTP() {
 		}
 
 		// 假设每页有10条记录
-		limit := 10
+		limitStr := c.DefaultQuery("limit", "10") // 默认为第一页
+		limit, _ := strconv.Atoi(limitStr)
 		offset := (page - 1) * limit
 
 		// 从数据库查询
+
+		orderStr := c.DefaultQuery("order", "ascend") // 默认为第一页
 
 		var totalRecords int64
 		if err := db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id).Count(&totalRecords).Error; err != nil {
@@ -101,14 +104,27 @@ func InitHTTP() {
 			return
 		}
 
+		orderQuery := ""
+		if orderStr == "ascend" {
+			orderQuery = "gift_price asc"
+		} else if orderStr == "descend" {
+			orderQuery = "gift_price desc"
+		} else {
+			orderQuery = "id asc"
+		}
+
 		// 计算总页数
 		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
 
 		var records []LiveAction
-		if err := db.Where("live = ? and action_name != 'enter'", id).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
+		if err := db.Where("live = ? and action_name != 'enter'", id).Order(orderQuery).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database query error"})
 			return
 		}
+
+		var liveObj = &Live{}
+
+		db.Model(&Live{}).Where("id = ?", id).Find(&liveObj)
 
 		// 返回查询结果
 		c.JSON(http.StatusOK, gin.H{
@@ -116,6 +132,7 @@ func InitHTTP() {
 			"totalRecords": totalRecords,
 			"page":         page,
 			"records":      records,
+			"liver":        liveObj.UserName,
 		})
 	})
 	r.GET("/add/:id", func(context *gin.Context) {
