@@ -15,6 +15,7 @@ function LivePage(props) {
 
     const [name, setName] = useState(null)
 
+    const [searchText, setSearchText] = useState("");
 
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
@@ -50,55 +51,55 @@ function LivePage(props) {
         {text: 'Category 2', value: 'Category 2'},
     ]);
 
-    const [columns, setColumn] = useState([])
-    useEffect(() => {
+    const [columns, setColumn] = useState([
+        {
+            title: 'Name',
+            dataIndex: 'UserName',
+            key: 'UserName',
+            filterSearch: true,
+            filters: filters,
 
-        setColumn([
-            {
-                title: 'Name',
-                dataIndex: 'UserName',
-                key: 'UserName',
-                filterSearch: true,
-                filters: filters,
-
-            },
-            {
-                title: 'Title',
-                dataIndex: 'Title',
-                key: 'Title',
-            },
-            {
-                title: 'Time',
-                dataIndex: 'StartAt',
-                key: 'StartAt',
-            },
-            {
-                title: 'EndAt',
-                dataIndex: 'EndAt',
-                key: 'EndAt'
-            },
-            {
-                title: 'Area',
-                dataIndex: 'Area',
-                key: 'Area',
-            },
-            {
-                title: 'Money',
-                dataIndex: 'Money',
-                key: 'Money',
-                render: (text) => (
-                    <span style={{color: text > 1000 ? "red" : "green"}}>
+        },
+        {
+            title: 'Title',
+            dataIndex: 'Title',
+            key: 'Title',
+        },
+        {
+            title: 'Time',
+            dataIndex: 'StartAt',
+            key: 'StartAt',
+        },
+        {
+            title: 'EndAt',
+            dataIndex: 'EndAt',
+            key: 'EndAt'
+        },
+        {
+            title: 'Area',
+            dataIndex: 'Area',
+            key: 'Area',
+        },
+        {
+            title: 'Money',
+            dataIndex: 'Money',
+            key: 'Money',
+            render: (text) => (
+                <span style={{color: text > 1000 ? "red" : "green"}}>
         {text}
       </span>
-                ),
+            ),
 
-            },
-            {
-                title: 'Message',
-                dataIndex: 'Message',
-                key: 'Message'
-            }
-        ])
+        },
+        {
+            title: 'Message',
+            dataIndex: 'Message',
+            key: 'Message'
+        }
+    ])
+    useEffect(() => {
+
+        //setColumn()
     }, [])
     const [currentPage, setCurrentPage] = useState(1);
 
@@ -112,6 +113,19 @@ function LivePage(props) {
         setPageSize(pageSize)
 
     }
+    useEffect(() => {
+        console.log("columns 更新了:", columns);
+    }, [columns]); // 监听 columns 变化
+    useEffect(() => {
+        console.log("filters 更新了:", filters);
+        setColumn((prevColumns) =>
+            prevColumns.map((col, index) =>
+                index === 0 ? { ...col, filters: filters } : col
+            )
+        );
+    }, [filters]);
+
+
 
     setInterval(() => {
         const element = document.querySelector(".ant-table-filter-dropdown-search-input")
@@ -124,35 +138,45 @@ function LivePage(props) {
                 document.querySelector(".ant-table-filter-dropdown-search-input").addEventListener('input', (e) => {
                     var text = element.childNodes[1].value
                     axios.get("http://localhost:8080/liver?key=" + text).then(res => {
-                        setFilters([])
+                        if (!res.data.result) return; // 处理 null/undefined/空数据
                         var array = []
-                        res.data.result.map((item, index) => {
-                            array.push({text: item, value: item})
-                        })
-                        setFilters(array)
-                        if (columns.length !== 0) {
-                            columns[0].filters = array
-                            setColumn(columns)
-                        }
+                        const newFilters = res.data.result.map((item) => ({ text: item, value: item }));
+
+                        setFilters(newFilters);
+
 
                     })
                 })
                 btn.addEventListener('click', (e) => {
                     console.log(e)
+                    var found = false
                     labelGroup.forEach((item, index) => {
 
                         if (item.className.indexOf('selected') !== -1) {
                             //console.log(textContent)
                             setName(item.textContent)
-                            refreshData(currentPage, pageSize, item.textContent)
+                            console.log(item.textContent)
+                            found = true
+
                         }
+
                     })
+                    if (!found) {
+                        refreshData(currentPage, pageSize, null)
+                    }
 
                 })
 
             }
         }
     }, 50)
+
+
+    const onChange = (pagination, filters, sorter, extra) => {
+        //refreshData(currentPage, pageSize, filters[0].value)
+        console.log(pagination, filters, sorter, extra)
+
+    };
     return (
 
         <div>
@@ -183,6 +207,7 @@ function LivePage(props) {
                        return index % 2 === 0 ? "even-row" : "odd-row"
                    }
                    }
+                   onChange={onChange}
             />
         </div>
     )

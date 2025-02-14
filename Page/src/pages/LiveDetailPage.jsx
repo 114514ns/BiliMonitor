@@ -36,6 +36,13 @@ function LiveDetailPage(props) {
                 key: 'UserName',
                 filterSearch: true,
                 filters: filters,
+                render: (text,record) => (
+                    <span style={{cursor:'pointer'}} onClick={() => {
+                        window.open("https://space.bilibili.com/" + record.FromId)
+                    }}>
+        {text}{console.log(record)}
+      </span>
+                )
             },
             {
                 title: 'Title',

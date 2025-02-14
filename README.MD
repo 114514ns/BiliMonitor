@@ -13,6 +13,11 @@
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212231124.png)
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212231407.png)
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212231538.png)
+![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com//img/20250212235435.png)
+
+# TODO
+- [ ] 自动刷新Cokie
+- [ ] 飞书推送
 
 # Referer
 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
