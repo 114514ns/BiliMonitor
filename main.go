@@ -128,6 +128,11 @@ type UserDynamic struct {
 						Type string `json:"type"`
 					} `json:"major"`
 					Topic interface{} `json:"topic"`
+					Desc  struct {
+						Nodes []struct {
+							Text string `json:"text"`
+						} `json:"rich_text_nodes"`
+					} `json:"desc"`
 				} `json:"module_dynamic"`
 				ModuleAuthor struct {
 					Name string `json:"name"`
@@ -194,14 +199,18 @@ func UpdateCommon() {
 		time.Sleep(3 * time.Second)
 	}
 
-	for i := range config.Tracing {
-		var id = config.Tracing[i]
-		var live0 = Live{}
-		db.Model(&Live{}).Where("user_id = ?", id).First(&live0)
-		if live0.RoomId != 0 {
+	/*
 
+		for i := range config.Tracing {
+			var id = config.Tracing[i]
+			var live0 = Live{}
+			db.Model(&Live{}).Where("user_id = ?", id).Find(&live0)
+			if live0.RoomId != 0 {
+
+			}
 		}
-	}
+
+	*/
 }
 
 func UpdateGuard() {
@@ -299,7 +308,7 @@ func UpdateSpecial() {
 
 					if Type == "DYNAMIC_TYPE_FORWARD" { //转发
 						archive.Type = "f"
-						PushDynamic("你关注的up主：转发了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+						PushDynamic("你关注的up主：转发了动态 "+userName, item.Modules.ModuleDynamic.Desc.Nodes[0].Text)
 						db.Save(&archive)
 					} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
 						archive.Type = "v"
@@ -315,6 +324,10 @@ func UpdateSpecial() {
 						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
 						db.Save(&archive)
 						PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+					} else if Type == "DYNAMIC_TYPE_LIVE_RCMD" {
+
+					} else if Type == "DYNAMIC_TYPE_COMMON_SQUARE" {
+
 					} else {
 						archive.Type = Type
 						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text

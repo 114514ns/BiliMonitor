@@ -246,8 +246,8 @@ func TraceLive(roomId string) {
 					living = true
 					new.UserID = liverId
 					time.Sleep(time.Second * 5) //如果马上去请求直播间信息会有问题
-					client.R().Get(roomUrl)
-					sonic.Unmarshal(rRes.Body(), &roomInfo)
+					var r, _ = client.R().Get(roomUrl)
+					sonic.Unmarshal(r.Body(), &roomInfo)
 
 					var serverStartAt = time.Now() //time.Parse(time.DateTime, roomInfo.Data.LiveTime)
 
@@ -278,8 +278,6 @@ func TraceLive(roomId string) {
 						strings.Contains("", "")
 					}
 
-					PushDynamic("直播json", (msg))
-
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
 					var sc = SuperChatInfo{}
 					sonic.Unmarshal(msgData, &sc)
@@ -303,17 +301,19 @@ func TraceLive(roomId string) {
 					action.GiftName = guard.Data.GiftName
 					switch action.GiftName {
 					case "舰长":
-						action.GiftPrice = sql.NullFloat64{Float64: 138, Valid: true}
+						action.GiftPrice = sql.NullFloat64{Float64: float64(138 * guard.Data.Num), Valid: true}
 					case "提督":
-						action.GiftPrice = sql.NullFloat64{Float64: 1998, Valid: true}
+						action.GiftPrice = sql.NullFloat64{Float64: float64(1998 * guard.Data.Num), Valid: true}
 					case "总督":
-						action.GiftPrice = sql.NullFloat64{Float64: 19998, Valid: true}
+						action.GiftPrice = sql.NullFloat64{Float64: float64(19998 * guard.Data.Num), Valid: true}
 					}
 
 					db.Create(&action)
 				} else if text.Cmd == "WATCHED_CHANGE" {
 					if living {
-						log.Println("[" + liver + "] " + string(msgData))
+						var obj = Watched{}
+						sonic.Unmarshal(msgData, &obj)
+						db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{Watch: obj.Data.Num})
 					}
 				}
 
@@ -508,6 +508,7 @@ type Live struct {
 	RoomId   int
 	Money    float64 `gorm:"type:decimal(7,2)"`
 	Message  int
+	Watch    int
 }
 type EnterLive struct {
 	Cmd  string `json:"cmd"`
@@ -550,5 +551,13 @@ type GuardInfo struct {
 		GiftName   string `json:"gift_name"`
 		StartTime  int    `json:"start_time"`
 		EndTime    int    `json:"end_time"`
+	} `json:"data"`
+}
+type Watched struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		Num       int    `json:"num"`
+		TextSmall string `json:"text_small"`
+		TextLarge string `json:"text_large"`
 	} `json:"data"`
 }
