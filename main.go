@@ -1,16 +1,23 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
+	"golang.org/x/net/html"
 	"gorm.io/gorm"
+	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +47,11 @@ type Config struct {
 	ReportTo               []string
 	BackServer             string
 	Tracing                []string
+	EnableAlist            string
+	AlistServer            string
+	AlistUser              string
+	AlistPass              string
+	AlistPath              string
 }
 
 type FansList struct {
@@ -149,7 +161,10 @@ type User struct {
 	UserID string
 	Fans   int
 }
-
+type Video struct {
+	Data struct {
+	} `json:"data"`
+}
 type Status struct {
 	Live       bool
 	LastActive int64
@@ -180,6 +195,18 @@ type Archive struct {
 	Type      string
 	Title     string
 	Text      string
+}
+type Dash struct {
+	Data struct {
+		Dash0 struct {
+			Video []struct {
+				Link string `json:"base_url"`
+			} `json:"video"`
+			Audio []struct {
+				Link string `json:"base_url"`
+			} `json:"audio"`
+		} `json:"dash"`
+	} `json:"data"`
 }
 
 func UpdateCommon() {
@@ -276,6 +303,66 @@ func FixPrice() {
 		db.Save(&action) // 分别更新每条记录
 	}
 }
+func UploadArchive(bv string, cid string) {
+	os.Mkdir("cache", 066)
+	type LoginResponse struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	type LoginRequest struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	var sum = sha256.Sum256([]byte(config.AlistPass + "-https://github.com/alist-org/alist"))
+	var req = LoginRequest{Username: config.AlistUser, Password: hex.EncodeToString(sum[:])}
+	alist, _ := client.R().SetBody(req).Post(config.AlistServer + "api/auth/login/hash")
+
+	var res = LoginResponse{}
+	sonic.Unmarshal(alist.Body(), &res)
+
+	var videolink = "https://bilibili.com/video/" + bv
+	vRes, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36").Get(videolink)
+	htmlContent := vRes.Body()
+	reader := bytes.NewReader(htmlContent)
+	root, _ := html.Parse(reader)
+	find := goquery.NewDocumentFromNode(root).Find("script")
+	find.Each(func(i int, s *goquery.Selection) {
+		if strings.Contains(s.Text(), "m4s") {
+			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
+			var v = Dash{}
+			sonic.Unmarshal([]byte(json), &v)
+			audio, _ := client.R().SetDoNotParseResponse(true).Get(v.Data.Dash0.Audio[0].Link)
+			defer audio.RawBody().Close()
+			os.WriteFile("cache/"+bv+".mp3", audio.Body(), 066)
+			audioFile, _ := os.Create("cache/" + bv + ".mp3")
+			defer audioFile.Close()
+			io.Copy(audioFile, audio.RawBody())
+
+			video, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Video[0].Link)
+			defer video.RawBody().Close()
+			videoFile, _ := os.Create("cache/" + bv + ".m4s")
+			defer videoFile.Close()
+			io.Copy(videoFile, video.RawBody())
+			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
+			cmd.Run() // 执行命令
+			file, _ := os.Open("cache/" + bv + ".mp4")
+			fi, _ := file.Stat()
+			client.R().
+				SetHeader("Authorization", res.Data.Token).
+				SetHeader("Content-Type", "multipart/form-data").
+				SetHeader("Content-Length", strconv.FormatInt(fi.Size(), 10)).
+				SetHeader("File-Path", "Local/"+bv+".mp4").
+				SetFile("file", "cache/"+bv+".mp4").
+				Put(config.AlistServer + "api/fs/form")
+
+			os.Remove("cache/" + bv + ".mp4")
+			os.Remove("cache/" + bv + ".mp3")
+			os.Remove("cache/" + bv + ".m4s")
+		}
+	})
+
+}
 func UpdateSpecial() {
 	var flag = false
 	if len(RecordedDynamic) == 0 {
@@ -313,7 +400,9 @@ func UpdateSpecial() {
 					} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
 						archive.Type = "v"
 						archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
+						db.Save(&archive)
 						PushDynamic("你关注的up主：发布了视频 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+						go UploadArchive(item.Modules.ModuleDynamic.Major.Archive.Bvid, "")
 					} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
 						archive.Type = "i"
 						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text

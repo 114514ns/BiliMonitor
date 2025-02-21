@@ -6,6 +6,7 @@ import  "./LivePage.css"
 
 function LiveDetailPage(props) {
     let { id } = useParams();
+    const host = location.hostname;
     const [actions,setActions] = useState([])
     useEffect(() => {
         refreshData(currentPage,pageSize)
@@ -72,7 +73,7 @@ function LiveDetailPage(props) {
         if (page === undefined) {
             return
         }
-        var url = "http://localhost:8080/live/" + id + "/?" +  "page=" + page + "&limit=" + size + "&order=" + order
+        var url = `http://${host}:8080/live/` + id + "/?" +  "page=" + page + "&limit=" + size + "&order=" + order
         if (name != null) {
             url = url + `&name=${name}`
         }
