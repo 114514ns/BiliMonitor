@@ -10,8 +10,11 @@ const Monitor = () => {
     const [messageApi, contextHolder] = message.useMessage();
     const [text,setText] = useState("")
 
+    const host = location.hostname;
+
+
     useEffect(() => {
-        axios.get("http://localhost:8080/monitor").then(res => {
+        axios.get(`http://${host}:8080/monitor`).then(res => {
             //setMonitor(res.data.lives)
             res.data.lives.sort((a, b) => {
                 if(a.Live === b.Live) return 0; // 当前后两个元素的isOnline相同时, 不改变顺序
@@ -33,7 +36,7 @@ const Monitor = () => {
                         setText(e.target.value)
                     }}/>
                     <Button onClick={() => {
-                        axios.get("http://localhost:8080/add/" + text).then(res => {
+                        axios.get(`http://${host}:8080/add/` + text).then(res => {
                             if (res.data.message === "success") {
                                 messageApi.info('添加成功');
                             } else {

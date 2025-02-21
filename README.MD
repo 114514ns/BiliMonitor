@@ -7,6 +7,7 @@
  - 当主播开始直播时发送邮件提醒
  - 记录主播大航海
  - 有一个后台web，可以在上面查看记录到的数据
+ - 备份新稿件到Alist
 
 # Screenshots
 
@@ -14,10 +15,12 @@
 ![](https://example.com//img/20250212231407.png)
 ![](https://example.com//img/20250212231538.png)
 ![](https://example.com//img/20250212235435.png)
+![](https://example.com/undefined20250220222834082.png)
 
 # TODO
-- [ ] 自动刷新Cokie
+- [ ] 自动刷新Cookie
 - [ ] 飞书推送
+- [ ] 备份指定用户所有动态
 
 # Referer
 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)

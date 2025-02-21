@@ -23,12 +23,12 @@ type SelfInfo struct {
 	} `json:"data"`
 }
 
-func SelfUID(cookie string) string {
-	res, _ := client.R().Get("https://api.bilibili.com/x/web-interface/nav")
+func SelfUID(cookie string) int {
+	res, _ := client.R().SetHeader("Cookie", cookie).Get("https://api.bilibili.com/x/web-interface/nav")
 
 	var self = SelfInfo{}
 	sonic.Unmarshal(res.Body(), &self)
-	return strconv.Itoa(self.Data.Mid)
+	return self.Data.Mid
 }
 func FixMoney() {
 	var lives0 []Live
@@ -127,7 +127,7 @@ func TraceLive(roomId string) {
 	go func() {
 		log.Printf("[%s] 成功连接到弹幕服务器", liver)
 		var cer = Certificate{}
-		cer.Uid = 3546580934199673
+		cer.Uid = SelfUID(config.Cookie)
 		id, _ := strconv.Atoi(roomId)
 		cer.RoomId = id
 		cer.Type = 2
