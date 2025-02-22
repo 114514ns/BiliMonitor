@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"sort"
 	"time"
 )
 
@@ -31,6 +33,32 @@ func formatTime(input string) string {
 		return "Parsing Error"
 	}
 	return t.Format(layout)
+}
+func Last(dir string) (fileName string, modTime time.Time, err error) {
+	dirEntries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	var onlyFiles []os.DirEntry
+	for _, entry := range dirEntries {
+		if !entry.IsDir() {
+			onlyFiles = append(onlyFiles, entry)
+		}
+	}
+	if len(onlyFiles) == 0 {
+		return "", time.Time{}, fmt.Errorf("no files found in the directory: %s", dir)
+	}
+	sort.Slice(onlyFiles, func(i, j int) bool {
+		infoI, _ := onlyFiles[i].Info()
+		infoJ, _ := onlyFiles[j].Info()
+		return infoI.ModTime().After(infoJ.ModTime())
+	})
+	latestFile := onlyFiles[0]
+	info, err := latestFile.Info()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return latestFile.Name(), info.ModTime(), nil
 }
 
 func abs(a int) int {
