@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"log"
+	url2 "net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -52,6 +53,10 @@ type Config struct {
 	AlistUser              string
 	AlistPass              string
 	AlistPath              string
+	EnableServerPush       bool
+	ServerPushKey          string
+	EnableLiveBackup       bool
+	MikuPath               string
 }
 
 type FansList struct {
@@ -292,6 +297,11 @@ func PushDynamic(title, msg string) {
 		}
 	}
 
+	if config.EnableServerPush {
+		var url = fmt.Sprintf(config.ServerPushKey+"?title=%s&desp=%s", url2.QueryEscape(title), url2.QueryEscape(msg))
+		client.R().Get(url)
+	}
+
 }
 
 func FixPrice() {
@@ -303,8 +313,7 @@ func FixPrice() {
 		db.Save(&action) // 分别更新每条记录
 	}
 }
-func UploadArchive(bv string, cid string) {
-	os.Mkdir("cache", 066)
+func GetAlistToken() string {
 	type LoginResponse struct {
 		Data struct {
 			Token string `json:"token"`
@@ -320,7 +329,21 @@ func UploadArchive(bv string, cid string) {
 
 	var res = LoginResponse{}
 	sonic.Unmarshal(alist.Body(), &res)
-
+	return res.Data.Token
+}
+func UploadFile(path string, alistPath string) {
+	file, _ := os.Open(path)
+	fi, _ := file.Stat()
+	client.R().
+		SetHeader("Authorization", GetAlistToken()).
+		SetHeader("Content-Type", "multipart/form-data").
+		SetHeader("Content-Length", strconv.FormatInt(fi.Size(), 10)).
+		SetHeader("File-Path", alistPath).
+		SetFile("file", path).
+		Put(config.AlistServer + "api/fs/form")
+}
+func UploadArchive(bv string, cid string) {
+	os.Mkdir("cache", 066)
 	var videolink = "https://bilibili.com/video/" + bv
 	vRes, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36").Get(videolink)
 	htmlContent := vRes.Body()
@@ -346,15 +369,8 @@ func UploadArchive(bv string, cid string) {
 			io.Copy(videoFile, video.RawBody())
 			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
 			cmd.Run() // 执行命令
-			file, _ := os.Open("cache/" + bv + ".mp4")
-			fi, _ := file.Stat()
-			client.R().
-				SetHeader("Authorization", res.Data.Token).
-				SetHeader("Content-Type", "multipart/form-data").
-				SetHeader("Content-Length", strconv.FormatInt(fi.Size(), 10)).
-				SetHeader("File-Path", "Local/"+bv+".mp4").
-				SetFile("file", "cache/"+bv+".mp4").
-				Put(config.AlistServer + "api/fs/form")
+
+			UploadFile("cache/"+bv+".mp4", config.AlistPath+bv+".mp4")
 
 			os.Remove("cache/" + bv + ".mp4")
 			os.Remove("cache/" + bv + ".mp3")
@@ -362,6 +378,12 @@ func UploadArchive(bv string, cid string) {
 		}
 	})
 
+}
+
+func UploadLive(live Live) {
+	var flv, t, _ = Last(config.MikuPath + "/" + live.UserID + "-" + live.UserName)
+	log.Println(flv)
+	log.Println(t)
 }
 func UpdateSpecial() {
 	var flag = false

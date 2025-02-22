@@ -121,7 +121,7 @@ func TraceLive(roomId string) {
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {
-		log.Fatal("Dial:", err)
+		log.Fatal("["+liver+"]  "+"Dial:", err)
 	}
 	ticker := time.NewTicker(45 * time.Second)
 	go func() {
