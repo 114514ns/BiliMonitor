@@ -75,6 +75,7 @@ func TraceLive(roomId string) {
 
 		//当前是开播状态
 		var serverStartAt, _ = time.Parse(time.DateTime, startAt)
+		lives[roomId].StartAt = startAt
 		living = true
 
 		var foundLive = Live{}
@@ -238,6 +239,8 @@ func TraceLive(roomId string) {
 
 					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
 					living = false
+					i, _ := strconv.Atoi(roomId)
+					go UploadLive(Live{RoomId: i, UserName: liver})
 
 				} else if text.Cmd == "LIVE" {
 
@@ -268,6 +271,7 @@ func TraceLive(roomId string) {
 						new.RoomId = i
 						new.UserName = liver
 						lives[roomId].Live = true
+						lives[roomId].StartAt = time.Now().Add(3600 * 8 * time.Second).Format(time.DateTime)
 						liver = strings.TrimSpace(liver) // 去除前后的空白字符
 
 						db.Create(&new)

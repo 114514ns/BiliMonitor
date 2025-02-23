@@ -10,9 +10,11 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"io"
 	"log"
@@ -57,6 +59,15 @@ type Config struct {
 	ServerPushKey          string
 	EnableLiveBackup       bool
 	MikuPath               string
+	EnableSQLite           bool
+	SQLitePath             string
+	EnableMySQL            bool
+	SQLName                string
+	SQLUser                string
+	SQLPass                string
+	SQLServer              string
+	CodeToMP4              bool
+	SplitAudio             bool
 }
 
 type FansList struct {
@@ -98,66 +109,64 @@ type Basic struct {
 	} `json:"like_icon"`
 	RidStr string `json:"rid_str"`
 }
-
+type DynamicItem struct {
+	IDStr   string       `json:"id_str"`
+	Orig    *DynamicItem `json:"orig"`
+	Modules struct {
+		ModuleDynamic struct {
+			Major struct {
+				Archive struct {
+					Aid   string `json:"aid"`
+					Badge struct {
+						BgColor string      `json:"bg_color"`
+						Color   string      `json:"color"`
+						IconURL interface{} `json:"icon_url"`
+						Text    string      `json:"text"`
+					} `json:"badge"`
+					Bvid  string `json:"bvid"`
+					Cover string `json:"cover"`
+					Desc  string `json:"desc"`
+					Stat  struct {
+						Danmaku string `json:"danmaku"`
+						Play    string `json:"play"`
+					} `json:"stat"`
+					Title string `json:"title"`
+					Type  int    `json:"type"`
+				} `json:"archive"`
+				Opus struct {
+					Pics []struct {
+						URL string `json:"url"`
+					} `json:"pics"`
+					Summary struct {
+						Text string `json:"text"`
+					} `json:"summary"`
+				} `json:"opus"`
+				Desc struct {
+					Text string `json:"text"`
+				} `json:"desc"`
+				Type string `json:"type"`
+			} `json:"major"`
+			Topic interface{} `json:"topic"`
+			Desc  struct {
+				Nodes []struct {
+					Text string `json:"text"`
+				} `json:"rich_text_nodes"`
+			} `json:"desc"`
+		} `json:"module_dynamic"`
+		ModuleAuthor struct {
+			Name      string `json:"name"`
+			Mid       int64  `json:"mid"`
+			TimeStamp int64  `json:"pub_ts"`
+		} `json:"module_author"`
+	} `json:"modules"`
+	Type string `json:"type"`
+}
 type UserDynamic struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	TTL     int    `json:"ttl"`
 	Data    struct {
-		Items []struct {
-			IDStr   string      `json:"id_str"`
-			Orig    UserDynamic `json:"orig"`
-			Modules struct {
-				ModuleDynamic struct {
-					Major struct {
-						Archive struct {
-							Aid   string `json:"aid"`
-							Badge struct {
-								BgColor string      `json:"bg_color"`
-								Color   string      `json:"color"`
-								IconURL interface{} `json:"icon_url"`
-								Text    string      `json:"text"`
-							} `json:"badge"`
-							Bvid           string `json:"bvid"`
-							Cover          string `json:"cover"`
-							Desc           string `json:"desc"`
-							DisablePreview int    `json:"disable_preview"`
-							DurationText   string `json:"duration_text"`
-							JumpURL        string `json:"jump_url"`
-							Stat           struct {
-								Danmaku string `json:"danmaku"`
-								Play    string `json:"play"`
-							} `json:"stat"`
-							Title string `json:"title"`
-							Type  int    `json:"type"`
-						} `json:"archive"`
-						Opus struct {
-							Pics []struct {
-								URL string `json:"url"`
-							} `json:"pics"`
-							Summary struct {
-								Text string `json:"text"`
-							} `json:"summary"`
-						} `json:"opus"`
-						Desc struct {
-							Text string `json:"text"`
-						} `json:"desc"`
-						Type string `json:"type"`
-					} `json:"major"`
-					Topic interface{} `json:"topic"`
-					Desc  struct {
-						Nodes []struct {
-							Text string `json:"text"`
-						} `json:"rich_text_nodes"`
-					} `json:"desc"`
-				} `json:"module_dynamic"`
-				ModuleAuthor struct {
-					Name string `json:"name"`
-					Mid  int64  `json:"mid"`
-				} `json:"module_author"`
-			} `json:"modules"`
-			Type string `json:"type"`
-		} `json:"items"`
+		Items []DynamicItem `json:"items"`
 	} `json:"data"`
 }
 type User struct {
@@ -177,6 +186,7 @@ type Status struct {
 	UID        string
 	Area       string
 	Title      string
+	StartAt    string
 }
 
 type GuardResponse struct {
@@ -200,6 +210,7 @@ type Archive struct {
 	Type      string
 	Title     string
 	Text      string
+	BiliID    string
 }
 type Dash struct {
 	Data struct {
@@ -334,13 +345,15 @@ func GetAlistToken() string {
 func UploadFile(path string, alistPath string) {
 	file, _ := os.Open(path)
 	fi, _ := file.Stat()
-	client.R().
+	res, _ := client.R().
 		SetHeader("Authorization", GetAlistToken()).
 		SetHeader("Content-Type", "multipart/form-data").
 		SetHeader("Content-Length", strconv.FormatInt(fi.Size(), 10)).
 		SetHeader("File-Path", alistPath).
 		SetFile("file", path).
 		Put(config.AlistServer + "api/fs/form")
+
+	log.Println("[" + alistPath + "   ]" + res.String())
 }
 func UploadArchive(bv string, cid string) {
 	os.Mkdir("cache", 066)
@@ -355,21 +368,23 @@ func UploadArchive(bv string, cid string) {
 			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
 			var v = Dash{}
 			sonic.Unmarshal([]byte(json), &v)
-			audio, _ := client.R().SetDoNotParseResponse(true).Get(v.Data.Dash0.Audio[0].Link)
-			defer audio.RawBody().Close()
+			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Link)
+			//defer audio.RawBody().Close()
 			os.WriteFile("cache/"+bv+".mp3", audio.Body(), 066)
 			audioFile, _ := os.Create("cache/" + bv + ".mp3")
-			defer audioFile.Close()
+			//defer audioFile.Close()
 			io.Copy(audioFile, audio.RawBody())
 
 			video, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Video[0].Link)
-			defer video.RawBody().Close()
+			//defer video.RawBody().Close()
 			videoFile, _ := os.Create("cache/" + bv + ".m4s")
-			defer videoFile.Close()
+			//defer videoFile.Close()
 			io.Copy(videoFile, video.RawBody())
 			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
+			out, _ := cmd.CombinedOutput()
 			cmd.Run() // 执行命令
 
+			log.Println(string(out))
 			UploadFile("cache/"+bv+".mp4", config.AlistPath+bv+".mp4")
 
 			os.Remove("cache/" + bv + ".mp4")
@@ -381,9 +396,90 @@ func UploadArchive(bv string, cid string) {
 }
 
 func UploadLive(live Live) {
-	var flv, t, _ = Last(config.MikuPath + "/" + live.UserID + "-" + live.UserName)
-	log.Println(flv)
-	log.Println(t)
+	time.Sleep(180 * time.Second)
+	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
+	var flv, t, _ = Last(dir)
+	os.MkdirAll("cache", 0777)
+	if time.Now().Unix()-t.Unix() < 600 {
+		var file = dir + "/" + flv
+		log.Println(config.AlistPath + "Live/" + live.UserName + "/" + time.Now().Format(time.DateTime) + "/")
+		split := strings.Split(file, "-")
+		var ext = "flv"
+		var title = strings.Replace(split[len(split)-1], ".flv", "", 10)
+		var uuid = uuid.New().String() + ".mp4"
+
+		if config.CodeToMP4 {
+			file = dir + "/" + flv
+			exec.Command("ffmpeg", "-i", file, "-vcodec", "copy", "-acodec", "copy", "cache/"+uuid)
+			ext = "mp4"
+			file = "cache/" + uuid
+		}
+		var alistName = config.AlistPath + "Live/" + live.UserName + "/" + strings.Replace(time.Now().Format(time.DateTime), ":", "-", 3) + "/" + title + "." + ext
+		if config.SplitAudio {
+			file = dir + "/" + flv
+			var auido = strings.Replace("cache/"+uuid, "."+ext, ".mp3", 1)
+			exec.Command("ffmpeg", "-i", file, "-vn", auido)
+			UploadFile(auido, strings.Replace(alistName, ext, "mp3", 1))
+		}
+
+		UploadFile(file, alistName)
+	}
+}
+func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
+	var Type = item.Type
+	var orig = Archive{}
+	var userName = item.Modules.ModuleAuthor.Name
+	var archive = Archive{}
+	archive.UName = userName
+	archive.UID = item.Modules.ModuleAuthor.Mid
+	archive.CreatedAt = time.Unix(item.Modules.ModuleAuthor.TimeStamp+8*3600, 0)
+	if Type == "DYNAMIC_TYPE_FORWARD" { //转发
+		archive.Type = "f"
+		archive.BiliID = item.IDStr
+		var txt = ""
+		for _, node := range item.Modules.ModuleDynamic.Desc.Nodes {
+			txt = txt + node.Text
+			txt = txt + "\n"
+		}
+		orig, _ = ParseDynamic(*item.Orig, false)
+		archive.Text = txt
+		if push {
+			PushDynamic("你关注的up主：转发了动态 "+userName, item.Modules.ModuleDynamic.Desc.Nodes[0].Text)
+		}
+	} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
+		archive.Type = "v"
+		archive.BiliID = item.IDStr
+		archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
+		if push {
+			PushDynamic("你关注的up主：发布了视频 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			go UploadArchive(item.Modules.ModuleDynamic.Major.Archive.Bvid, "")
+		}
+
+	} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
+		archive.Type = "i"
+		archive.BiliID = item.IDStr
+		archive.Text = item.Modules.ModuleDynamic.Major.Desc.Text
+		if push {
+			PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+		}
+
+	} else if Type == "DYNAMIC_TYPE_WORD" { //文字
+		archive.Type = "t"
+		archive.BiliID = item.IDStr
+		archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
+		if push {
+			PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+		}
+	} else if Type == "DYNAMIC_TYPE_LIVE_RCMD" {
+
+	} else if Type == "DYNAMIC_TYPE_COMMON_SQUARE" {
+
+	} else {
+		archive.Type = Type
+		archive.BiliID = item.IDStr
+		archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
+	}
+	return archive, orig
 }
 func UpdateSpecial() {
 	var flag = false
@@ -409,41 +505,8 @@ func UpdateSpecial() {
 				}
 				if ShouldPush {
 					RecordedDynamic = append(RecordedDynamic, item.IDStr)
-					var Type = item.Type
-					var userName = item.Modules.ModuleAuthor.Name
-					var archive = Archive{}
-					archive.UName = userName
-					archive.UID = item.Modules.ModuleAuthor.Mid
-
-					if Type == "DYNAMIC_TYPE_FORWARD" { //转发
-						archive.Type = "f"
-						PushDynamic("你关注的up主：转发了动态 "+userName, item.Modules.ModuleDynamic.Desc.Nodes[0].Text)
-						db.Save(&archive)
-					} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
-						archive.Type = "v"
-						archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
-						db.Save(&archive)
-						PushDynamic("你关注的up主：发布了视频 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
-						go UploadArchive(item.Modules.ModuleDynamic.Major.Archive.Bvid, "")
-					} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
-						archive.Type = "i"
-						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
-						db.Save(&archive)
-						PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
-					} else if Type == "DYNAMIC_TYPE_WORD" { //文字
-						archive.Type = "t"
-						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
-						db.Save(&archive)
-						PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
-					} else if Type == "DYNAMIC_TYPE_LIVE_RCMD" {
-
-					} else if Type == "DYNAMIC_TYPE_COMMON_SQUARE" {
-
-					} else {
-						archive.Type = Type
-						archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
-						db.Save(&archive)
-					}
+					d, _ := ParseDynamic(item, true)
+					db.Save(&d)
 					json := make([]byte, 0)
 					sonic.Unmarshal(json, item)
 					PushDynamic("动态json", string(json))
@@ -457,6 +520,28 @@ func UpdateSpecial() {
 	}
 
 	//log.Printf(RecordedDynamic)
+}
+func FetchArchive(mid string, page int, size int) {
+	var url = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=#id&ps=#ps&pn=#pn"
+	url = strings.Replace(url, "#id", mid, 1)
+	url = strings.Replace(url, "#ps", strconv.Itoa(size), 1)
+	url = strings.Replace(url, "#pn", strconv.Itoa(page), 1)
+
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).
+		SetHeader("Referer", "https://www.bilibili.com/").Get(url)
+
+	dynamic := UserDynamic{}
+	sonic.Unmarshal(res.Body(), &dynamic)
+	for _, item := range dynamic.Data.Items {
+		var d, d1 = ParseDynamic(item, false)
+		db.Save(&d)
+		if d1.BiliID != "" {
+			db.Save(&d1)
+		}
+
+	}
+	log.Println(dynamic)
+
 }
 func RefreshFollowings() {
 
@@ -498,19 +583,14 @@ func SaveConfig() {
 
 var config = Config{}
 var Followings = make([]User, 0)
-var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
+var db *gorm.DB
+
+// var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 
 var lives = map[string]*Status{} //[]string{}
 
 func main() {
 
-	db.AutoMigrate(&Live{})
-	db.AutoMigrate(&LiveAction{})
-	db.AutoMigrate(&User{})
-	db.AutoMigrate(&Archive{})
-	FixMoney()
-	RemoveEmpty()
-	db.Exec("PRAGMA journal_mode=WAL;")
 	content, err := os.ReadFile("config.json")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 
@@ -547,6 +627,26 @@ func main() {
 		os.WriteFile("config.json", content, 666)
 	}
 	err = sonic.Unmarshal(content, &config)
+	if config.EnableSQLite {
+		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
+	}
+	if config.EnableMySQL {
+		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8&parseTime=True&loc=Local"
+		dsl = strings.Replace(dsl, "#user", config.SQLUser, 1)
+		dsl = strings.Replace(dsl, "#pass", config.SQLPass, 1)
+		dsl = strings.Replace(dsl, "#server", config.SQLServer, 1)
+		dsl = strings.Replace(dsl, "#name", config.SQLName, 1)
+		db, _ = gorm.Open(mysql.New(mysql.Config{
+			DSN: dsl, // DSN data source name
+		}), &gorm.Config{})
+	}
+	db.AutoMigrate(&Live{})
+	db.AutoMigrate(&LiveAction{})
+	db.AutoMigrate(&User{})
+	db.AutoMigrate(&Archive{})
+	db.Exec("PRAGMA journal_mode=WAL;")
+	FixMoney()
+	RemoveEmpty()
 	go InitHTTP()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]

@@ -12,17 +12,57 @@ const Monitor = () => {
 
     const host = location.hostname;
 
+    let init = {}
 
     useEffect(() => {
-        axios.get(`http://${host}:8080/monitor`).then(res => {
-            //setMonitor(res.data.lives)
-            res.data.lives.sort((a, b) => {
-                if(a.Live === b.Live) return 0; // 当前后两个元素的isOnline相同时, 不改变顺序
-                return a.Live ? -1 : 1; // 如果a的isOnline为true, 那么让a排在b前面, 否则排在后面
-            });
-            setMonitor(res.data.lives)
-        })
+        setInterval(() => {
+            axios.get(`http://${host}:8080/monitor`).then(res => {
+                //setMonitor(res.data.lives)
+                if (JSON.stringify(init) === "{}") {
+                    var j = res.data.lives.sort((a, b) => {
+                        // 首先按 Live 排序，Live 为 true 的排在前面
+                        if (a.Live === b.Live) {
+                            // 如果 Live 相同，再根据 UName 排序
+                            return a.UID > b.UID ? 1 : -1;
+                        }
+                        // Live 为 true 的排在前面，Live 为 false 的排在后面
+                        return a.Live ? -1 : 1;
+                    });
+                    setMonitor(j);
+                    init = j
+
+                } else {
+
+                    init.forEach((live) => {
+                        var id = live.UID
+                        res.data.lives.forEach(live0 => {
+                            if (live0.UID === id) {
+                                if (live.Live != live0.Live) {
+                                    live.Live = live0.Live
+                                }
+                            }
+                        })
+                    })
+                    setMonitor(init)
+
+                }
+                const sort = res.data.lives.sort((a, b) => {
+                    // 首先按 Live 排序，Live 为 true 的排在前面
+                    if (a.Live === b.Live) {
+                        // 如果 Live 相同，再根据 UName 排序
+                        return a.UID > b.UID ? 1 : -1;
+                    }
+                    // Live 为 true 的排在前面，Live 为 false 的排在后面
+                    return a.Live ? -1 : 1;
+                });
+
+                setMonitor(sort)
+            })
+        },2000)
     }, [])
+
+
+
 
     return (
         <div className={classes.container}>
