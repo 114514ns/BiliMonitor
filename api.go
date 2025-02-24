@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
@@ -28,6 +29,9 @@ func removeDuplicates(input []string) []string {
 func InitHTTP() {
 	r := gin.Default()
 	r.Use(CORSMiddleware())
+	//r.Static("/page", "./Page/dist/")
+	//r.Static("/assets", "./Page/dist/assets")
+	r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
 	r.GET("/monitor", func(c *gin.Context) {
 
 		var array = make([]Status, 0)
@@ -157,6 +161,7 @@ func InitHTTP() {
 			"message": "success",
 		})
 	})
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 

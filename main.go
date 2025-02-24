@@ -396,6 +396,8 @@ func UploadArchive(bv string, cid string) {
 }
 
 func UploadLive(live Live) {
+
+	var debug = true
 	time.Sleep(180 * time.Second)
 	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
 	var flv, t, _ = Last(dir)
@@ -410,7 +412,12 @@ func UploadLive(live Live) {
 
 		if config.CodeToMP4 {
 			file = dir + "/" + flv
-			exec.Command("ffmpeg", "-i", file, "-vcodec", "copy", "-acodec", "copy", "cache/"+uuid)
+			cmd := exec.Command("ffmpeg", "-i", file, "-vcodec", "copy", "-acodec", "copy", "cache/"+uuid)
+			cmd.Run()
+			out, _ := cmd.CombinedOutput()
+			if debug {
+				fmt.Println(string(out))
+			}
 			ext = "mp4"
 			file = "cache/" + uuid
 		}
@@ -418,8 +425,13 @@ func UploadLive(live Live) {
 		if config.SplitAudio {
 			file = dir + "/" + flv
 			var auido = strings.Replace("cache/"+uuid, "."+ext, ".mp3", 1)
-			exec.Command("ffmpeg", "-i", file, "-vn", auido)
-			UploadFile(auido, strings.Replace(alistName, ext, "mp3", 1))
+			cmd := exec.Command("ffmpeg", "-i", file, "-vn", auido)
+			cmd.Run()
+			output, _ := cmd.CombinedOutput()
+			if debug {
+				fmt.Println(string(output))
+			}
+			UploadFile(auido, strings.Replace(alistName, ext, ".mp3", 1))
 		}
 
 		UploadFile(file, alistName)

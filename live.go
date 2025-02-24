@@ -42,6 +42,11 @@ func FixMoney() {
 		db.Model(&LiveAction{}).Where("live = ? and action_name = 'msg'", v.ID).Count(&msgCount)
 		v.Money = result
 		v.Message = int(msgCount)
+		var last = LiveAction{}
+		db.Where("live = ?", v.ID).Last(&last)
+		if (time.Now().Unix() + 8*3600 - last.CreatedAt.Unix()) < 0 {
+
+		}
 		db.Save(&v) // 分别更新每条记录
 	}
 }
@@ -119,8 +124,11 @@ func TraceLive(roomId string) {
 		log.Println(res.String())
 	}
 	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
-
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	var dialer = &websocket.Dialer{
+		Proxy:            nil,
+		HandshakeTimeout: 45 * time.Second,
+	}
+	c, _, err := dialer.Dial(u.String(), nil)
 	if err != nil {
 		log.Fatal("["+liver+"]  "+"Dial:", err)
 	}
