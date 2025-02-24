@@ -69,11 +69,13 @@ function LiveDetailPage(props) {
             }
         ])
     }, [])
+    const port = location.port
+    const protocol = location.protocol.replace(":","")
     const refreshData = (page, size, name,order) => {
         if (page === undefined) {
             return
         }
-        var url = `http://${host}:8080/live/` + id + "/?" +  "page=" + page + "&limit=" + size + "&order=" + order
+        var url = `${protocol}://${host}:${port}/live/` + id + "/?" +  "page=" + page + "&limit=" + size + "&order=" + order
         if (name != null) {
             url = url + `&name=${name}`
         }

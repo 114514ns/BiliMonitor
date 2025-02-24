@@ -12,11 +12,15 @@ const Monitor = () => {
 
     const host = location.hostname;
 
+    const port = location.port;
+
+    const protocol = location.protocol.replace(":","")
+
     let init = {}
 
     useEffect(() => {
         setInterval(() => {
-            axios.get(`http://${host}:8080/monitor`).then(res => {
+            axios.get(`${protocol}://${host}:${port}/monitor`).then(res => {
                 //setMonitor(res.data.lives)
                 if (JSON.stringify(init) === "{}") {
                     var j = res.data.lives.sort((a, b) => {
@@ -76,7 +80,7 @@ const Monitor = () => {
                         setText(e.target.value)
                     }}/>
                     <Button onClick={() => {
-                        axios.get(`http://${host}:8080/add/` + text).then(res => {
+                        axios.get(`http://${host}:${port}/add/` + text).then(res => {
                             if (res.data.message === "success") {
                                 messageApi.info('添加成功');
                             } else {

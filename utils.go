@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -39,28 +40,29 @@ func Last(dir string) (fileName string, modTime time.Time, err error) {
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	var onlyFiles []os.DirEntry
+
+	var onlyFlvFiles []os.DirEntry
 	for _, entry := range dirEntries {
-		if !entry.IsDir() {
-			onlyFiles = append(onlyFiles, entry)
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".flv") {
+			onlyFlvFiles = append(onlyFlvFiles, entry)
 		}
 	}
-	if len(onlyFiles) == 0 {
-		return "", time.Time{}, fmt.Errorf("no files found in the directory: %s", dir)
+	if len(onlyFlvFiles) == 0 {
+		return "", time.Time{}, fmt.Errorf("no .flv files found in the directory: %s", dir)
 	}
-	sort.Slice(onlyFiles, func(i, j int) bool {
-		infoI, _ := onlyFiles[i].Info()
-		infoJ, _ := onlyFiles[j].Info()
+
+	sort.Slice(onlyFlvFiles, func(i, j int) bool {
+		infoI, _ := onlyFlvFiles[i].Info()
+		infoJ, _ := onlyFlvFiles[j].Info()
 		return infoI.ModTime().After(infoJ.ModTime())
 	})
-	latestFile := onlyFiles[0]
+	latestFile := onlyFlvFiles[0]
 	info, err := latestFile.Info()
 	if err != nil {
 		return "", time.Time{}, err
 	}
 	return latestFile.Name(), info.ModTime(), nil
 }
-
 func abs(a int) int {
 	if a < 0 {
 		return -a

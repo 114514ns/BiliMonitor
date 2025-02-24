@@ -19,9 +19,13 @@ function LivePage(props) {
 
     const host = location.hostname;
 
+    const port = location.port
+
+    const protocol = location.protocol.replace(":","")
+
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
-        var url = `http://${host}:8080/live?page=` + page + "&limit=" + size
+        var url = `${protocol}://${host}:${port}/live?page=` + page + "&limit=" + size
         if (name != null) {
             url = url + `&name=${name}`
         }
@@ -139,7 +143,7 @@ function LivePage(props) {
                 const labelGroup = document.querySelector(".ant-dropdown-menu").childNodes
                 document.querySelector(".ant-table-filter-dropdown-search-input").addEventListener('input', (e) => {
                     var text = element.childNodes[1].value
-                    axios.get(`http://${host}:8080/liver?key=` + text).then(res => {
+                    axios.get(`${protocol}://${host}:${port}/liver?key=` + text).then(res => {
                         if (!res.data.result) return; // 处理 null/undefined/空数据
                         var array = []
                         const newFilters = res.data.result.map((item) => ({ text: item, value: item }));
@@ -183,7 +187,7 @@ function LivePage(props) {
 
         <div>
             <FloatButton onClick={() => {
-                axios.get(`http://${host}:8080/refreshMoney`).then(res => {
+                axios.get(`http://${host}:${port}/refreshMoney`).then(res => {
                     refreshData(currentPage, pageSize)
                 })
             }} type="primary">Refresh Money</FloatButton>
