@@ -162,6 +162,10 @@ func InitHTTP() {
 		})
 	})
 
+	r.GET("/parse", func(context *gin.Context) {
+		//id := context.DefaultQuery("bv", "10")
+	})
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 
