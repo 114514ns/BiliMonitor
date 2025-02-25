@@ -74,6 +74,7 @@ func TraceLive(roomId string) {
 
 	lives[roomId].UID = liverId
 	lives[roomId].Area = roomInfo.Data.Area
+	lives[roomId].Face = roomInfo.Data.Face
 	lives[roomId].Title = roomInfo.Data.Title
 	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
 		lives[roomId].Live = true
@@ -152,7 +153,11 @@ func TraceLive(roomId string) {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("[System] 登录失败，请更换Cookie")
+				log.Println("[System] 登录失败，尝试重连次数：" + strconv.FormatInt(int64(lives[roomId].RemainTrying), 10))
+				if lives[roomId].RemainTrying > 0 {
+					TraceLive(roomId)
+				}
+				lives[roomId].RemainTrying--
 				lives[roomId].LastActive = 114514
 				return
 			}
@@ -345,8 +350,9 @@ func TraceLive(roomId string) {
 		case <-ticker.C:
 			// 每30秒向服务端发送一次消息
 			err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
+			lives[roomId].LastActive = time.Now().Unix() + 3600*8
 			if err != nil {
-				lives[roomId].LastActive = 114514
+
 				log.Println("write:", err)
 				return
 			}
@@ -507,6 +513,7 @@ type RoomInfo struct {
 		Area         string `json:"area_name"`
 		AreaId       int    `json:"area_id"`
 		ParentAreaId int    `json:"parent_area_id"`
+		Face         string `json:"user_cover"`
 	} `json:"data"`
 }
 type Live struct {

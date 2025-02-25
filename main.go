@@ -176,17 +176,38 @@ type User struct {
 	Fans   int
 }
 type Video struct {
+	Title     string
+	Desc      string
+	Author    string
+	UID       int64
+	Img       string
+	BV        string
+	PublishAt string
+}
+type VideoResponse struct {
 	Data struct {
+		Cover     string `json:"pic"`
+		Title     string `json:"title"`
+		Duration  int    `json:"duration"`
+		PublishAt int64  `json:"pubdate"`
+		Desc      string `json:"desc"`
+		Owner     struct {
+			Mid  int64  `json:"mid"`
+			Name string `json:"name"`
+			Face string `json:"face"`
+		} `json:"owner"`
 	} `json:"data"`
 }
 type Status struct {
-	Live       bool
-	LastActive int64
-	UName      string
-	UID        string
-	Area       string
-	Title      string
-	StartAt    string
+	Live         bool
+	LastActive   int64
+	UName        string
+	UID          string
+	Area         string
+	Title        string
+	StartAt      string
+	RemainTrying int8
+	Face         string
 }
 
 type GuardResponse struct {
@@ -336,8 +357,11 @@ func GetAlistToken() string {
 	}
 	var sum = sha256.Sum256([]byte(config.AlistPass + "-https://github.com/alist-org/alist"))
 	var req = LoginRequest{Username: config.AlistUser, Password: hex.EncodeToString(sum[:])}
-	alist, _ := client.R().SetBody(req).Post(config.AlistServer + "api/auth/login/hash")
+	alist, err := client.R().SetBody(req).Post(config.AlistServer + "api/auth/login/hash")
 
+	if err != nil {
+		log.Println(err)
+	}
 	var res = LoginResponse{}
 	sonic.Unmarshal(alist.Body(), &res)
 	return res.Data.Token
@@ -353,14 +377,15 @@ func UploadFile(path string, alistPath string) {
 		SetFile("file", path).
 		Put(config.AlistServer + "api/fs/form")
 
-	log.Println("[" + alistPath + "   ]" + res.String())
+	log.Println("[" + alistPath + "]  " + res.String() + "   " + res.Status())
 }
-func UploadArchive(bv string, cid string) {
+func UploadArchive(video Video) {
 	os.Mkdir("cache", 066)
-	var videolink = "https://bilibili.com/video/" + bv
+	var videolink = "https://bilibili.com/video/" + video.BV
 	vRes, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36").Get(videolink)
 	htmlContent := vRes.Body()
 	reader := bytes.NewReader(htmlContent)
+	var bv = video.BV
 	root, _ := html.Parse(reader)
 	find := goquery.NewDocumentFromNode(root).Find("script")
 	find.Each(func(i int, s *goquery.Selection) {
@@ -370,22 +395,22 @@ func UploadArchive(bv string, cid string) {
 			sonic.Unmarshal([]byte(json), &v)
 			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Link)
 			//defer audio.RawBody().Close()
-			os.WriteFile("cache/"+bv+".mp3", audio.Body(), 066)
-			audioFile, _ := os.Create("cache/" + bv + ".mp3")
+			os.WriteFile("cache/"+video.BV+".mp3", audio.Body(), 066)
+			audioFile, _ := os.Create("cache/" + video.BV + ".mp3")
 			//defer audioFile.Close()
 			io.Copy(audioFile, audio.RawBody())
 
-			video, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Video[0].Link)
+			videoLink, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Video[0].Link)
 			//defer video.RawBody().Close()
 			videoFile, _ := os.Create("cache/" + bv + ".m4s")
 			//defer videoFile.Close()
-			io.Copy(videoFile, video.RawBody())
+			io.Copy(videoFile, videoLink.RawBody())
 			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
 			out, _ := cmd.CombinedOutput()
 			cmd.Run() // 执行命令
 
 			log.Println(string(out))
-			UploadFile("cache/"+bv+".mp4", config.AlistPath+bv+".mp4")
+			UploadFile("cache/"+bv+".mp4", config.AlistPath+"/Archive/"+video.Author+"/["+strings.ReplaceAll(video.PublishAt, ":", "-")+"] "+video.Title+".mp4")
 
 			os.Remove("cache/" + bv + ".mp4")
 			os.Remove("cache/" + bv + ".mp3")
@@ -398,11 +423,11 @@ func UploadArchive(bv string, cid string) {
 func UploadLive(live Live) {
 
 	var debug = true
-	time.Sleep(180 * time.Second)
+	//time.Sleep(180 * time.Second)
 	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
 	var flv, t, _ = Last(dir)
 	os.MkdirAll("cache", 0777)
-	if time.Now().Unix()-t.Unix() < 600 {
+	if time.Now().Unix()-t.Unix() < 6000000 {
 		var file = dir + "/" + flv
 		log.Println(config.AlistPath + "Live/" + live.UserName + "/" + time.Now().Format(time.DateTime) + "/")
 		split := strings.Split(file, "-")
@@ -431,7 +456,7 @@ func UploadLive(live Live) {
 			if debug {
 				fmt.Println(string(output))
 			}
-			UploadFile(auido, strings.Replace(alistName, ext, ".mp3", 1))
+			UploadFile(auido, strings.Replace(alistName, "."+ext, ".mp3", 1))
 		}
 
 		UploadFile(file, alistName)
@@ -464,7 +489,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
 		if push {
 			PushDynamic("你关注的up主：发布了视频 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
-			go UploadArchive(item.Modules.ModuleDynamic.Major.Archive.Bvid, "")
+			go UploadArchive(ParseSingleVideo(item.Modules.ModuleDynamic.Major.Archive.Bvid))
 		}
 
 	} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
@@ -588,6 +613,28 @@ func RefreshFollowings() {
 	Special = Special0
 }
 
+func ParseSingleVideo(bv string) (result Video) {
+	res, _ := client.R().
+		SetHeader("Referer", "https://www.bilibili.com/").
+		SetHeader("Cookie", config.Cookie).
+		Get("https://api.bilibili.com/x/web-interface/view?bvid=" + bv)
+
+	var resObj = VideoResponse{}
+	sonic.Unmarshal(res.Body(), &resObj)
+
+	var video = Video{}
+	video.Author = resObj.Data.Owner.Name
+	video.BV = bv
+	video.Desc = resObj.Data.Desc
+	video.Title = resObj.Data.Title
+	video.PublishAt = time.Unix(resObj.Data.PublishAt, 0).Format(time.DateTime)
+	video.Img = resObj.Data.Cover
+	video.UID = resObj.Data.Owner.Mid
+
+	return video
+
+}
+
 func SaveConfig() {
 	content, _ := sonic.Marshal(&config)
 	os.WriteFile("config.json", content, 666)
@@ -663,7 +710,7 @@ func main() {
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]
 
-		lives[roomId] = &Status{}
+		lives[roomId] = &Status{RemainTrying: 4}
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
 

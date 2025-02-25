@@ -1,8 +1,18 @@
 import React, {useEffect, useState} from 'react';
-import {FloatButton, Input, Table} from "antd";
+import {FloatButton, Input} from "antd";
 import axios from "axios";
 import {useNavigate} from "react-router";
 import "./LivePage.css"
+import {
+    Autocomplete, AutocompleteItem,
+    Pagination,
+    Table,
+    TableBody,
+    TableCell,
+    TableColumn,
+    TableHeader,
+    TableRow,
+} from "@heroui/react";
 
 function LivePage(props) {
 
@@ -21,7 +31,7 @@ function LivePage(props) {
 
     const port = location.port
 
-    const protocol = location.protocol.replace(":","")
+    const protocol = location.protocol.replace(":", "")
 
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
@@ -50,12 +60,17 @@ function LivePage(props) {
         refreshData(1, 10)
     }, [])
 
-    const [filters, setFilters] = useState([
-        {text: 'Joe', value: 'Joe'},
-        {text: 'Jim', value: 'Jim'},
-        {text: 'Category 1', value: 'Category 1'},
-        {text: 'Category 2', value: 'Category 2'},
-    ]);
+    const [filters, setFilters] = useState([]);
+    useEffect(() => {
+        var arr = []
+        dataSource.forEach(item => {
+            arr.push({
+                key:item.UserName,
+                value:item.UserName
+            })
+        })
+        setFilters(arr)
+    },[dataSource])
 
     const [columns, setColumn] = useState([
         {
@@ -103,10 +118,6 @@ function LivePage(props) {
             key: 'Message'
         }
     ])
-    useEffect(() => {
-
-        //setColumn()
-    }, [])
     const [currentPage, setCurrentPage] = useState(1);
 
     const [pageSize, setPageSize] = useState(10);
@@ -119,70 +130,7 @@ function LivePage(props) {
         setPageSize(pageSize)
 
     }
-    useEffect(() => {
-        console.log("columns 更新了:", columns);
-    }, [columns]); // 监听 columns 变化
-    useEffect(() => {
-        console.log("filters 更新了:", filters);
-        setColumn((prevColumns) =>
-            prevColumns.map((col, index) =>
-                index === 0 ? { ...col, filters: filters } : col
-            )
-        );
-    }, [filters]);
 
-
-
-    setInterval(() => {
-        const element = document.querySelector(".ant-table-filter-dropdown-search-input")
-
-        if (element != null && selected === false) {
-            isSelected(true)
-            if (JSON.stringify(element.getEventListeners()) === `{}`) {
-                const btn = document.querySelector(".ant-table-filter-dropdown-btns").childNodes[1]
-                const labelGroup = document.querySelector(".ant-dropdown-menu").childNodes
-                document.querySelector(".ant-table-filter-dropdown-search-input").addEventListener('input', (e) => {
-                    var text = element.childNodes[1].value
-                    axios.get(`${protocol}://${host}:${port}/liver?key=` + text).then(res => {
-                        if (!res.data.result) return; // 处理 null/undefined/空数据
-                        var array = []
-                        const newFilters = res.data.result.map((item) => ({ text: item, value: item }));
-
-                        setFilters(newFilters);
-
-
-                    })
-                })
-                btn.addEventListener('click', (e) => {
-                    console.log(e)
-                    var found = false
-                    labelGroup.forEach((item, index) => {
-
-                        if (item.className.indexOf('selected') !== -1) {
-                            //console.log(textContent)
-                            setName(item.textContent)
-                            console.log(item.textContent)
-                            found = true
-
-                        }
-
-                    })
-                    if (!found) {
-                        refreshData(currentPage, pageSize, null)
-                    }
-
-                })
-
-            }
-        }
-    }, 50)
-
-
-    const onChange = (pagination, filters, sorter, extra) => {
-        //refreshData(currentPage, pageSize, filters[0].value)
-        console.log(pagination, filters, sorter, extra)
-
-    };
     return (
 
         <div>
@@ -191,30 +139,59 @@ function LivePage(props) {
                     refreshData(currentPage, pageSize)
                 })
             }} type="primary">Refresh Money</FloatButton>
-            <Input
-                placeholder="Search Filters"
-                style={{marginBottom: 16}}
-            ></Input>
-            <Table dataSource={dataSource} columns={columns} pagination={{
-                current: currentPage,             // 当前页
-                total: total,
-                onChange: handlePageChange,
+            <Autocomplete
+                className="max-w-xs"
+                defaultItems={filters}
+                label="Favorite Animal"
+                placeholder="Search an animal"
+                onChange={(e) => {
+                    axios.get(`${protocol}://${host}:${port}/liver?key=` + e).then(res => {
+                        if (!res.data.result) return; // 处理 null/undefined/空数据
+                        const newFilters = res.data.result.map((item) => ({ key: item, value: item }));
 
-            }}
-                   onRow={(record) => {
-                       return {
-                           onClick: (event) => {
-                               console.log(record);
-                               redirect(`/lives/${record.ID}`)
-                           }, // 点击行
-                       };
-                   }}
-                   rowClassName={(record, index) => {
-                       return index % 2 === 0 ? "even-row" : "odd-row"
-                   }
-                   }
-                   onChange={onChange}
-            />
+                        setFilters(newFilters);
+
+
+                    })
+                }}
+            >
+                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
+            </Autocomplete>
+            <Table bottomContent={
+                <div className="flex w-full justify-center">
+                    <Pagination
+                        isCompact
+                        showControls
+                        showShadow
+                        color="secondary"
+                        page={currentPage}
+                        total={total/pageSize}
+                        onChange={(page) => handlePageChange(page, pageSize)}
+                    />
+                </div>
+            } rowHeight={70}>
+
+                <TableHeader>
+                    {columns.map((col, index) => (
+                        <TableColumn key={index}>{col.title}</TableColumn>
+
+                    ))}
+                </TableHeader>
+                <TableBody>
+
+                    {dataSource.map((item, index) => (
+                        <TableRow key={index}>
+                            <TableCell>{item.UserName}</TableCell>
+                            <TableCell>{item.Title}</TableCell>
+                            <TableCell>{item.StartAt}</TableCell>
+                            <TableCell>{item.EndAt}</TableCell>
+                            <TableCell>{item.Area}</TableCell>
+                            <TableCell>{item.Money}</TableCell>
+                            <TableCell>{item.Message}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     )
 }
