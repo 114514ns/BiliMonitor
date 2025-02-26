@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"log"
+	"net/http"
 	url2 "net/url"
 	"os"
 	"os/exec"
@@ -27,7 +28,7 @@ import (
 )
 
 // TIP To run your code, right-click the code and select <b>Run</b>. Alternatively, click
-// the <icon src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.
+// the <icoMn src="AllIcons.Actions.Execute"/> icon in the gutter and select the <b>Run</b> menu item from here.
 var client = resty.New()
 var Cookie = ""
 var Special = make([]User, 0)
@@ -208,6 +209,7 @@ type Status struct {
 	StartAt      string
 	RemainTrying int8
 	Face         string
+	Cover        string
 }
 
 type GuardResponse struct {
@@ -366,19 +368,39 @@ func GetAlistToken() string {
 	sonic.Unmarshal(alist.Body(), &res)
 	return res.Data.Token
 }
-func UploadFile(path string, alistPath string) {
-	file, _ := os.Open(path)
-	fi, _ := file.Stat()
-	res, _ := client.R().
-		SetHeader("Authorization", GetAlistToken()).
-		SetHeader("Content-Type", "multipart/form-data").
-		SetHeader("Content-Length", strconv.FormatInt(fi.Size(), 10)).
-		SetHeader("File-Path", alistPath).
-		SetFile("file", path).
-		Put(config.AlistServer + "api/fs/form")
+func UploadFile(path string, alistPath string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("打开文件失败: %w", err)
+	}
+	defer file.Close()
 
-	log.Println("[" + alistPath + "]  " + res.String() + "   " + res.Status())
+	fi, err := file.Stat()
+
+	req, _ := http.NewRequest("PUT", config.AlistServer+"api/fs/put", file)
+	// 设置请求头
+	req.Header.Set("Authorization", GetAlistToken())
+	req.Header.Set("File-Path", alistPath)
+	req.Header.Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("上传请求失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("读取响应失败: %w", err)
+	}
+
+	fmt.Printf("[%s] %s %s\n", alistPath, resp.Status, string(body))
+	return nil
 }
+
 func UploadArchive(video Video) {
 	os.Mkdir("cache", 066)
 	var videolink = "https://bilibili.com/video/" + video.BV
@@ -423,7 +445,7 @@ func UploadArchive(video Video) {
 func UploadLive(live Live) {
 
 	var debug = true
-	//time.Sleep(180 * time.Second)
+	time.Sleep(60 * time.Second)
 	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
 	var flv, t, _ = Last(dir)
 	os.MkdirAll("cache", 0777)
@@ -706,6 +728,8 @@ func main() {
 	db.Exec("PRAGMA journal_mode=WAL;")
 	FixMoney()
 	RemoveEmpty()
+	UploadLive(Live{UserName: "伊南娜Ishtar", RoomId: 3237809})
+	return
 	go InitHTTP()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]

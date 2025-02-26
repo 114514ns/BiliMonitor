@@ -166,6 +166,18 @@ func InitHTTP() {
 		//id := context.DefaultQuery("bv", "10")
 	})
 
+	r.GET("/proxy", func(c *gin.Context) {
+		var url = c.Query("url")
+		if url == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "url is empty"})
+			return
+		}
+		res, _ := client.R().SetHeader("Referer", "https://www.bilibili.com/").Get(url)
+		c.Writer.Header().Set("Content-Type", res.Header().Get("Content-Type"))
+		c.Writer.WriteHeader(res.StatusCode())
+		c.Writer.Write(res.Body())
+	})
+
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 

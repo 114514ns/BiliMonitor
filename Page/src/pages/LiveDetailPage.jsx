@@ -1,9 +1,23 @@
 import React, {useEffect, useState} from 'react';
 import {useParams} from "react-router-dom";
 import axios from "axios";
-import {Table} from "antd";
+import {Button} from "antd";
 import  "./LivePage.css"
-
+import {
+    Autocomplete,
+    AutocompleteItem,
+    Dropdown,
+    DropdownItem,
+    DropdownMenu,
+    DropdownTrigger,
+    Pagination,
+    Table,
+    TableBody,
+    TableCell,
+    TableColumn,
+    TableHeader,
+    TableRow
+} from "@heroui/react";
 function LiveDetailPage(props) {
     let { id } = useParams();
     const host = location.hostname;
@@ -69,7 +83,7 @@ function LiveDetailPage(props) {
             }
         ])
     }, [])
-    const port = location.port
+    const port = debug?8080:location.port
     const protocol = location.protocol.replace(":","")
     const refreshData = (page, size, name,order) => {
         if (page === undefined) {
@@ -113,23 +127,65 @@ function LiveDetailPage(props) {
 
     return (
         <div>
-            <Table dataSource={dataSource} columns={columns} pagination={{
-                current: currentPage,             // 当前页
-                total: total,
-                onChange: handlePageChange,
+            <Autocomplete
+                className="max-w-xs"
+                defaultItems={[{
+                    key: 'ascend',
+                    value: "Ascend"
+                },
+                    {
+                        key: 'descend',
+                        value: "Descend"
 
-            }}
-                   onRow={(record) => {
-                       return {
-                           onClick: (event) => {}, // 点击行
-                       };
-                   }}
-                   onChange={onChange}
-                   rowClassName={(record, index) => {
-                       return index % 2 === 0 ? "even-row" : "odd-row"
-                   }
-                   }
-            />
+                    },
+                    {
+                        key: 'Time',
+                        value: "Time"
+                    }
+                ]}
+                label="Sort by"
+                onSelectionChange={e => {
+                    refreshData(currentPage, pageSize, null,e)
+                }}
+            >
+                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
+            </Autocomplete>
+            <Table       maxTableHeight={500}
+                         rowHeight={70} bottomContent={
+                <div className="flex w-full justify-center">
+                    <Pagination
+                        isCompact
+                        showControls
+                        showShadow
+                        color="secondary"
+                        page={currentPage}
+                        total={total / pageSize}
+                        onChange={(page) => handlePageChange(page, pageSize)}
+                    />
+                </div>
+            }  isStriped>
+
+                <TableHeader>
+                    {columns.map((col, index) => (
+                        <TableColumn key={index}>{col.title}</TableColumn>
+
+                    ))}
+                </TableHeader>
+                <TableBody>
+
+                    {dataSource.map((item, index) => (
+                        <TableRow key={index} onClick={() => {
+                            redirect(`/lives/${record.ID}`)
+                        }}>
+                            <TableCell>{item.FromName}</TableCell>
+                            <TableCell>{item.Liver}</TableCell>
+                            <TableCell>{item.CreatedAt}</TableCell>
+                            <TableCell>{item.GiftPrice}</TableCell>
+                            <TableCell>{item.Extra}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     );
 }
