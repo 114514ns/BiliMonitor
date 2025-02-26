@@ -72,9 +72,26 @@ func TraceLive(roomId string) {
 	liver = liverObj.Data.Info.Uname
 	lives[roomId].UName = liver
 
+	var faceUrl = "https://api.bilibili.com/x/space/top/arc?vmid=" + liverId
+
+	var faceRes, _ = client.R().Get(faceUrl)
+
+	time.Sleep(1 * time.Second)
+
+	type FaceInfo struct {
+		Data struct {
+			Owner struct {
+				Face string `json:"face"`
+			} `json:"owner"`
+		} `json:"data"`
+	}
+	var faceInfo = FaceInfo{}
+	sonic.Unmarshal(faceRes.Body(), &faceInfo)
+
+	lives[roomId].Face = faceInfo.Data.Owner.Face
 	lives[roomId].UID = liverId
 	lives[roomId].Area = roomInfo.Data.Area
-	lives[roomId].Face = roomInfo.Data.Face
+	lives[roomId].Cover = roomInfo.Data.Face
 	lives[roomId].Title = roomInfo.Data.Title
 	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
 		lives[roomId].Live = true

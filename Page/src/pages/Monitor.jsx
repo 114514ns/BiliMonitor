@@ -12,7 +12,7 @@ const Monitor = () => {
 
     const host = location.hostname;
 
-    const port = location.port;
+    const port = debug?8080:location.port;
 
     const protocol = location.protocol.replace(":","")
 

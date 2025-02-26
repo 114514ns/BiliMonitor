@@ -5,6 +5,8 @@ import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
 
+window.debug = true;
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
       <HeroUIProvider>

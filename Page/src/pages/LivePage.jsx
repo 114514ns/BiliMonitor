@@ -1,18 +1,43 @@
 import React, {useEffect, useState} from 'react';
-import {FloatButton, Input} from "antd";
+import {Button, FloatButton} from "antd";
 import axios from "axios";
 import {useNavigate} from "react-router";
 import "./LivePage.css"
 import {
-    Autocomplete, AutocompleteItem,
+    Autocomplete,
+    AutocompleteItem,
+    Dropdown,
+    DropdownItem,
+    DropdownMenu,
+    DropdownTrigger,
     Pagination,
     Table,
     TableBody,
     TableCell,
     TableColumn,
     TableHeader,
-    TableRow,
+    TableRow
 } from "@heroui/react";
+
+const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
+    return (
+        <svg
+            aria-hidden="true"
+            fill="none"
+            focusable="false"
+            height={size || height}
+            role="presentation"
+            viewBox="0 0 24 24"
+            width={size || width}
+            {...props}
+        >
+            <path
+                d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 12c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                fill="currentColor"
+            />
+        </svg>
+    );
+};
 
 function LivePage(props) {
 
@@ -29,7 +54,8 @@ function LivePage(props) {
 
     const host = location.hostname;
 
-    const port = location.port
+
+    const port = debug ? 8080 : location.port
 
     const protocol = location.protocol.replace(":", "")
 
@@ -65,12 +91,12 @@ function LivePage(props) {
         var arr = []
         dataSource.forEach(item => {
             arr.push({
-                key:item.UserName,
-                value:item.UserName
+                key: item.UserName,
+                value: item.UserName
             })
         })
         setFilters(arr)
-    },[dataSource])
+    }, [dataSource])
 
     const [columns, setColumn] = useState([
         {
@@ -105,17 +131,16 @@ function LivePage(props) {
             title: 'Money',
             dataIndex: 'Money',
             key: 'Money',
-            render: (text) => (
-                <span style={{color: text > 1000 ? "red" : "green"}}>
-        {text}
-      </span>
-            ),
-
         },
         {
             title: 'Message',
             dataIndex: 'Message',
             key: 'Message'
+        },
+        {
+            title: 'Action',
+            dataIndex: 'Action',
+            key: 'Action',
         }
     ])
     const [currentPage, setCurrentPage] = useState(1);
@@ -142,16 +167,16 @@ function LivePage(props) {
             <Autocomplete
                 className="max-w-xs"
                 defaultItems={filters}
-                label="Favorite Animal"
-                placeholder="Search an animal"
+                label="Liver"
+                onSelectionChange={e => {
+                    refreshData(currentPage, pageSize, e)
+                }}
                 onChange={(e) => {
                     axios.get(`${protocol}://${host}:${port}/liver?key=` + e).then(res => {
                         if (!res.data.result) return; // 处理 null/undefined/空数据
-                        const newFilters = res.data.result.map((item) => ({ key: item, value: item }));
+                        const newFilters = res.data.result.map((item) => ({key: item, value: item}));
 
                         setFilters(newFilters);
-
-
                     })
                 }}
             >
@@ -165,11 +190,12 @@ function LivePage(props) {
                         showShadow
                         color="secondary"
                         page={currentPage}
-                        total={total/pageSize}
+                        total={total / pageSize}
                         onChange={(page) => handlePageChange(page, pageSize)}
                     />
                 </div>
-            } rowHeight={70}>
+            }       maxTableHeight={500}
+                   rowHeight={70} isStriped>
 
                 <TableHeader>
                     {columns.map((col, index) => (
@@ -180,7 +206,9 @@ function LivePage(props) {
                 <TableBody>
 
                     {dataSource.map((item, index) => (
-                        <TableRow key={index}>
+                        <TableRow key={index} onClick={() => {
+                            redirect(`/lives/${record.ID}`)
+                        }}>
                             <TableCell>{item.UserName}</TableCell>
                             <TableCell>{item.Title}</TableCell>
                             <TableCell>{item.StartAt}</TableCell>
@@ -188,6 +216,22 @@ function LivePage(props) {
                             <TableCell>{item.Area}</TableCell>
                             <TableCell>{item.Money}</TableCell>
                             <TableCell>{item.Message}</TableCell>
+                            <TableCell>
+                                <div className="relative flex  items-center gap-2">
+                                    <Dropdown>
+                                        <DropdownTrigger>
+                                            <Button isIconOnly size="sm" variant="light">
+                                                <VerticalDotsIcon className="text-default-300"/>
+                                            </Button>
+                                        </DropdownTrigger>
+                                        <DropdownMenu>
+                                            <DropdownItem key="view" onClick={() => {
+                                                redirect(`/lives/${item.ID}`)
+                                            }}>Open</DropdownItem>
+                                        </DropdownMenu>
+                                    </Dropdown>
+                                </div>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
