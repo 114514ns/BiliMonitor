@@ -18,10 +18,12 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	url2 "net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -35,6 +37,8 @@ var Special = make([]User, 0)
 var RecordedDynamic = make([]string, 0)
 var GiftPrice = map[string]float32{}
 var mailClient = resend.NewClient("re_TLeNcEDu_Ht8QFPBRPH6JyKZjfnxmztwB")
+
+const USER_AGENT = "User-Agent\", \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
 type Config struct {
 	SpecialDelay           string
@@ -87,16 +91,16 @@ type FansList struct {
 	Ts        int64  `json:"ts"`
 	RequestID string `json:"request_id"`
 }
-type UserState struct {
+type UserResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	TTL     int    `json:"ttl"`
 	Data    struct {
-		Mid       int `json:"mid"`
-		Following int `json:"following"`
-		Whisper   int `json:"whisper"`
-		Black     int `json:"black"`
-		Follower  int `json:"follower"`
+		Card struct {
+			Name string `json:"name"`
+			Face string `json:"face"`
+		}
+		Followers int `json:"follower"`
 	} `json:"data"`
 }
 type Basic struct {
@@ -175,15 +179,21 @@ type User struct {
 	Name   string
 	UserID string
 	Fans   int
+	Face   string
 }
 type Video struct {
-	Title     string
-	Desc      string
-	Author    string
-	UID       int64
-	Img       string
-	BV        string
-	PublishAt string
+	Title       string
+	Desc        string
+	Author      string
+	UID         int64
+	Img         string
+	BV          string
+	PublishAt   string
+	AuthorFace  string
+	Cid         int
+	Duration    string
+	Part        int
+	ParentTitle string
 }
 type VideoResponse struct {
 	Data struct {
@@ -197,6 +207,25 @@ type VideoResponse struct {
 			Name string `json:"name"`
 			Face string `json:"face"`
 		} `json:"owner"`
+		Pages []struct {
+			Cid      int    `json:"cid"`
+			Title    string `json:"part"`
+			Duration int    `json:"duration"`
+		}
+	} `json:"data"`
+}
+type PlayListResponse struct {
+	Data struct {
+		Archives []struct {
+			BV       string `json:"bvid"`
+			CreateAt int    `json:"pubdate"`
+			Cover    string `json:"pic"`
+			Duration int    `json:"duration"`
+			Title    string `json:"title"`
+		} `json:"archives"`
+		Meta struct {
+			Name string `json:"name"`
+		} `json:"meta"`
 	} `json:"data"`
 }
 type Status struct {
@@ -248,42 +277,43 @@ type Dash struct {
 	} `json:"data"`
 }
 
+func FetchUser(mid string) User {
+	var url = "https://api.bilibili.com/x/web-interface/card?mid=" + mid
+	res, _ := client.R().SetHeader("User-Agent", USER_AGENT).Get(url)
+	var userResponse = UserResponse{}
+	sonic.Unmarshal(res.Body(), &userResponse)
+
+	var user = User{}
+	user.Name = userResponse.Data.Card.Name
+	user.Face = userResponse.Data.Card.Face
+	user.Fans = userResponse.Data.Followers
+
+	user.UserID = mid
+	return user
+
+}
 func UpdateCommon() {
 	for i := range Followings {
 		if i > len(Followings)-1 {
 			continue
 		}
 		var id = Followings[i].UserID
-		res, _ := client.R().Get("https://api.bilibili.com/x/relation/stat?vmid=" + id)
-		var state = UserState{}
-		sonic.Unmarshal(res.Body(), &state)
-		var user = User{}
-		user.Fans = state.Data.Follower
-		user.UserID = Followings[i].UserID
-		user.Name = Followings[i].Name
+		var user = FetchUser(id)
+		user.Face = ""
 		db.Save(&user)
 		time.Sleep(3 * time.Second)
 	}
-
-	/*
-
-		for i := range config.Tracing {
-			var id = config.Tracing[i]
-			var live0 = Live{}
-			db.Model(&Live{}).Where("user_id = ?", id).Find(&live0)
-			if live0.RoomId != 0 {
-
-			}
-		}
-
-	*/
 }
 
 func UpdateGuard() {
 
 }
-
 func RefreshCookie() {
+	//var url = "https://www.bilibili.com/correspond/1/" + getCorrespondPath(time.Now().UnixMilli())
+	//_, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", USER_AGENT).Get(url)
+
+}
+func GetDefaultCookie() {
 	resp, err := client.R().Get("https://space.bilibili.com/504140200/dynamic")
 	if err != nil {
 		panic(err)
@@ -375,14 +405,36 @@ func UploadFile(path string, alistPath string) error {
 	}
 	defer file.Close()
 
-	fi, err := file.Stat()
+	//fi, err := file.Stat()
+	if err != nil {
+		return fmt.Errorf("获取文件信息失败: %w", err)
+	}
 
-	req, _ := http.NewRequest("PUT", config.AlistServer+"api/fs/put", file)
-	// 设置请求头
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	part, err := writer.CreateFormFile("file", filepath.Base(path))
+	if err != nil {
+		return fmt.Errorf("创建表单文件失败: %w", err)
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return fmt.Errorf("复制文件数据失败: %w", err)
+	}
+
+	// 关键：一定要 Close，否则 multipart 数据不会完整
+	writer.Close()
+
+	req, err := http.NewRequest("PUT", config.AlistServer+"api/fs/form", body)
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	// 正确设置 Content-Type，包含 boundary
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Authorization", GetAlistToken())
 	req.Header.Set("File-Path", alistPath)
-	req.Header.Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
-	req.Header.Set("Content-Type", "application/octet-stream")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -391,31 +443,31 @@ func UploadFile(path string, alistPath string) error {
 	}
 	defer resp.Body.Close()
 
-	// 读取响应
-	body, err := io.ReadAll(resp.Body)
+	body1, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("读取响应失败: %w", err)
 	}
 
-	fmt.Printf("[%s] %s %s\n", alistPath, resp.Status, string(body))
+	fmt.Printf("[%s] %d %s\n", alistPath, resp.StatusCode, string(body1))
 	return nil
 }
 
 func UploadArchive(video Video) {
+	log.Printf("[%s] 开始下载", video.Title)
 	os.Mkdir("cache", 066)
-	var videolink = "https://bilibili.com/video/" + video.BV
-	vRes, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36").Get(videolink)
+	var videolink = "https://bilibili.com/video/" + video.BV + "?p=" + strconv.Itoa(video.Part)
+	vRes, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com").SetHeader("User-Agent", USER_AGENT).Get(videolink)
 	htmlContent := vRes.Body()
 	reader := bytes.NewReader(htmlContent)
 	var bv = video.BV
 	root, _ := html.Parse(reader)
 	find := goquery.NewDocumentFromNode(root).Find("script")
 	find.Each(func(i int, s *goquery.Selection) {
-		if strings.Contains(s.Text(), "m4s") {
+		if strings.Contains(s.Text(), "m4s") && strings.Contains(s.Text(), "backup_url") {
 			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
 			var v = Dash{}
 			sonic.Unmarshal([]byte(json), &v)
-			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Link)
+			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(v.Data.Dash0.Audio[0].Link)
 			//defer audio.RawBody().Close()
 			os.WriteFile("cache/"+video.BV+".mp3", audio.Body(), 066)
 			audioFile, _ := os.Create("cache/" + video.BV + ".mp3")
@@ -428,11 +480,14 @@ func UploadArchive(video Video) {
 			//defer videoFile.Close()
 			io.Copy(videoFile, videoLink.RawBody())
 			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
-			out, _ := cmd.CombinedOutput()
+			//out, _ := cmd.CombinedOutput()
 			cmd.Run() // 执行命令
 
-			log.Println(string(out))
-			UploadFile("cache/"+bv+".mp4", config.AlistPath+"/Archive/"+video.Author+"/["+strings.ReplaceAll(video.PublishAt, ":", "-")+"] "+video.Title+".mp4")
+			if video.ParentTitle != "" {
+				video.ParentTitle = video.ParentTitle + "/"
+			}
+			//log.Println(string(out))
+			UploadFile("cache/"+bv+".mp4", config.AlistPath+"/Archive/"+video.Author+"/"+video.ParentTitle+"["+strings.ReplaceAll(video.PublishAt, ":", "-")+"] "+video.Title+".mp4")
 
 			os.Remove("cache/" + bv + ".mp4")
 			os.Remove("cache/" + bv + ".mp3")
@@ -449,7 +504,7 @@ func UploadLive(live Live) {
 	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
 	var flv, t, _ = Last(dir)
 	os.MkdirAll("cache", 0777)
-	if time.Now().Unix()-t.Unix() < 6000000 {
+	if time.Now().Unix()-t.Unix() < 60000000 {
 		var file = dir + "/" + flv
 		log.Println(config.AlistPath + "Live/" + live.UserName + "/" + time.Now().Format(time.DateTime) + "/")
 		split := strings.Split(file, "-")
@@ -479,9 +534,12 @@ func UploadLive(live Live) {
 				fmt.Println(string(output))
 			}
 			UploadFile(auido, strings.Replace(alistName, "."+ext, ".mp3", 1))
+
+			os.Remove(auido)
 		}
 
 		UploadFile(file, alistName)
+		os.Remove(file)
 	}
 }
 func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
@@ -503,15 +561,15 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		orig, _ = ParseDynamic(*item.Orig, false)
 		archive.Text = txt
 		if push {
-			PushDynamic("你关注的up主：转发了动态 "+userName, item.Modules.ModuleDynamic.Desc.Nodes[0].Text)
+			PushDynamic("你关注的up主："+userName+"转发了动态 ", item.Modules.ModuleDynamic.Desc.Nodes[0].Text)
 		}
 	} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
 		archive.Type = "v"
 		archive.BiliID = item.IDStr
 		archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
 		if push {
-			PushDynamic("你关注的up主：发布了视频 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
-			go UploadArchive(ParseSingleVideo(item.Modules.ModuleDynamic.Major.Archive.Bvid))
+			PushDynamic("你关注的up主："+userName+"投稿了视频 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			go UploadArchive(ParseSingleVideo(item.Modules.ModuleDynamic.Major.Archive.Bvid)[0])
 		}
 
 	} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
@@ -519,7 +577,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.BiliID = item.IDStr
 		archive.Text = item.Modules.ModuleDynamic.Major.Desc.Text
 		if push {
-			PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			PushDynamic("你关注的up主："+userName+"发布了动态 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
 		}
 
 	} else if Type == "DYNAMIC_TYPE_WORD" { //文字
@@ -527,7 +585,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.BiliID = item.IDStr
 		archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
 		if push {
-			PushDynamic("你关注的up主：发布了动态 "+userName, item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			PushDynamic("你关注的up主："+userName+"转发了动态 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
 		}
 	} else if Type == "DYNAMIC_TYPE_LIVE_RCMD" {
 
@@ -568,7 +626,7 @@ func UpdateSpecial() {
 					db.Save(&d)
 					json := make([]byte, 0)
 					sonic.Unmarshal(json, item)
-					PushDynamic("动态json", string(json))
+					//PushDynamic("动态json", string(json))
 
 				}
 			}
@@ -635,7 +693,18 @@ func RefreshFollowings() {
 	Special = Special0
 }
 
-func ParseSingleVideo(bv string) (result Video) {
+func FormatDuration(seconds int) string {
+	duration := time.Duration(seconds) * time.Second
+	hours := duration / time.Hour
+	minutes := (duration % time.Hour) / time.Minute
+	secs := (duration % time.Minute) / time.Second
+
+	if hours > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", hours, minutes, secs)
+	}
+	return fmt.Sprintf("%d:%02d", minutes, secs)
+}
+func ParseSingleVideo(bv string) (result []Video) {
 	res, _ := client.R().
 		SetHeader("Referer", "https://www.bilibili.com/").
 		SetHeader("Cookie", config.Cookie).
@@ -643,17 +712,61 @@ func ParseSingleVideo(bv string) (result Video) {
 
 	var resObj = VideoResponse{}
 	sonic.Unmarshal(res.Body(), &resObj)
+	fmt.Println(string(res.Body()))
 
-	var video = Video{}
-	video.Author = resObj.Data.Owner.Name
-	video.BV = bv
-	video.Desc = resObj.Data.Desc
-	video.Title = resObj.Data.Title
-	video.PublishAt = time.Unix(resObj.Data.PublishAt, 0).Format(time.DateTime)
-	video.Img = resObj.Data.Cover
-	video.UID = resObj.Data.Owner.Mid
+	var array = []Video{}
 
-	return video
+	for i, item := range resObj.Data.Pages {
+		var video = Video{}
+		video.Author = resObj.Data.Owner.Name
+		video.ParentTitle = resObj.Data.Title
+		video.BV = bv
+		video.Desc = resObj.Data.Desc
+		video.Title = item.Title
+		video.Part = i + 1
+		video.Cid = item.Cid
+		video.Duration = FormatDuration(item.Duration)
+		video.PublishAt = time.Unix(resObj.Data.PublishAt, 0).Format(time.DateTime)
+		video.Img = resObj.Data.Cover
+		video.UID = resObj.Data.Owner.Mid
+		video.AuthorFace = resObj.Data.Owner.Face
+		array = append(array, video)
+	}
+
+	return array
+}
+
+func ParsePlayList(mid string, session string) []Video {
+	var array []Video
+	var page = 1
+	var user = FetchUser(mid)
+	for true {
+		var url = "https://api.bilibili.com/x/polymer/web-space/seasons_archives_list?mid=" + mid + "&season_id=" + session + "&page_num=" + strconv.Itoa(page) + "&page_size=30"
+		res, _ := client.R().SetHeader("Referer", "https://www.bilibili.com/").SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get(url)
+		var playList = PlayListResponse{}
+		sonic.Unmarshal(res.Body(), &playList)
+		if len(playList.Data.Archives) == 0 {
+			break
+		}
+		for _, archive := range playList.Data.Archives {
+			var video = Video{}
+			video.Cid = 0
+			video.Duration = FormatDuration(archive.Duration)
+			video.Img = archive.Cover
+			video.BV = archive.BV
+			video.Title = archive.Title
+			video.ParentTitle = playList.Data.Meta.Name
+			video.UID = toInt64(mid)
+			video.Part = 1
+			video.Author = user.Name
+			video.AuthorFace = user.Face
+			video.PublishAt = time.Unix(int64(archive.CreateAt), 0).Format(time.DateTime)
+			video.Desc = ""
+			array = append(array, video)
+		}
+		page++
+	}
+	return array
 
 }
 
@@ -689,7 +802,7 @@ func main() {
 		fmt.Scanln(&cookie)
 
 		if len(cookie) == 0 {
-			RefreshCookie()
+			GetDefaultCookie()
 			config.LoginMode = false
 		} else {
 			config.Cookie = cookie
@@ -710,6 +823,7 @@ func main() {
 	err = sonic.Unmarshal(content, &config)
 	if config.EnableSQLite {
 		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
+		db.Exec("PRAGMA journal_mode=WAL;")
 	}
 	if config.EnableMySQL {
 		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8&parseTime=True&loc=Local"
@@ -725,11 +839,8 @@ func main() {
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Archive{})
-	db.Exec("PRAGMA journal_mode=WAL;")
 	FixMoney()
 	RemoveEmpty()
-	UploadLive(Live{UserName: "伊南娜Ishtar", RoomId: 3237809})
-	return
 	go InitHTTP()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]

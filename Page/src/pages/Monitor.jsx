@@ -1,13 +1,12 @@
 import classes from "./Monitor.module.css";
 import {useEffect, useState} from "react";
 import axios from "axios"
-import {Button, Card, Input, message} from "antd";
 import LiveCard from "../components/LiveCard.jsx";
+import {Card, Input, Button, ToastProvider, addToast} from "@heroui/react";
 
 const Monitor = () => {
     const [monitor,setMonitor] = useState([])
 
-    const [messageApi, contextHolder] = message.useMessage();
     const [text,setText] = useState("")
 
     const host = location.hostname;
@@ -78,7 +77,7 @@ const Monitor = () => {
 
     return (
         <div className={classes.container}>
-            {contextHolder}
+            <ToastProvider placement={'top-center'} toastOffset={60} />
             {monitor.map((item, index) => {
                 return <LiveCard key={index} liveData={item} />
             })}
@@ -90,9 +89,15 @@ const Monitor = () => {
                     <Button onClick={() => {
                         axios.get(`http://${host}:${port}/add/` + text).then(res => {
                             if (res.data.message === "success") {
-                                messageApi.info('添加成功');
+                                addToast({
+                                    title: "添加成功",
+                                    color: 'success',
+                                })
                             } else {
-                                messageApi.error('直播间已存在')
+                                addToast({
+                                    title: "直播间已存在",
+                                    color: 'warning',
+                                })
                             }
                         })
                     }}>确定</Button>

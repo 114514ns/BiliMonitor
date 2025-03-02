@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"log"
+	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
@@ -172,7 +173,8 @@ func TraceLive(roomId string) {
 			if err != nil {
 				log.Println("[System] 登录失败，尝试重连次数：" + strconv.FormatInt(int64(lives[roomId].RemainTrying), 10))
 				if lives[roomId].RemainTrying > 0 {
-					TraceLive(roomId)
+					time.Sleep(time.Duration(500+rand.Int()%10000) * time.Millisecond)
+					//TraceLive(roomId)
 				}
 				lives[roomId].RemainTrying--
 				lives[roomId].LastActive = 114514
@@ -285,6 +287,7 @@ func TraceLive(roomId string) {
 					var serverStartAt = time.Now() //time.Parse(time.DateTime, roomInfo.Data.LiveTime)
 
 					var foundLive = Live{}
+					lives[roomId].Title = roomInfo.Data.Title
 
 					db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
 

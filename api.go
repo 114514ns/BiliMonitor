@@ -7,6 +7,9 @@ import (
 	"strconv"
 )
 
+var cache = []Video{}
+var worker = NewWorker()
+
 func removeDuplicates(input []string) []string {
 	// 创建一个空的 map，用于记录已经存在的字符串
 	seen := make(map[string]bool)
@@ -73,6 +76,7 @@ func InitHTTP() {
 		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
 		if name == "1" {
 			db.Offset(offset).Limit(limit).Find(&f)
+			db.Model(&Live{}).Where("name like '%" + name + "%'").Count(&totalRecords)
 		} else {
 			db.Where("user_name = ?", name).Offset(offset).Limit(limit).Find(&f)
 		}
@@ -163,7 +167,53 @@ func InitHTTP() {
 	})
 
 	r.GET("/parse", func(context *gin.Context) {
-		//id := context.DefaultQuery("bv", "10")
+		id := context.DefaultQuery("bv", "10")
+
+		var videos = ParseSingleVideo(id)
+		for _, video := range videos {
+			cache = append(cache, video)
+		}
+		context.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    videos,
+		})
+	})
+
+	r.GET("/parseList", func(context *gin.Context) {
+		id := context.DefaultQuery("mid", "10")
+		listId := context.DefaultQuery("season", "10")
+
+		var found = ParsePlayList(id, listId)
+		for _, video := range found {
+			cache = append(cache, video)
+		}
+		context.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    found,
+		})
+	})
+	r.GET("/download", func(context *gin.Context) {
+		bv := context.DefaultQuery("bv", "BV16TP5euE5s")
+		partStr := context.DefaultQuery("part", "1")
+		if partStr == "0" {
+			partStr = "1"
+		}
+		for _, video := range cache {
+			if strconv.Itoa(video.Part) == partStr && bv == video.BV {
+				worker.AddTask(func() {
+					UploadArchive(video)
+				})
+				context.JSON(http.StatusOK, gin.H{
+					"message": "success",
+				})
+				return
+			}
+		}
+
+		context.JSON(http.StatusOK, gin.H{
+			"message": "可能出bug了",
+		})
+
 	})
 
 	r.GET("/proxy", func(c *gin.Context) {

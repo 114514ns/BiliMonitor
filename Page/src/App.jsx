@@ -1,12 +1,24 @@
 import React from 'react';
 import {Route, Routes, useNavigate} from 'react-router-dom';
-import {Layout, Menu} from 'antd';
+import {Button, Layout, Menu} from 'antd';
 import Monitor from "./pages/Monitor.jsx";
 import './App.css'
 import LivePage from "./pages/LivePage.jsx";
 import Charts from "./pages/Charts.jsx";
 import LiveDetailPage from "./pages/LiveDetailPage.jsx";
-import {Avatar, Link, Navbar, NavbarContent, NavbarItem} from "@heroui/react";
+import {
+    Avatar,
+    Dropdown,
+    DropdownItem,
+    DropdownMenu,
+    DropdownTrigger,
+    Link,
+    Navbar,
+    NavbarContent,
+    NavbarItem
+} from "@heroui/react";
+import DownloadDialog from "./components/DownloadDialog";
+import PubSub from 'pubsub-js'
 
 const {Header, Content, Footer, Sider} = Layout;
 const {SubMenu} = Menu;
@@ -26,10 +38,16 @@ function BasicLayout() {
 
     const redirect = useNavigate()
 
+    const [showDownload, setShowDownload] = React.useState(false);
 
+    PubSub.subscribe('DownloadDialog', (msg,data) => {
+        console.log(msg,data);
+        setShowDownload(false);
+    });
     return (
 
         <div>
+            <DownloadDialog isOpen={showDownload}/>
             <Navbar style={{}}>
                 <NavbarContent style={{display: "flex", justifyContent: "center"}}>
                     {
@@ -44,7 +62,20 @@ function BasicLayout() {
                                 </Link>
                             </NavbarItem>
                         ))
+
                     }
+                    <Dropdown>
+                        <DropdownTrigger>
+                            <Link>
+                                Toolkit
+                            </Link>
+                        </DropdownTrigger>
+                        <DropdownMenu>
+                            <DropdownItem key="view" onClick={() => {
+                                setShowDownload(true);
+                            }}>Bili Downloader</DropdownItem>
+                        </DropdownMenu>
+                    </Dropdown>
                 </NavbarContent>
             </Navbar>
             <div className="site-layout-background" style={{padding: 24, width: '100%', height: '100%'}}>

@@ -10,23 +10,23 @@ function LiveCard({liveData}) {
     const protocol = location.protocol.replace(":", "")
     const {Live, UName, UID, Area, Title, Face, Cover} = liveData;
     const cover = `${protocol}://${host}:${port}/proxy?url=${Cover}`
+
+
+    const toSpace = (id) => {
+        window.open("https://space.bilibili.com/" + id)
+    }
     return (
         <div>
             <Card style={{
                 width: 300,
                 marginRight: '20px',
                 margin: '15px',
-                //backgroundImage: `url(${cover})`,
-                //backgroundSize: 'cover',
-                //backgroundColor: 'rgba(0, 0, 0, 0.5)', // 透明度 50% 的黑色遮罩
-                //backgroundBlendMode: 'overlay' // 让颜色与背景融合
             }}
             >
-
                 <CardHeader className="flex items-center gap-3">
-                    <Badge color={Live ? "success" : "default"} content="">
-                        <Avatar src={`${protocol}://${host}:${port}/proxy?url=${Face}`}/>
-                    </Badge>
+                    {Live != null ? <Badge color={Live ? "success" : "default"} content="">
+                        <Avatar src={`${protocol}://${host}:${port}/proxy?url=${Face}`} onClick={() => {toSpace(UID)}}/>
+                    </Badge> : <Avatar src={`${protocol}://${host}:${port}/proxy?url=${Face}`} onClick={() => {toSpace(UID)}}/>}
 
                     <div>
                         <h4 className="font-semibold">{UName}</h4>
@@ -44,13 +44,7 @@ function LiveCard({liveData}) {
                     />
                 </CardBody>
                 <CardFooter className="flex justify-between">
-                    <span className="text-gray-500 font-semibold">Area: {Area}</span>
-                    <span
-                        className="text-blue-500 font-semibold cursor-pointer"
-                        onClick={() => window.open(`https://space.bilibili.com/${UID}`)}
-                    >
-                    UID: {UID}
-                </span>
+                    {Live == null?<></>:<span className="text-gray-500 font-semibold">Area: {Area}</span>}
                 </CardFooter>
             </Card>
         </div>
