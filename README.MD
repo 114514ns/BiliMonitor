@@ -15,7 +15,6 @@
 
 # Screenshots
 
-![](https://example.com/undefined20250302233122482.png)
 ![](https://example.com/undefinedqq_pic_merged_1740929772073.jpg)
 ![](https://example.com/undefined20250302233820130.png)
 ![](https://example.com//img/20250212235435.png)
