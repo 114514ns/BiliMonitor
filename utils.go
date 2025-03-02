@@ -1,9 +1,16 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -69,4 +76,33 @@ func abs(a int) int {
 	} else {
 		return a
 	}
+}
+func toInt64(s string) int64 {
+	i64, _ := strconv.ParseInt(s, 10, 64)
+	return i64
+}
+func getCorrespondPath(ts int64) string {
+	const publicKeyPEM = `
+-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg
+Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71
+nzPjfdTcqMz7djHum0qSZA0AyCBDABUqCrfNgCiJ00Ra7GmRj+YCK1NJEuewlb40
+JNrRuoEUXpabUzGB8QIDAQAB
+-----END PUBLIC KEY-----
+`
+	pubKeyBlock, _ := pem.Decode([]byte(publicKeyPEM))
+	hash := sha256.New()
+	random := rand.Reader
+	msg := []byte(fmt.Sprintf("refresh_%d", ts))
+	var pub *rsa.PublicKey
+	pubInterface, parseErr := x509.ParsePKIXPublicKey(pubKeyBlock.Bytes)
+	if parseErr != nil {
+		return ""
+	}
+	pub = pubInterface.(*rsa.PublicKey)
+	encryptedData, encryptErr := rsa.EncryptOAEP(hash, random, pub, msg, nil)
+	if encryptErr != nil {
+		return ""
+	}
+	return hex.EncodeToString(encryptedData)
 }
