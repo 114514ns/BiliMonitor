@@ -150,8 +150,7 @@ function LiveDetailPage(props) {
             >
                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
             </Autocomplete>
-            <Table       maxTableHeight={500}
-                         rowHeight={70} bottomContent={
+            <Table  bottomContent={
                 <div className="flex w-full justify-center">
                     <Pagination
                         isCompact
