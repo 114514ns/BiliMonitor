@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -173,10 +174,10 @@ func TraceLive(roomId string) {
 			if err != nil {
 				log.Println("[System] 登录失败，尝试重连次数：" + strconv.FormatInt(int64(lives[roomId].RemainTrying), 10))
 				if lives[roomId].RemainTrying > 0 {
-					time.Sleep(time.Duration(500+rand.Int()%10000) * time.Millisecond)
-					//TraceLive(roomId)
+					time.Sleep(time.Duration(rand.Int()%10000) * time.Millisecond)
+					lives[roomId].RemainTrying--
+					TraceLive(roomId)
 				}
-				lives[roomId].RemainTrying--
 				lives[roomId].LastActive = 114514
 				return
 			}
@@ -248,7 +249,9 @@ func TraceLive(roomId string) {
 					action.FromName = info.Data.Uname
 					action.GiftName = info.Data.GiftName
 					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
+					mu.RLock()
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
+					mu.RUnlock()
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
@@ -372,7 +375,6 @@ func TraceLive(roomId string) {
 			err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
 			lives[roomId].LastActive = time.Now().Unix() + 3600*8
 			if err != nil {
-
 				log.Println("write:", err)
 				return
 			}
@@ -406,7 +408,11 @@ func Index(s string, index int) string {
 	}
 	return ""
 }
+
+var mu sync.RWMutex
+
 func FillGiftPrice(room string, area int, parent int) {
+	//对GiftPrice的读写操作得加锁，不然TraceLive炸了然后重试的时候，所有直播间会同时执行FillGiftPrice，对GiftPrice读写，就会炸掉
 	htmlRes, _ := client.R().Get("https://live.bilibili.com/13878454")
 	htmlStr := htmlRes.String()
 	strings.Index(htmlStr, `"area_id"`)
@@ -424,18 +430,23 @@ func FillGiftPrice(room string, area int, parent int) {
 			sonic.Unmarshal(res.Body(), &box)
 			for i2 := range box.Data.Gifts {
 				var item0 = box.Data.Gifts[i2]
+				mu.Lock()
 				GiftPrice[item0.GiftName] = float32(item0.Price) / 1000.0
+				mu.Unlock()
 			}
 		} else {
+			mu.Lock()
 			GiftPrice[item.Name] = float32(item.Price) / 1000.0
+			mu.Unlock()
 		}
 
 	}
 	for i := range gift.Data.GiftConfig.RoomConfig {
 		var item = gift.Data.GiftConfig.RoomConfig[i]
+		mu.Lock()
 		GiftPrice[item.Name] = float32(item.Price) / 1000.0
+		mu.Unlock()
 	}
-	fmt.Println()
 
 }
 

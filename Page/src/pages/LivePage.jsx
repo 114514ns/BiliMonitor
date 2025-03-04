@@ -171,13 +171,17 @@ function LivePage(props) {
                 onSelectionChange={e => {
                     refreshData(currentPage, pageSize, e)
                 }}
-                onChange={(e) => {
+                onInputChange={e => {
                     axios.get(`${protocol}://${host}:${port}/liver?key=` + e).then(res => {
                         if (!res.data.result) return; // 处理 null/undefined/空数据
                         const newFilters = res.data.result.map((item) => ({key: item, value: item}));
 
                         setFilters(newFilters);
                     })
+                }}
+                onChange={(e) => {
+                    console.log(e)
+
                 }}
             >
                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
