@@ -1,10 +1,8 @@
 import React from 'react';
 import {Route, Routes, useNavigate} from 'react-router-dom';
-import {Button, Layout, Menu} from 'antd';
 import Monitor from "./pages/Monitor.jsx";
 import './App.css'
 import LivePage from "./pages/LivePage.jsx";
-import Charts from "./pages/Charts.jsx";
 import LiveDetailPage from "./pages/LiveDetailPage.jsx";
 import {
     Avatar,
@@ -20,8 +18,6 @@ import {
 import DownloadDialog from "./components/DownloadDialog";
 import PubSub from 'pubsub-js'
 
-const {Header, Content, Footer, Sider} = Layout;
-const {SubMenu} = Menu;
 
 function BasicLayout() {
 
@@ -84,9 +80,6 @@ function BasicLayout() {
 
                     </Route>
                     <Route path="/lives" element={<LivePage/>}>
-
-                    </Route>
-                    <Route path={'/charts'} element={<Charts/>}>
 
                     </Route>
                     <Route path={'/lives/:id'} element={<LiveDetailPage/>}>
