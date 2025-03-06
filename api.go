@@ -73,17 +73,17 @@ func InitHTTP() {
 		}
 
 		// 计算总页数
-		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
+		//totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
 		if name == "1" {
 			db.Offset(offset).Limit(limit).Find(&f)
-			db.Model(&Live{}).Where("name like '%" + name + "%'").Count(&totalRecords)
 		} else {
 			db.Where("user_name = ?", name).Offset(offset).Limit(limit).Find(&f)
+			db.Model(&Live{}).Where("user_name = ", name).Count(&totalRecords)
 		}
 
 		c.JSON(http.StatusOK, gin.H{
 
-			"totalPage": totalPages,
+			"totalPage": totalRecords / (int64(limit)),
 			"lives":     f,
 		})
 	})

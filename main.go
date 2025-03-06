@@ -36,7 +36,7 @@ var Cookie = ""
 var Special = make([]User, 0)
 var RecordedDynamic = make([]string, 0)
 var GiftPrice = map[string]float32{}
-var mailClient = resend.NewClient("re_TLeNcEDu_Ht8QFPBRPH6JyKZjfnxmztwB")
+var mailClient = resend.NewClient("")
 
 const USER_AGENT = "User-Agent\", \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
@@ -49,13 +49,14 @@ type Config struct {
 	Cookie                 string
 	LoginMode              bool
 	EnableEmail            bool
+	ResendToken            string
 	FromMail               string
 	ToMail                 []string
 	EnableQQBot            bool
 	ReportTo               []string
 	BackServer             string
 	Tracing                []string
-	EnableAlist            string
+	EnableAlist            bool
 	AlistServer            string
 	AlistUser              string
 	AlistPass              string
@@ -405,33 +406,31 @@ func UploadFile(path string, alistPath string) error {
 	}
 	defer file.Close()
 
-	//fi, err := file.Stat()
-	if err != nil {
-		return fmt.Errorf("获取文件信息失败: %w", err)
-	}
+	bodyReader, bodyWriter := io.Pipe() // 创建 Pipe
+	writer := multipart.NewWriter(bodyWriter)
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
+	go func() {
+		defer bodyWriter.Close()
+		part, err := writer.CreateFormFile("file", filepath.Base(path))
+		if err != nil {
+			bodyWriter.CloseWithError(fmt.Errorf("创建表单文件失败: %w", err))
+			return
+		}
 
-	part, err := writer.CreateFormFile("file", filepath.Base(path))
-	if err != nil {
-		return fmt.Errorf("创建表单文件失败: %w", err)
-	}
+		_, err = io.Copy(part, file)
+		if err != nil {
+			bodyWriter.CloseWithError(fmt.Errorf("复制文件数据失败: %w", err))
+			return
+		}
 
-	_, err = io.Copy(part, file)
-	if err != nil {
-		return fmt.Errorf("复制文件数据失败: %w", err)
-	}
+		writer.Close()
+	}()
 
-	// 关键：一定要 Close，否则 multipart 数据不会完整
-	writer.Close()
-
-	req, err := http.NewRequest("PUT", config.AlistServer+"api/fs/form", body)
+	req, err := http.NewRequest("PUT", config.AlistServer+"api/fs/form", bodyReader)
 	if err != nil {
 		return fmt.Errorf("创建请求失败: %w", err)
 	}
 
-	// 正确设置 Content-Type，包含 boundary
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	req.Header.Set("Authorization", GetAlistToken())
 	req.Header.Set("File-Path", alistPath)
@@ -443,12 +442,12 @@ func UploadFile(path string, alistPath string) error {
 	}
 	defer resp.Body.Close()
 
-	body1, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("读取响应失败: %w", err)
 	}
 
-	fmt.Printf("[%s] %d %s\n", alistPath, resp.StatusCode, string(body1))
+	fmt.Printf("[%s] %d %s\n", alistPath, resp.StatusCode, string(body))
 	return nil
 }
 
@@ -577,7 +576,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.BiliID = item.IDStr
 		archive.Text = item.Modules.ModuleDynamic.Major.Desc.Text
 		if push {
-			PushDynamic("你关注的up主："+userName+"发布了动态 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			PushDynamic("你关注的up主："+userName+"发布了动态 ", item.Modules.ModuleDynamic.Major.Archive.Title)
 		}
 
 	} else if Type == "DYNAMIC_TYPE_WORD" { //文字
@@ -796,18 +795,6 @@ func main() {
 		config.User = "2"
 		config.RefreshFollowingsDelay = "30m"
 		config.SpecialList = []int{1265680561}
-		fmt.Println("请输入Cookie，如不需要登陆按回车即可")
-
-		var cookie = ""
-		fmt.Scanln(&cookie)
-
-		if len(cookie) == 0 {
-			GetDefaultCookie()
-			config.LoginMode = false
-		} else {
-			config.Cookie = cookie
-
-		}
 		config.LoginMode = true
 		config.EnableQQBot = true
 		config.EnableEmail = false
@@ -821,6 +808,7 @@ func main() {
 		os.WriteFile("config.json", content, 666)
 	}
 	err = sonic.Unmarshal(content, &config)
+	mailClient = resend.NewClient(config.ResendToken)
 	if config.EnableSQLite {
 		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 		db.Exec("PRAGMA journal_mode=WAL;")

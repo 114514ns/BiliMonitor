@@ -172,7 +172,7 @@ func TraceLive(roomId string) {
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
-				log.Println("[System] 登录失败，尝试重连次数：" + strconv.FormatInt(int64(lives[roomId].RemainTrying), 10))
+				log.Printf("[%s] 登录失败，尝试重连次数："+strconv.FormatInt(int64(lives[roomId].RemainTrying), 10), liver)
 				if lives[roomId].RemainTrying > 0 {
 					time.Sleep(time.Duration(rand.Int()%10000) * time.Millisecond)
 					lives[roomId].RemainTrying--
@@ -275,7 +275,9 @@ func TraceLive(roomId string) {
 					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
 					living = false
 					i, _ := strconv.Atoi(roomId)
-					go UploadLive(Live{RoomId: i, UserName: liver})
+					if config.EnableLiveBackup {
+						go UploadLive(Live{RoomId: i, UserName: liver})
+					}
 
 				} else if text.Cmd == "LIVE" {
 
@@ -371,13 +373,29 @@ func TraceLive(roomId string) {
 	for {
 		select {
 		case <-ticker.C:
-			// 每30秒向服务端发送一次消息
 			err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
 			lives[roomId].LastActive = time.Now().Unix() + 3600*8
 			if err != nil {
 				log.Println("write:", err)
 				return
 			}
+			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
+			res, _ = client.R().Get(url)
+			status := LiveStatusResponse{}
+			sonic.Unmarshal(res.Body(), &status)
+			if status.Data.LiveStatus == 0 && lives[roomId].Live {
+				lives[roomId].Live = false
+				var sum float64
+				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
+
+				db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+				living = false
+				i, _ := strconv.Atoi(roomId)
+				if config.EnableLiveBackup {
+					go UploadLive(Live{RoomId: i, UserName: liver})
+				}
+			}
+
 		}
 
 	}
@@ -609,5 +627,11 @@ type Watched struct {
 		Num       int    `json:"num"`
 		TextSmall string `json:"text_small"`
 		TextLarge string `json:"text_large"`
+	} `json:"data"`
+}
+type LiveStatusResponse struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		LiveStatus int `json:"live_status"`
 	} `json:"data"`
 }
