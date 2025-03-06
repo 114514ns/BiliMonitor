@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {useParams} from "react-router-dom";
 import axios from "axios";
-import {Button} from "antd";
 import  "./LivePage.css"
 import {
     Autocomplete,
@@ -35,6 +34,7 @@ function LiveDetailPage(props) {
     const [selected, isSelected] = useState(false)
 
     const [name,setName] = useState(null)
+    const [order, setOrder] = useState("undefined")
     const [filters, setFilters] = useState([
         {text: 'Joe', value: 'Joe'},
         {text: 'Jim', value: 'Jim'},
@@ -42,6 +42,9 @@ function LiveDetailPage(props) {
         {text: 'Category 2', value: 'Category 2'},
     ]);
     const [columns, setColumn] = useState([])
+    useEffect(() => {
+        refreshData(currentPage,pageSize)
+    },[order])
     useEffect(() => {
 
         setColumn([
@@ -85,7 +88,7 @@ function LiveDetailPage(props) {
     }, [])
     const port = debug?8080:location.port
     const protocol = location.protocol.replace(":","")
-    const refreshData = (page, size, name,order) => {
+    const refreshData = (page, size, name) => {
         if (page === undefined) {
             return
         }
@@ -117,12 +120,6 @@ function LiveDetailPage(props) {
         console.log(sorter)
 
     }
-    const onChange = (pagination, filters, sorter, extra) => {
-        console.log(pagination)
-
-        refreshData(pagination.current,pagination.pageSize,null,sorter.order)
-    };
-
 
 
     return (
@@ -145,7 +142,7 @@ function LiveDetailPage(props) {
                 ]}
                 label="Sort by"
                 onSelectionChange={e => {
-                    refreshData(currentPage, pageSize, null,e)
+                    setOrder(e)
                 }}
             >
                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}

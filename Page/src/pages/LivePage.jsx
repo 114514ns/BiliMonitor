@@ -1,11 +1,10 @@
 import React, {useEffect, useState} from 'react';
-import {Button, FloatButton} from "antd";
 import axios from "axios";
 import {useNavigate} from "react-router";
 import "./LivePage.css"
 import {
     Autocomplete,
-    AutocompleteItem,
+    AutocompleteItem, Button,
     Dropdown,
     DropdownItem,
     DropdownMenu,
@@ -38,6 +37,19 @@ const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
         </svg>
     );
 };
+const RefreshIcon = (props) => (
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        height="24px"
+        viewBox="0 -960 960 960"
+        width="24px"
+        fill="#1f1f1f"
+        {...props}
+    >
+        <path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z" />
+    </svg>
+);
+
 
 function LivePage(props) {
 
@@ -159,11 +171,11 @@ function LivePage(props) {
     return (
 
         <div>
-            <FloatButton onClick={() => {
+            <Button onClick={() => {
                 axios.get(`http://${host}:${port}/refreshMoney`).then(res => {
                     refreshData(currentPage, pageSize)
                 })
-            }} type="primary">Refresh Money</FloatButton>
+            }} type="primary"  style={{ position: "fixed", bottom: "20px", right: "20px" }}><RefreshIcon/></Button>
             <Autocomplete
                 className="max-w-xs"
                 defaultItems={filters}
