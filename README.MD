@@ -63,12 +63,14 @@
 }
 ```
 大部分功能都需要Cookie，所以请先填写好Cookie。强烈建议使用小号，虽然不一定会有啥问题，但是还是不要用大号。
+<br>
 不是所有功能都需要数据库，但是还是请先启用数据库功能。
 ## 粉丝量监控
 ```json5
 "User": "2", //你的uid，列表内的所有up主会被定时记录粉丝量，需要设置关注列表允许公开访问
 ```
 这里改成你的uid，然后允许公开访问你的关注列表即可。
+<br/
 目前没有前端界面显示粉丝量的趋势，只存储在数据库里，后面会加。
 
 ## 动态监控
@@ -85,6 +87,7 @@
 主播开播后会发送推送,同时记录直播间内弹幕和礼物。
 可以在web端查看，端口8080
 ![](https://example.com/undefined20250307003957739.png)
+![](https://example.com/undefined20250310000627967.png)
 <details>
  <summary> 展开截图 </summary>
 <img src="https://example.com/undefined20250307004410454.png">
@@ -101,6 +104,9 @@
 - [ ] 自动刷新Cookie
 - [ ] 完善文档
 - [ ] 备份动态的评论？
+- [ ] 录播时将H624编码为HEVC/AV1以减少文件体积
+- [ ] 在前面添加一个查看直播间弹幕的页面，这样就可以主屏打游戏副屏看弹幕
+- [ ] 程序启动时检查配置文件正确性
 
 # Referer
 [bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)

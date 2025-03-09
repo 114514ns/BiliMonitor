@@ -80,10 +80,13 @@ func InitHTTP() {
 			db.Where("user_name = ?", name).Offset(offset).Limit(limit).Find(&f)
 			db.Model(&Live{}).Where("user_name = ", name).Count(&totalRecords)
 		}
-
+		var off int64 = 1
+		if totalRecords%int64(limit) == 0 {
+			off = 0
+		}
 		c.JSON(http.StatusOK, gin.H{
 
-			"totalPage": totalRecords / (int64(limit)),
+			"totalPage": totalRecords/(int64(limit)) + off,
 			"lives":     f,
 		})
 	})
@@ -226,6 +229,30 @@ func InitHTTP() {
 		c.Writer.Header().Set("Content-Type", res.Header().Get("Content-Type"))
 		c.Writer.WriteHeader(res.StatusCode())
 		c.Writer.Write(res.Body())
+	})
+
+	r.GET("/minute", func(c *gin.Context) {
+		var id = c.Query("id")
+		type LiveActionCount struct {
+			MinuteTime  string `gorm:"column:minute_time"`
+			RecordCount int    `gorm:"column:record_count"`
+		}
+
+		var results []LiveActionCount
+
+		db.Raw(`
+    SELECT 
+        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS minute_time, 
+        COUNT(*) AS record_count
+    FROM live_actions
+    WHERE live = ?
+    GROUP BY minute_time
+    ORDER BY minute_time;
+`, id).Scan(&results)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    results,
+		})
 	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")

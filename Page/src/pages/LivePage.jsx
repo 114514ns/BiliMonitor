@@ -17,6 +17,7 @@ import {
     TableHeader,
     TableRow
 } from "@heroui/react";
+import MinutesChartDialog from "../components/MinutesChartDialog";
 
 const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
     return (
@@ -70,6 +71,9 @@ function LivePage(props) {
     const port = debug ? 8080 : location.port
 
     const protocol = location.protocol.replace(":", "")
+
+    const [chart, setChart] = useState(false)
+    const [chartId, setChartId] = useState(0)
 
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
@@ -167,6 +171,11 @@ function LivePage(props) {
         setPageSize(pageSize)
 
     }
+    useEffect(() => {
+        if (chartId !== null && chartId !== 0) {
+            setChart(true);
+        }
+    }, [chartId]); // 监听 chartId 变化后再设置 chart
 
     return (
 
@@ -176,6 +185,11 @@ function LivePage(props) {
                     refreshData(currentPage, pageSize)
                 })
             }} type="primary"  style={{ position: "fixed", bottom: "20px", right: "20px" }}><RefreshIcon/></Button>
+            {chart?<MinutesChartDialog id={chartId} onClose={() => {
+                setChart(false)
+            }}>
+
+            </MinutesChartDialog>:<></>}
             <Autocomplete
                 className="max-w-xs"
                 defaultItems={filters}
@@ -244,6 +258,9 @@ function LivePage(props) {
                                             <DropdownItem key="view" onClick={() => {
                                                 redirect(`/lives/${item.ID}`)
                                             }}>Open</DropdownItem>
+                                            <DropdownItem key="chart" onClick={() => {
+                                                setChartId(item.ID);
+                                            }}>Chart</DropdownItem>
                                         </DropdownMenu>
                                     </Dropdown>
                                 </div>
