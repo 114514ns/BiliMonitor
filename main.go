@@ -240,6 +240,7 @@ type Status struct {
 	RemainTrying int8
 	Face         string
 	Cover        string
+	Danmuku      []FrontLiveAction
 }
 
 type GuardResponse struct {
@@ -567,7 +568,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.BiliID = item.IDStr
 		archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
 		if push {
-			PushDynamic("你关注的up主："+userName+"投稿了视频 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			PushDynamic("你关注的up主："+userName+"投稿了视频 ", archive.Title)
 			go UploadArchive(ParseSingleVideo(item.Modules.ModuleDynamic.Major.Archive.Bvid)[0])
 		}
 
@@ -622,7 +623,10 @@ func UpdateSpecial() {
 				if ShouldPush {
 					RecordedDynamic = append(RecordedDynamic, item.IDStr)
 					d, _ := ParseDynamic(item, true)
-					db.Save(&d)
+					if d.BiliID != "" {
+						db.Save(&d)
+					}
+
 					json := make([]byte, 0)
 					sonic.Unmarshal(json, item)
 					//PushDynamic("动态json", string(json))

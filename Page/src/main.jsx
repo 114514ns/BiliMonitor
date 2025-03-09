@@ -5,7 +5,7 @@ import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
 
-window.debug = true;
+window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
 const originalWarn = console.warn

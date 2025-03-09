@@ -554,6 +554,11 @@ type LiveAction struct {
 	GiftAmount sql.NullInt16
 	Extra      string
 }
+type FrontLiveAction struct {
+	LiveAction
+	UName string
+	Cover string
+}
 type RoomInfo struct {
 	Data struct {
 		LiveTime     string `json:"live_time"`
