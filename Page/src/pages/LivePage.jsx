@@ -195,6 +195,7 @@ function LivePage(props) {
                 defaultItems={filters}
                 label="Liver"
                 onSelectionChange={e => {
+                    setCurrentPage(1)
                     refreshData(currentPage, pageSize, e)
                 }}
                 onInputChange={e => {
