@@ -218,6 +218,9 @@ func InitHTTP() {
 		})
 
 	})
+	r.NoRoute(func(c *gin.Context) {
+		c.File("./Page/dist/index.html")
+	})
 
 	r.GET("/proxy", func(c *gin.Context) {
 		var url = c.Query("url")

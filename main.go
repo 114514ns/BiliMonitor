@@ -17,6 +17,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"io"
+	"io/ioutil"
 	"log"
 	"mime/multipart"
 	"net/http"
@@ -35,45 +36,47 @@ var client = resty.New()
 var Cookie = ""
 var Special = make([]User, 0)
 var RecordedDynamic = make([]string, 0)
+var RecordedMedias = make([]string, 0)
 var GiftPrice = map[string]float32{}
 var mailClient = resend.NewClient("")
 
 const USER_AGENT = "User-Agent\", \"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
 type Config struct {
-	SpecialDelay           string
-	CommonDelay            string
-	RefreshFollowingsDelay string
-	User                   string
-	SpecialList            []int
-	Cookie                 string
-	LoginMode              bool
-	EnableEmail            bool
-	ResendToken            string
-	FromMail               string
-	ToMail                 []string
-	EnableQQBot            bool
-	ReportTo               []string
-	BackServer             string
-	Tracing                []string
-	EnableAlist            bool
-	AlistServer            string
-	AlistUser              string
-	AlistPass              string
-	AlistPath              string
-	EnableServerPush       bool
-	ServerPushKey          string
-	EnableLiveBackup       bool
-	MikuPath               string
-	EnableSQLite           bool
-	SQLitePath             string
-	EnableMySQL            bool
-	SQLName                string
-	SQLUser                string
-	SQLPass                string
-	SQLServer              string
-	CodeToMP4              bool
-	SplitAudio             bool
+	SpecialDelay            string
+	CommonDelay             string
+	RefreshFollowingsDelay  string
+	User                    string
+	SpecialList             []int
+	Cookie                  string
+	LoginMode               bool
+	EnableEmail             bool
+	ResendToken             string
+	FromMail                string
+	ToMail                  []string
+	EnableQQBot             bool
+	ReportTo                []string
+	BackServer              string
+	Tracing                 []string
+	EnableAlist             bool
+	AlistServer             string
+	AlistUser               string
+	AlistPass               string
+	AlistPath               string
+	EnableServerPush        bool
+	ServerPushKey           string
+	EnableLiveBackup        bool
+	MikuPath                string
+	EnableSQLite            bool
+	SQLitePath              string
+	EnableMySQL             bool
+	SQLName                 string
+	SQLUser                 string
+	SQLPass                 string
+	SQLServer               string
+	CodeToMP4               bool
+	SplitAudio              bool
+	EnableCollectionMonitor bool
 }
 
 type FansList struct {
@@ -104,17 +107,7 @@ type UserResponse struct {
 		Followers int `json:"follower"`
 	} `json:"data"`
 }
-type Basic struct {
-	CommentIDStr string `json:"comment_id_str"`
-	CommentType  int    `json:"comment_type"`
-	LikeIcon     struct {
-		ActionURL string `json:"action_url"`
-		EndURL    string `json:"end_url"`
-		ID        int    `json:"id"`
-		StartURL  string `json:"start_url"`
-	} `json:"like_icon"`
-	RidStr string `json:"rid_str"`
-}
+
 type DynamicItem struct {
 	IDStr   string       `json:"id_str"`
 	Orig    *DynamicItem `json:"orig"`
@@ -277,6 +270,55 @@ type Dash struct {
 			} `json:"audio"`
 		} `json:"dash"`
 	} `json:"data"`
+}
+type CollectionList struct {
+	Data struct {
+		List []struct {
+			Title string `json:"title"`
+			ID    int    `json:"id"`
+		}
+	}
+}
+type CollectionMedias struct {
+	Data struct {
+		Medias []struct {
+			Title string `json:"title"`
+			BV    string `json:"bvid"`
+		}
+	}
+}
+
+func CheckConfig() {
+	if config.EnableAlist {
+		if GetAlistToken() == "" {
+			log.Fatal("Alist密码错误")
+		}
+	}
+	if config.EnableLiveBackup {
+		dir, err := ioutil.ReadDir(config.MikuPath)
+		if err != nil {
+			log.Fatal("Miku录播姬路径不存在")
+		}
+		var found = false
+		for _, info := range dir {
+			if info.Name() == "config.json" {
+				found = true
+			}
+		}
+		if !found {
+			log.Fatal("Miku录播姬路径错误")
+		}
+
+	}
+	if config.CodeToMP4 || config.SplitAudio {
+		var cmd = exec.Command("ffmpeg")
+		if !strings.Contains(cmd.String(), "FFmpeg developers") {
+			log.Fatal("未找到ffmpeg")
+		}
+	}
+	if config.EnableLiveBackup && !config.EnableAlist {
+		log.Fatal("直播备份需要配合Alist使用")
+	}
 }
 
 func FetchUser(mid string) User {
@@ -452,7 +494,7 @@ func UploadFile(path string, alistPath string) error {
 	return nil
 }
 
-func UploadArchive(video Video) {
+func UploadArchive(video Video) string {
 	log.Printf("[%s] 开始下载", video.Title)
 	os.Mkdir("cache", 066)
 	var videolink = "https://bilibili.com/video/" + video.BV + "?p=" + strconv.Itoa(video.Part)
@@ -462,6 +504,7 @@ func UploadArchive(video Video) {
 	var bv = video.BV
 	root, _ := html.Parse(reader)
 	find := goquery.NewDocumentFromNode(root).Find("script")
+	var final = ""
 	find.Each(func(i int, s *goquery.Selection) {
 		if strings.Contains(s.Text(), "m4s") && strings.Contains(s.Text(), "backup_url") {
 			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
@@ -487,13 +530,15 @@ func UploadArchive(video Video) {
 				video.ParentTitle = video.ParentTitle + "/"
 			}
 			//log.Println(string(out))
-			UploadFile("cache/"+bv+".mp4", config.AlistPath+"/Archive/"+video.Author+"/"+video.ParentTitle+"["+strings.ReplaceAll(video.PublishAt, ":", "-")+"] "+video.Title+".mp4")
+			final = config.AlistPath + "/Archive/" + video.Author + "/" + video.ParentTitle + "[" + strings.ReplaceAll(video.PublishAt, ":", "-") + "] " + video.Title + ".mp4"
+			UploadFile("cache/"+bv+".mp4", final)
 
 			os.Remove("cache/" + bv + ".mp4")
 			os.Remove("cache/" + bv + ".mp3")
 			os.Remove("cache/" + bv + ".m4s")
 		}
 	})
+	return final
 
 }
 
@@ -772,6 +817,50 @@ func ParsePlayList(mid string, session string) []Video {
 	return array
 
 }
+func GetCollectionId() int {
+	var url = "https://api.bilibili.com/x/v3/fav/folder/created/list?ps=50&pn=1&up_mid=" + config.User
+	res, _ := client.R().Get(url)
+	var list = CollectionList{}
+	sonic.Unmarshal(res.Body(), &list)
+	for _, s := range list.Data.List {
+		if s.Title == "Monitor" {
+			return s.ID
+		}
+	}
+	return 0
+}
+func RefreshCollection(id string) {
+
+	var url = "https://api.bilibili.com/x/v3/fav/resource/list?ps=1&media_id=" + id
+	res, _ := client.R().Get(url)
+	var medias = CollectionMedias{}
+	sonic.Unmarshal(res.Body(), &medias)
+	if len(RecordedMedias) == 0 {
+		for _, media := range medias.Data.Medias {
+			RecordedMedias = append(RecordedMedias, media.BV)
+		}
+	} else {
+		for i := range RecordedMedias {
+			var item = RecordedMedias[i]
+			var title = ""
+			var found = false
+			for _, media := range medias.Data.Medias {
+				if item == media.BV {
+					found = true
+					title = media.Title
+				}
+			}
+			if !found {
+				RecordedMedias = append(RecordedMedias, item)
+				go func() {
+					var link = UploadArchive(ParseSingleVideo(item)[0])
+					PushDynamic("你收藏的"+title+"已下载完成", link)
+				}()
+			}
+		}
+	}
+
+}
 
 func SaveConfig() {
 	content, _ := sonic.Marshal(&config)
@@ -798,14 +887,19 @@ func main() {
 		config.CommonDelay = "30m"
 		config.User = "2"
 		config.RefreshFollowingsDelay = "30m"
-		config.SpecialList = []int{1265680561}
-		config.LoginMode = true
-		config.EnableQQBot = true
-		config.EnableEmail = false
+		config.SpecialList = []int{}
+		config.EnableQQBot = false
+		config.EnableEmail = true
 		config.FromMail = "bili@ikun.dev"
 		config.ToMail = []string{"to@example.com"}
 		config.ReportTo = []string{"10001"}
 		config.BackServer = "http://127.0.0.1:3090"
+		config.Tracing = []string{"544853"}
+		config.EnableAlist = false
+		config.EnableSQLite = true
+		config.SQLitePath = "database.db"
+		config.EnableMySQL = false
+		config.EnableCollectionMonitor = false
 		Cookie = config.Cookie
 		content, _ = sonic.Marshal(&config)
 		os.Create("config.json")
@@ -823,6 +917,7 @@ func main() {
 		dsl = strings.Replace(dsl, "#pass", config.SQLPass, 1)
 		dsl = strings.Replace(dsl, "#server", config.SQLServer, 1)
 		dsl = strings.Replace(dsl, "#name", config.SQLName, 1)
+
 		db, _ = gorm.Open(mysql.New(mysql.Config{
 			DSN: dsl, // DSN data source name
 		}), &gorm.Config{})
@@ -831,7 +926,6 @@ func main() {
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Archive{})
-	FixMoney()
 	RemoveEmpty()
 	go InitHTTP()
 	for i := range config.Tracing {
@@ -842,13 +936,16 @@ func main() {
 		time.Sleep(30 * time.Second)
 
 	}
+
+	var collectId = GetCollectionId()
 	c := cron.New()
 	RefreshFollowings()
 	UpdateCommon()
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 	c.AddFunc("@every 120m", RefreshFollowings)
 	c.AddFunc("@every 10m", UpdateCommon)
-	c.AddFunc("@every 5m", FixMoney)
+	c.AddFunc("@every 1m", FixMoney)
+	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(collectId)) })
 
 	c.Start()
 

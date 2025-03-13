@@ -37,8 +37,11 @@ func FixMoney() {
 	db.Find(&lives0)
 
 	for _, v := range lives0 {
+		if v.EndAt != 0 {
+			continue //已经结束的直播不需要刷新
+		}
 		var sum float64
-		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", v.ID).Scan(&sum)
+		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? ", v.ID).Scan(&sum)
 		result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sum), 64)
 		var msgCount int64
 		db.Model(&LiveAction{}).Where("live = ? and action_name = 'msg'", v.ID).Count(&msgCount)
@@ -49,7 +52,7 @@ func FixMoney() {
 		if (time.Now().Unix() + 8*3600 - last.CreatedAt.Unix()) < 0 {
 
 		}
-		db.Save(&v) // 分别更新每条记录
+		db.Save(&v)
 	}
 }
 func RemoveEmpty() {
@@ -197,13 +200,10 @@ func TraceLive(roomId string) {
 			buffer := bytes.NewReader([]byte(msg))
 
 			for {
-				// 检查是否有足够的数据来解码头部
 				if buffer.Len() < 16 {
-					log.Println("Insufficient data to read header")
 					break
 				}
 
-				// 解码头部
 				var totalSize uint32
 				var headerLength uint16
 				var protocolVersion uint16
@@ -215,14 +215,9 @@ func TraceLive(roomId string) {
 				binary.Read(buffer, binary.BigEndian, &protocolVersion)
 				binary.Read(buffer, binary.BigEndian, &operation)
 				binary.Read(buffer, binary.BigEndian, &sequence)
-
-				// 验证数据完整性
 				if buffer.Len() < int(totalSize-16) {
-					log.Println("Insufficient data for complete packet")
 					break
 				}
-
-				// 读取消息体部分
 				msgData := make([]byte, totalSize-16)
 				buffer.Read(msgData)
 
@@ -280,26 +275,18 @@ func TraceLive(roomId string) {
 					}
 
 				} else if text.Cmd == "LIVE" {
-
-					//else if strings.Contains(obj, "LIVE") && !strings.Contains(obj, "STOP_LIVE_ROOM_LIST") && !strings.Contains(obj, "LIVE_MULTI_VIEW") && !strings.Contains(obj, "live_time") && !strings.Contains(obj, "LIVE_INTERACT_GAME") && !strings.Contains(obj, "LIVE_OPEN_PLATFORM") && !strings.Contains(obj, "LIVE_ROOM_TOAST") { //开播
 					var new = Live{}
 					living = true
 					new.UserID = liverId
 					time.Sleep(time.Second * 5) //如果马上去请求直播间信息会有问题
 					var r, _ = client.R().Get(roomUrl)
 					sonic.Unmarshal(r.Body(), &roomInfo)
-
 					var serverStartAt = time.Now() //time.Parse(time.DateTime, roomInfo.Data.LiveTime)
-
 					var foundLive = Live{}
 					lives[roomId].Title = roomInfo.Data.Title
-
 					db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
-
 					var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
-
 					if diff-8*3600 > 60*15 && !strings.Contains(msg, "WATCHED_CHANGE") /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
-
 						v := serverStartAt
 						v = v.Add(time.Hour * 8)
 						new.StartAt = v.Unix()
@@ -311,7 +298,6 @@ func TraceLive(roomId string) {
 						lives[roomId].Live = true
 						lives[roomId].StartAt = time.Now().Add(3600 * 8 * time.Second).Format(time.DateTime)
 						liver = strings.TrimSpace(liver) // 去除前后的空白字符
-
 						db.Create(&new)
 						dbLiveId = int(new.ID)
 						var msg = "你关注的主播： " + liver + " 开始直播"
@@ -339,6 +325,7 @@ func TraceLive(roomId string) {
 					var guard = GuardInfo{}
 					sonic.Unmarshal(msgData, &guard)
 					action.FromId = strconv.Itoa(guard.Data.Uid)
+					action.ActionName = "guard"
 					action.FromName = guard.Data.Username
 					action.GiftName = guard.Data.GiftName
 					switch action.GiftName {
@@ -394,6 +381,9 @@ func TraceLive(roomId string) {
 				if config.EnableLiveBackup {
 					go UploadLive(Live{RoomId: i, UserName: liver})
 				}
+			}
+			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
+
 			}
 
 		}
@@ -557,7 +547,7 @@ type LiveAction struct {
 type FrontLiveAction struct {
 	LiveAction
 	UName string
-	Cover string
+	Face  string
 }
 type RoomInfo struct {
 	Data struct {
