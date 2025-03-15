@@ -229,12 +229,26 @@ func TraceLive(roomId string) {
 				action.GiftAmount = sql.NullInt16{Int16: 0, Valid: false}
 				var text = LiveText{}
 				sonic.Unmarshal(msgData, &text)
+				var front = FrontLiveAction{}
 				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
 					action.Extra = text.Info[1].(string)
 					db.Create(&action)
+					value, ok := text.Info[0].([]interface{})[15].(map[string]interface{})
+					if ok {
+						user, exists := value["user"].(map[string]interface{})
+						if exists {
+							base, exists := user["base"].(map[string]interface{})
+							if exists {
+								face, exists := base["face"]
+								if exists {
+									front.Face = face.(string)
+								}
+							}
+						}
+					}
 					log.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
@@ -243,6 +257,8 @@ func TraceLive(roomId string) {
 					action.ActionName = "gift"
 					action.FromName = info.Data.Uname
 					action.GiftName = info.Data.GiftName
+					front.MedalLevel = info.Data.Medal.Level
+					front.MedalName = info.Data.Medal.Name
 					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
 					mu.RLock()
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
@@ -250,18 +266,19 @@ func TraceLive(roomId string) {
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
+					front.Face = info.Data.Face
+					front.UName = info.Data.Uname
 					db.Create(&action)
 					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
-					/*
-						var entet = EnterLive{}
-						sonic.Unmarshal(msgData, &entet)
-						action.FromId = strconv.Itoa(entet.Data.UID)
-						action.FromName = entet.Data.Uname
-						action.ActionName = "enter"
-						db.Create(&action)
 
-					*/
+					var entet = EnterLive{}
+					sonic.Unmarshal(msgData, &entet)
+					action.FromId = strconv.Itoa(entet.Data.UID)
+					action.FromName = entet.Data.Uname
+					action.ActionName = "enter"
+					//db.Create(&action)
+
 				} else if strings.Contains(obj, "PREPARING") { //下播
 					lives[roomId].Live = false
 					var sum float64
@@ -286,7 +303,7 @@ func TraceLive(roomId string) {
 					lives[roomId].Title = roomInfo.Data.Title
 					db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
 					var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
-					if diff-8*3600 > 60*15 && !strings.Contains(msg, "WATCHED_CHANGE") /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
+					if diff-8*3600 > 60*15 && !lives[roomId].Live /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
 						v := serverStartAt
 						v = v.Add(time.Hour * 8)
 						new.StartAt = v.Unix()
@@ -346,6 +363,8 @@ func TraceLive(roomId string) {
 					}
 				}
 
+				front.LiveAction = action
+
 				// 假设读取完一个封包，如果已没有足够数据来读取下一个头部，退出循环
 				if buffer.Len() < 16 {
 					break
@@ -355,6 +374,7 @@ func TraceLive(roomId string) {
 
 				//log.Printf("Received: %s", substr(msg, 16, len(msg)))
 			}
+
 		}
 	}()
 	for {
@@ -514,8 +534,13 @@ type GiftInfo struct {
 			} `json:"base"`
 			UID int `json:"uid"`
 		} `json:"sender_uinfo"`
-		UID   int    `json:"uid"`
+		UID   int `json:"uid"`
+		Medal struct {
+			Name  string `json:"name"`
+			Level int    `json:"level"`
+		}
 		Uname string `json:"uname"`
+		Face  string `json:"face"`
 	} `json:"data"`
 }
 type LiveText struct {
@@ -546,8 +571,10 @@ type LiveAction struct {
 }
 type FrontLiveAction struct {
 	LiveAction
-	UName string
-	Face  string
+	UName      string
+	Face       string
+	MedalName  string
+	MedalLevel int
 }
 type RoomInfo struct {
 	Data struct {
@@ -576,9 +603,12 @@ type Live struct {
 type EnterLive struct {
 	Cmd  string `json:"cmd"`
 	Data struct {
-		TriggerTime int64  `json:"trigger_time"`
-		UID         int    `json:"uid"`
-		Uname       string `json:"uname"`
+		UID       int    `json:"uid"`
+		Uname     string `json:"uname"`
+		FansMedal struct {
+			MedalName string `json:"medal_name"`
+			Level     int    `json:"medal_level"`
+		} `json:"fans_medal"`
 	} `json:"data"`
 }
 

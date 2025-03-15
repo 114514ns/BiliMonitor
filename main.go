@@ -874,9 +874,12 @@ var db *gorm.DB
 // var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 
 var lives = map[string]*Status{} //[]string{}
+var file = time.Now().Format(time.DateTime) + ".log"
+var logFile, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 
 func main() {
-
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(multiWriter)
 	content, err := os.ReadFile("config.json")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 
@@ -912,7 +915,7 @@ func main() {
 		db.Exec("PRAGMA journal_mode=WAL;")
 	}
 	if config.EnableMySQL {
-		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8&parseTime=True&loc=Local"
+		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8mb4&parseTime=True&loc=Local"
 		dsl = strings.Replace(dsl, "#user", config.SQLUser, 1)
 		dsl = strings.Replace(dsl, "#pass", config.SQLPass, 1)
 		dsl = strings.Replace(dsl, "#server", config.SQLServer, 1)
@@ -937,7 +940,7 @@ func main() {
 
 	}
 
-	var collectId = GetCollectionId()
+	//var collectId = GetCollectionId()
 	c := cron.New()
 	RefreshFollowings()
 	UpdateCommon()
@@ -945,7 +948,7 @@ func main() {
 	c.AddFunc("@every 120m", RefreshFollowings)
 	c.AddFunc("@every 10m", UpdateCommon)
 	c.AddFunc("@every 1m", FixMoney)
-	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(collectId)) })
+	//c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(collectId)) })
 
 	c.Start()
 
