@@ -13,12 +13,10 @@
   - 单独上传直播音频
 - 可选MySQL和SQLite数据库
 - 备份(爬取)用户动态和评论
-
 - 下载单个视频/分P视频/播放列表
 - 自动下载收藏夹内的视频（使用场景：想要下载一个视频，或者感觉这个视频会被下架掉，只要点收藏就可以备份/快速获得视频链接
 
 # Screenshots
-
 
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com/undefined20250305001302952.png)
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com/undefined20250305001138294.png)
@@ -28,6 +26,8 @@
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com/undefined20250302233902605.png)
 ![](https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com/undefined20250302233924636.png)
 
+# Known issues
+- 偶有直播开始或结束事件无法正确检测
 # Configuration
 
 ```json5
