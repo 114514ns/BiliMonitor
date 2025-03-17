@@ -19,22 +19,16 @@ const Monitor = () => {
 
     const refresh = () => {
         axios.get(`${protocol}://${host}:${port}/monitor`).then(res => {
-            //setMonitor(res.data.lives)
             if (JSON.stringify(init) === "{}") {
                 var j = res.data.lives.sort((a, b) => {
-                    // 首先按 Live 排序，Live 为 true 的排在前面
                     if (a.Live === b.Live) {
-                        // 如果 Live 相同，再根据 UName 排序
                         return a.UID > b.UID ? 1 : -1;
                     }
-                    // Live 为 true 的排在前面，Live 为 false 的排在后面
                     return a.Live ? -1 : 1;
                 });
                 setMonitor(j);
                 init = j
-
             } else {
-
                 init.forEach((live) => {
                     var id = live.UID
                     res.data.lives.forEach(live0 => {
@@ -46,7 +40,6 @@ const Monitor = () => {
                     })
                 })
                 setMonitor(init)
-
             }
             const sort = res.data.lives.sort((a, b) => {
                 // 首先按 Live 排序，Live 为 true 的排在前面
