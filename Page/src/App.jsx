@@ -18,6 +18,7 @@ import {
 import DownloadDialog from "./components/DownloadDialog";
 import PubSub from 'pubsub-js'
 import Danmaku from "./pages/Danmaku";
+import ChatPage from "./pages/ChatPage";
 
 
 function BasicLayout() {
@@ -89,6 +90,7 @@ function BasicLayout() {
                     <Route path={'/danmaku'} element={<Danmaku/>}>
 
                     </Route>
+                    <Route path={'chat/:id'} element={<ChatPage/>}/>
                 </Routes>
             </div>
         </div>

@@ -233,6 +233,7 @@ type Status struct {
 	RemainTrying int8
 	Face         string
 	Cover        string
+	LiveRoom     string
 	Danmuku      []FrontLiveAction
 }
 
@@ -445,7 +446,7 @@ func GetAlistToken() string {
 func UploadFile(path string, alistPath string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("打开文件失败: %w", err)
+		log.Printf("打开文件失败: %w", err)
 	}
 	defer file.Close()
 
@@ -471,7 +472,7 @@ func UploadFile(path string, alistPath string) error {
 
 	req, err := http.NewRequest("PUT", config.AlistServer+"api/fs/form", bodyReader)
 	if err != nil {
-		return fmt.Errorf("创建请求失败: %w", err)
+		log.Println("创建请求失败:", err)
 	}
 
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -481,13 +482,13 @@ func UploadFile(path string, alistPath string) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("上传请求失败: %w", err)
+		log.Println("上传请求失败: %w", err.Error())
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("读取响应失败: %w", err)
+		log.Println("读取响应失败: %w", err)
 	}
 
 	fmt.Printf("[%s] %d %s\n", alistPath, resp.StatusCode, string(body))
@@ -935,6 +936,7 @@ func main() {
 		var roomId = config.Tracing[i]
 
 		lives[roomId] = &Status{RemainTrying: 4}
+		lives[roomId].Danmuku = make([]FrontLiveAction, 0)
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
 

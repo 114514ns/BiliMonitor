@@ -22,7 +22,11 @@ console.warn = (...args) => {
 
     originalWarn(...args);
 };
+const host = location.hostname;
 
+const port = debug?8080:location.port;
+
+const protocol = location.protocol.replace(":","")
 createRoot(document.getElementById('root')).render(
   <StrictMode>
       <HeroUIProvider>

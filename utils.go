@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"os"
@@ -80,6 +81,21 @@ func abs(a int) int {
 func toInt64(s string) int64 {
 	i64, _ := strconv.ParseInt(s, 10, 64)
 	return i64
+}
+func AppendElement[T any](queue []T, maxSize int, element T) []T {
+	if len(queue) >= maxSize {
+		queue = queue[1:]
+	}
+	return append(queue, element)
+}
+func DeepCopy[T any](src T) (T, error) {
+	var dst T
+	data, err := json.Marshal(src)
+	if err != nil {
+		return dst, err
+	}
+	err = json.Unmarshal(data, &dst)
+	return dst, err
 }
 func getCorrespondPath(ts int64) string {
 	const publicKeyPEM = `
