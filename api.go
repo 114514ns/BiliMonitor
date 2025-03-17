@@ -39,7 +39,9 @@ func InitHTTP() {
 
 		var array = make([]Status, 0)
 		for s := range lives {
-			array = append(array, *lives[s])
+			copy, _ := DeepCopy(*lives[s])
+			copy.Danmuku = []FrontLiveAction{}
+			array = append(array, copy)
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"lives": array,
@@ -256,6 +258,30 @@ func InitHTTP() {
 			"message": "success",
 			"data":    results,
 		})
+	})
+	r.GET("/history", func(context *gin.Context) {
+		roomStr := context.DefaultQuery("room", "1")
+		last := context.DefaultQuery("last", "")
+		var result = []FrontLiveAction{}
+		if last != "" {
+			var match = false
+			for _, action := range lives[roomStr].Danmuku {
+				if action.UUID == last {
+					match = true
+					continue
+				}
+				if match {
+					result = append(result, action)
+				}
+			}
+		} else {
+			result = lives[roomStr].Danmuku
+		}
+		context.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    result,
+		})
+
 	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")

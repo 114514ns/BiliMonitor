@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/andybalholm/brotli"
 	"github.com/bytedance/sonic"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 	"io"
@@ -39,6 +40,9 @@ func FixMoney() {
 	for _, v := range lives0 {
 		if v.EndAt != 0 {
 			continue //已经结束的直播不需要刷新
+		}
+		if time.Now().Unix()-v.StartAt > 3600*24*5 {
+			continue //如果连续播了5天以上，大概率是直播结束的时候没有检测到，实际已经结束
 		}
 		var sum float64
 		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? ", v.ID).Scan(&sum)
@@ -98,6 +102,7 @@ func TraceLive(roomId string) {
 	lives[roomId].Area = roomInfo.Data.Area
 	lives[roomId].Cover = roomInfo.Data.Face
 	lives[roomId].Title = roomInfo.Data.Title
+	lives[roomId].LiveRoom = roomId
 	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
 		lives[roomId].Live = true
 
@@ -117,6 +122,7 @@ func TraceLive(roomId string) {
 		if diff < 90 {
 			log.Println("续")
 
+			lives[roomId].Live = true
 			dbLiveId = int(foundLive.ID)
 		} else {
 
@@ -140,7 +146,7 @@ func TraceLive(roomId string) {
 
 	var url0 = "https://api.bilibili.com/x/web-interface/nav"
 	url0 = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId
-	res, _ := client.R().SetHeader("Cookie", config.Cookie).Get(url0)
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get(url0)
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
 	if len(liveInfo.Data.HostList) == 0 {
@@ -247,6 +253,22 @@ func TraceLive(roomId string) {
 									front.Face = face.(string)
 								}
 							}
+							medal, exists := user["medal"].(map[string]interface{})
+							if exists {
+								name, exists := medal["name"]
+								if exists {
+									action.MedalName = name.(string)
+								}
+								level, exists := medal["level"]
+								if exists {
+									action.MedalLevel = int8(level.(float64))
+								}
+								guardLevel, exists := medal["guard_level"]
+								if exists {
+									action.GuardLevel = int8(guardLevel.(float64))
+								}
+
+							}
 						}
 					}
 					log.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
@@ -257,8 +279,8 @@ func TraceLive(roomId string) {
 					action.ActionName = "gift"
 					action.FromName = info.Data.Uname
 					action.GiftName = info.Data.GiftName
-					front.MedalLevel = info.Data.Medal.Level
-					front.MedalName = info.Data.Medal.Name
+					action.MedalLevel = int8(info.Data.Medal.Level)
+					action.MedalName = info.Data.Medal.Name
 					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
 					mu.RLock()
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
@@ -267,7 +289,6 @@ func TraceLive(roomId string) {
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
 					front.Face = info.Data.Face
-					front.UName = info.Data.Uname
 					db.Create(&action)
 					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
@@ -304,6 +325,8 @@ func TraceLive(roomId string) {
 					db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
 					var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
 					if diff-8*3600 > 60*15 && !lives[roomId].Live /*&& roomInfo.Data.LiveTime != "0000-00-00 00:00:00"*/ {
+						log.Println("[" + roomId + "]  " + msg)
+						log.Println("[" + roomId + "]  " + string(msgData))
 						v := serverStartAt
 						v = v.Add(time.Hour * 8)
 						new.StartAt = v.Unix()
@@ -362,13 +385,15 @@ func TraceLive(roomId string) {
 						db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{Watch: obj.Data.Num})
 					}
 				}
-
 				front.LiveAction = action
-
-				// 假设读取完一个封包，如果已没有足够数据来读取下一个头部，退出循环
+				if action.ActionName != "" {
+					front.UUID = uuid.New().String()
+					lives[roomId].Danmuku = AppendElement(lives[roomId].Danmuku, 500, front)
+				}
 				if buffer.Len() < 16 {
 					break
 				}
+
 			}
 			if !strings.Contains(msg, "[object") {
 
@@ -405,9 +430,7 @@ func TraceLive(roomId string) {
 			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
 
 			}
-
 		}
-
 	}
 }
 func BuildMessage(str string, opCode int) []byte {
@@ -568,13 +591,14 @@ type LiveAction struct {
 	GiftPrice  sql.NullFloat64 `gorm:"scale:2;precision:7"`
 	GiftAmount sql.NullInt16
 	Extra      string
+	MedalName  string
+	MedalLevel int8
+	GuardLevel int8
 }
 type FrontLiveAction struct {
 	LiveAction
-	UName      string
-	Face       string
-	MedalName  string
-	MedalLevel int
+	Face string
+	UUID string
 }
 type RoomInfo struct {
 	Data struct {
