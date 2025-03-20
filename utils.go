@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -71,6 +72,17 @@ func Last(dir string) (fileName string, modTime time.Time, err error) {
 	}
 	return latestFile.Name(), info.ModTime(), nil
 }
+func FormatDuration(seconds int) string {
+	duration := time.Duration(seconds) * time.Second
+	hours := duration / time.Hour
+	minutes := (duration % time.Hour) / time.Minute
+	secs := (duration % time.Minute) / time.Second
+
+	if hours > 0 {
+		return fmt.Sprintf("%d:%02d:%02d", hours, minutes, secs)
+	}
+	return fmt.Sprintf("%d:%02d", minutes, secs)
+}
 func abs(a int) int {
 	if a < 0 {
 		return -a
@@ -121,4 +133,14 @@ JNrRuoEUXpabUzGB8QIDAQAB
 		return ""
 	}
 	return hex.EncodeToString(encryptedData)
+}
+
+func Index(s string, index int) string {
+	runes := bytes.Runes([]byte(s))
+	for i, rune := range runes {
+		if i == int(index) {
+			return string(rune)
+		}
+	}
+	return ""
 }
