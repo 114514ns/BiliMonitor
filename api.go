@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -35,6 +36,7 @@ func InitHTTP() {
 	//r.Static("/page", "./Page/dist/")
 	//r.Static("/assets", "./Page/dist/assets")
 	r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.GET("/monitor", func(c *gin.Context) {
 
 		var array = make([]Status, 0)
@@ -48,7 +50,7 @@ func InitHTTP() {
 		})
 	})
 	r.GET("/liver", func(c *gin.Context) {
-		key := c.DefaultQuery("key", "1") // 默认为第一页
+		key := c.DefaultQuery("key", "1")
 		var result0 = make([]Live, 0)
 		var result = make([]string, 0)
 		db.Model(&Live{}).Where("user_name like '%" + key + "%'").Find(&result0)
@@ -62,10 +64,10 @@ func InitHTTP() {
 	})
 	r.GET("/live", func(c *gin.Context) {
 		var f []Live
-		name := c.DefaultQuery("name", "1")    // 默认为第一页
-		pageStr := c.DefaultQuery("page", "1") // 默认为第一页
+		name := c.DefaultQuery("name", "1")
+		pageStr := c.DefaultQuery("page", "1")
 		page, _ := strconv.Atoi(pageStr)
-		limitStr := c.DefaultQuery("limit", "10") // 默认为第一页
+		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
 		offset := (page - 1) * limit
 		var totalRecords int64
@@ -73,9 +75,6 @@ func InitHTTP() {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database count error"})
 			return
 		}
-
-		// 计算总页数
-		//totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
 		if name == "1" {
 			db.Offset(offset).Limit(limit).Find(&f)
 		} else {
@@ -93,23 +92,19 @@ func InitHTTP() {
 		})
 	})
 	r.GET("/live/:id/", func(c *gin.Context) {
-		// 获取 ID 和 page 参数
 		id := c.Param("id")
-		pageStr := c.DefaultQuery("page", "1") // 默认为第一页
+		pageStr := c.DefaultQuery("page", "1")
 		page, err := strconv.Atoi(pageStr)
 		if err != nil || page < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page number"})
 			return
 		}
 
-		// 假设每页有10条记录
-		limitStr := c.DefaultQuery("limit", "10") // 默认为第一页
+		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
 		offset := (page - 1) * limit
 
-		// 从数据库查询
-
-		orderStr := c.DefaultQuery("order", "ascend") // 默认为第一页
+		orderStr := c.DefaultQuery("order", "ascend")
 
 		var totalRecords int64
 		if err := db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id).Count(&totalRecords).Error; err != nil {
@@ -126,8 +121,7 @@ func InitHTTP() {
 			orderQuery = "id asc"
 		}
 
-		// 计算总页数
-		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit)) // 向上取整
+		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
 
 		var records []LiveAction
 		if err := db.Where("live = ? and action_name != 'enter'", id).Order(orderQuery).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
@@ -139,7 +133,6 @@ func InitHTTP() {
 
 		db.Model(&Live{}).Where("id = ?", id).Find(&liveObj)
 
-		// 返回查询结果
 		c.JSON(http.StatusOK, gin.H{
 			"totalPages":   totalPages,
 			"totalRecords": totalRecords,
@@ -232,6 +225,7 @@ func InitHTTP() {
 		}
 		res, _ := client.R().SetHeader("Referer", "https://www.bilibili.com/").Get(url)
 		c.Writer.Header().Set("Content-Type", res.Header().Get("Content-Type"))
+		c.Writer.Header().Set("Cache-Control", "public, max-age=31536000")
 		c.Writer.WriteHeader(res.StatusCode())
 		c.Writer.Write(res.Body())
 	})
@@ -275,7 +269,10 @@ func InitHTTP() {
 				}
 			}
 		} else {
-			result = lives[roomStr].Danmuku
+			result = []FrontLiveAction{}
+			if lives[roomStr].Danmuku != nil {
+				result = lives[roomStr].Danmuku
+			}
 		}
 		context.JSON(http.StatusOK, gin.H{
 			"message": "success",
