@@ -1,0 +1,204 @@
+package main
+
+type Dash struct {
+	Data struct {
+		Dash0 struct {
+			Video []struct {
+				Link string `json:"base_url"`
+			} `json:"video"`
+			Audio []struct {
+				Link string `json:"base_url"`
+			} `json:"audio"`
+		} `json:"dash"`
+	} `json:"data"`
+}
+type CollectionList struct {
+	Data struct {
+		List []struct {
+			Title string `json:"title"`
+			ID    int    `json:"id"`
+		}
+	}
+}
+type CollectionMedias struct {
+	Data struct {
+		Medias []struct {
+			Title string `json:"title"`
+			BV    string `json:"bvid"`
+		}
+	}
+}
+type VideoResponse struct {
+	Data struct {
+		Cover     string `json:"pic"`
+		Title     string `json:"title"`
+		Duration  int    `json:"duration"`
+		PublishAt int64  `json:"pubdate"`
+		Desc      string `json:"desc"`
+		Owner     struct {
+			Mid  int64  `json:"mid"`
+			Name string `json:"name"`
+			Face string `json:"face"`
+		} `json:"owner"`
+		Pages []struct {
+			Cid      int    `json:"cid"`
+			Title    string `json:"part"`
+			Duration int    `json:"duration"`
+		}
+	} `json:"data"`
+}
+type PlayListResponse struct {
+	Data struct {
+		Archives []struct {
+			BV       string `json:"bvid"`
+			CreateAt int    `json:"pubdate"`
+			Cover    string `json:"pic"`
+			Duration int    `json:"duration"`
+			Title    string `json:"title"`
+		} `json:"archives"`
+		Meta struct {
+			Name string `json:"name"`
+		} `json:"meta"`
+	} `json:"data"`
+}
+type UserDynamic struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	TTL     int    `json:"ttl"`
+	Data    struct {
+		Items []DynamicItem `json:"items"`
+	} `json:"data"`
+}
+type DynamicItem struct {
+	IDStr   string       `json:"id_str"`
+	Orig    *DynamicItem `json:"orig"`
+	Modules struct {
+		ModuleDynamic struct {
+			Major struct {
+				Archive struct {
+					Aid   string `json:"aid"`
+					Badge struct {
+						BgColor string      `json:"bg_color"`
+						Color   string      `json:"color"`
+						IconURL interface{} `json:"icon_url"`
+						Text    string      `json:"text"`
+					} `json:"badge"`
+					Bvid  string `json:"bvid"`
+					Cover string `json:"cover"`
+					Desc  string `json:"desc"`
+					Stat  struct {
+						Danmaku string `json:"danmaku"`
+						Play    string `json:"play"`
+					} `json:"stat"`
+					Title string `json:"title"`
+					Type  int    `json:"type"`
+				} `json:"archive"`
+				Opus struct {
+					Pics []struct {
+						URL string `json:"url"`
+					} `json:"pics"`
+					Summary struct {
+						Text string `json:"text"`
+					} `json:"summary"`
+				} `json:"opus"`
+				Desc struct {
+					Text string `json:"text"`
+				} `json:"desc"`
+				Type string `json:"type"`
+			} `json:"major"`
+			Topic interface{} `json:"topic"`
+			Desc  struct {
+				Nodes []struct {
+					Text string `json:"text"`
+				} `json:"rich_text_nodes"`
+			} `json:"desc"`
+		} `json:"module_dynamic"`
+		ModuleAuthor struct {
+			Name      string `json:"name"`
+			Mid       int64  `json:"mid"`
+			TimeStamp int64  `json:"pub_ts"`
+		} `json:"module_author"`
+	} `json:"modules"`
+	Type string `json:"type"`
+}
+type FansList struct {
+	Data struct {
+		List []struct {
+			Mid                string `json:"mid"`
+			Attribute          int    `json:"attribute"`
+			Uname              string `json:"uname"`
+			Face               string `json:"face"`
+			AttestationDisplay struct {
+				Type int    `json:"type"`
+				Desc string `json:"desc"`
+			} `json:"attestation_display"`
+		} `json:"list"`
+	} `json:"data"`
+	Ts        int64  `json:"ts"`
+	RequestID string `json:"request_id"`
+}
+type UserResponse struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	TTL     int    `json:"ttl"`
+	Data    struct {
+		Card struct {
+			Name string `json:"name"`
+			Face string `json:"face"`
+		}
+		Followers int `json:"follower"`
+	} `json:"data"`
+}
+type LiveStreamResponse struct {
+	Data struct {
+		PlayurlInfo struct {
+			Playurl struct {
+				Stream []struct {
+					ProtocolName string `json:"protocol_name"`
+					Format       []struct {
+						FormatName string `json:"format_name"`
+						Codec      []struct {
+							CodecName string `json:"codec_name"`
+							CurrentQn int    `json:"current_qn"`
+							AcceptQn  []int  `json:"accept_qn"`
+							BaseUrl   string `json:"base_url"`
+							UrlInfo   []struct {
+								Host      string `json:"host"`
+								Extra     string `json:"extra"`
+								StreamTtl int    `json:"stream_ttl"`
+							} `json:"url_info"`
+							HdrQn     interface{} `json:"hdr_qn"`
+							DolbyType int         `json:"dolby_type"`
+							AttrName  string      `json:"attr_name"`
+							HdrType   int         `json:"hdr_type"`
+						} `json:"codec"`
+						MasterUrl string `json:"master_url"`
+					} `json:"format"`
+				} `json:"stream"`
+			} `json:"playurl"`
+		} `json:"playurl_info"`
+	} `json:"data"`
+}
+type OnlineWatcherResponse struct {
+	Data struct {
+		Item []OnlineWatcher `json:"item"`
+	} `json:"data"`
+}
+type OnlineWatcher struct {
+	UID   int64  `json:"uid"`
+	Name  string `json:"name"`
+	Face  string `json:"face"`
+	Guard int8   `json:"guard_level"`
+	Medal struct {
+		Name     string `json:"medal_name"`
+		Level    int8   `json:"level"`
+		ColorDec int    `json:"medal_color_start"`
+		Color    string
+	} `json:"medal_info"`
+}
+type LiveStatusResponse struct {
+	Cmd  string `json:"cmd"`
+	Data struct {
+		LiveStatus int `json:"live_status"`
+	} `json:"data"`
+}
