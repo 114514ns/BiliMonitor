@@ -62,6 +62,34 @@ func FixMoney() {
 func RemoveEmpty() {
 	db.Where("money = 0 and message = 0").Delete(&Live{})
 }
+func GetLiveStream(room string) string {
+	var last = lives[room].StreamKey
+	if last == 0 || time.Now().Unix()-last > 60*10+int64(rand.Int()%1800) || lives[room].Stream == "" {
+		lives[room].StreamKey = time.Now().Unix()
+		res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=0&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
+		var s = LiveStreamResponse{}
+		sonic.Unmarshal(res.Body(), &s)
+		stream := s.Data.PlayurlInfo.Playurl.Stream
+		if stream != nil {
+			obj := stream[len(stream)-1].Format[0].Codec[ /*len(stream[len(stream)-1].Format[0].Codec)-1*/ 0]
+			return obj.UrlInfo[0].Host + obj.BaseUrl + obj.UrlInfo[0].Extra
+		}
+
+	}
+	return ""
+
+}
+func GetOnline(room string, liver string) []OnlineWatcher {
+	var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/queryContributionRank?ruid=%s&room_id=%s", liver, room)
+	res, _ := client.R().Get(url)
+	var o = OnlineWatcherResponse{}
+	sonic.Unmarshal(res.Body(), &o)
+	for i, watcher := range o.Data.Item {
+		o.Data.Item[i].Medal.Color = fmt.Sprintf("#%06X", watcher.Medal.ColorDec)
+	}
+	return o.Data.Item
+
+}
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
@@ -81,23 +109,23 @@ func TraceLive(roomId string) {
 	liver = liverObj.Data.Info.Uname
 	lives[roomId].UName = liver
 
-	var faceUrl = "https://api.bilibili.com/x/space/top/arc?vmid=" + liverId
+	var faceUrl = "https://api.bilibili.com/x/web-interface/card?mid=" + liverId
 
-	var faceRes, _ = client.R().Get(faceUrl)
+	var faceRes, _ = client.R().SetHeader("User-Agent", USER_AGENT).Get(faceUrl)
 
 	time.Sleep(1 * time.Second)
 
 	type FaceInfo struct {
 		Data struct {
-			Owner struct {
+			Card struct {
 				Face string `json:"face"`
-			} `json:"owner"`
+			} `json:"card"`
 		} `json:"data"`
 	}
 	var faceInfo = FaceInfo{}
 	sonic.Unmarshal(faceRes.Body(), &faceInfo)
 
-	lives[roomId].Face = faceInfo.Data.Owner.Face
+	lives[roomId].Face = faceInfo.Data.Card.Face
 	lives[roomId].UID = liverId
 	lives[roomId].Area = roomInfo.Data.Area
 	lives[roomId].Cover = roomInfo.Data.Face
@@ -267,6 +295,10 @@ func TraceLive(roomId string) {
 								if exists {
 									action.GuardLevel = int8(guardLevel.(float64))
 								}
+								color, exists := medal["color"]
+								if exists {
+									front.MedalColor = fmt.Sprintf("#%06X", int(color.(float64)))
+								}
 
 							}
 						}
@@ -282,6 +314,7 @@ func TraceLive(roomId string) {
 					action.MedalLevel = int8(info.Data.Medal.Level)
 					action.MedalName = info.Data.Medal.Name
 					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
+					front.MedalColor = fmt.Sprintf("#%06X", info.Data.Medal.Color)
 					mu.RLock()
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
 					mu.RUnlock()
@@ -289,6 +322,7 @@ func TraceLive(roomId string) {
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
 					front.Face = info.Data.Face
+					front.GiftPicture = GiftPic[info.Data.GiftName]
 					db.Create(&action)
 					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
@@ -300,7 +334,7 @@ func TraceLive(roomId string) {
 					action.ActionName = "enter"
 					//db.Create(&action)
 
-				} else if strings.Contains(obj, "PREPARING") { //下播
+				} else if strings.Contains(obj, "PREPARING") {
 					lives[roomId].Live = false
 					var sum float64
 					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
@@ -414,6 +448,7 @@ func TraceLive(roomId string) {
 			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
 			res, _ = client.R().Get(url)
 			status := LiveStatusResponse{}
+			lives[roomId].Stream = GetLiveStream(roomId)
 			sonic.Unmarshal(res.Body(), &status)
 			if status.Data.LiveStatus == 0 && lives[roomId].Live {
 				lives[roomId].Live = false
@@ -430,6 +465,7 @@ func TraceLive(roomId string) {
 			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
 
 			}
+			lives[roomId].OnlineWatcher = GetOnline(roomId, liverId)
 		}
 	}
 }
@@ -450,17 +486,9 @@ func BuildMessage(str string, opCode int) []byte {
 
 	return buffer.Bytes()
 }
-func Index(s string, index int) string {
-	runes := bytes.Runes([]byte(s))
-	for i, rune := range runes {
-		if i == int(index) {
-			return string(rune)
-		}
-	}
-	return ""
-}
 
 var mu sync.RWMutex
+var GiftPic = make(map[string]string)
 
 func FillGiftPrice(room string, area int, parent int) {
 	//对GiftPrice的读写操作得加锁，不然TraceLive炸了然后重试的时候，所有直播间会同时执行FillGiftPrice，对GiftPrice读写，就会炸掉
@@ -483,11 +511,13 @@ func FillGiftPrice(room string, area int, parent int) {
 				var item0 = box.Data.Gifts[i2]
 				mu.Lock()
 				GiftPrice[item0.GiftName] = float32(item0.Price) / 1000.0
+				GiftPic[item0.GiftName] = item0.Picture
 				mu.Unlock()
 			}
 		} else {
 			mu.Lock()
 			GiftPrice[item.Name] = float32(item.Price) / 1000.0
+			GiftPic[item.Name] = item.Picture
 			mu.Unlock()
 		}
 
@@ -530,9 +560,10 @@ type GiftList struct {
 		GiftConfig struct {
 			BaseConfig struct {
 				List []struct {
-					ID    int    `json:"id"`
-					Name  string `json:"name"`
-					Price int    `json:"price"`
+					ID      int    `json:"id"`
+					Name    string `json:"name"`
+					Price   int    `json:"price"`
+					Picture string `json:"webp"`
 				} `json:"list"`
 			} `json:"base_config"`
 			RoomConfig []struct {
@@ -561,6 +592,7 @@ type GiftInfo struct {
 		Medal struct {
 			Name  string `json:"name"`
 			Level int    `json:"level"`
+			Color int    `json:"medal_color"`
 		}
 		Uname string `json:"uname"`
 		Face  string `json:"face"`
@@ -576,6 +608,7 @@ type GiftBox struct {
 		Gifts []struct {
 			Price    int    `json:"price"`
 			GiftName string `json:"gift_name"`
+			Picture  string `json:"webp"`
 		} `json:"gifts"`
 	} `json:"data"`
 }
@@ -597,8 +630,10 @@ type LiveAction struct {
 }
 type FrontLiveAction struct {
 	LiveAction
-	Face string
-	UUID string
+	Face        string
+	UUID        string
+	MedalColor  string
+	GiftPicture string
 }
 type RoomInfo struct {
 	Data struct {
@@ -645,7 +680,6 @@ type LiverInfo struct {
 }
 
 type SuperChatInfo struct {
-	Cmd  string `json:"cmd"`
 	Data struct {
 		Message  string  `json:"message"`
 		Price    float64 `json:"price"`
@@ -657,30 +691,18 @@ type SuperChatInfo struct {
 }
 
 type GuardInfo struct {
-	Cmd  string `json:"cmd"`
 	Data struct {
 		Uid        int    `json:"uid"`
 		Username   string `json:"username"`
 		GuardLevel int    `json:"guard_level"`
 		Num        int    `json:"num"`
-		Price      int    `json:"price"`
-		GiftId     int    `json:"gift_id"`
 		GiftName   string `json:"gift_name"`
-		StartTime  int    `json:"start_time"`
-		EndTime    int    `json:"end_time"`
 	} `json:"data"`
 }
 type Watched struct {
-	Cmd  string `json:"cmd"`
 	Data struct {
 		Num       int    `json:"num"`
 		TextSmall string `json:"text_small"`
 		TextLarge string `json:"text_large"`
-	} `json:"data"`
-}
-type LiveStatusResponse struct {
-	Cmd  string `json:"cmd"`
-	Data struct {
-		LiveStatus int `json:"live_status"`
 	} `json:"data"`
 }
