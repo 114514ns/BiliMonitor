@@ -50,8 +50,8 @@ function BasicLayout() {
                 <NavbarContent style={{display: "flex", justifyContent: "center"}}>
                     {
                         menu.map((item, index) => (
-                            <NavbarItem isActive={index === ind}>
-                                <Link color="foreground" onClick={() => {
+                            <NavbarItem isActive={index === ind} key={index}>
+                                <Link color="foreground" onPress={() => {
                                     setInd(index);
                                     redirect(item.Path);
 

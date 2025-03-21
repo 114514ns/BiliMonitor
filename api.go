@@ -257,6 +257,14 @@ func InitHTTP() {
 		roomStr := context.DefaultQuery("room", "1")
 		last := context.DefaultQuery("last", "")
 		var result = []FrontLiveAction{}
+		if lives[roomStr] == nil {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "error",
+				"data":    []string{},
+			})
+			return
+		}
+
 		if last != "" {
 			var match = false
 			for _, action := range lives[roomStr].Danmuku {
@@ -270,7 +278,7 @@ func InitHTTP() {
 			}
 		} else {
 			result = []FrontLiveAction{}
-			if lives[roomStr].Danmuku != nil {
+			if lives[roomStr] != nil && lives[roomStr].Danmuku != nil {
 				result = lives[roomStr].Danmuku
 			}
 		}
