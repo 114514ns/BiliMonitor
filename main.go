@@ -92,24 +92,23 @@ type Video struct {
 }
 
 type Status struct {
-	Live          bool
-	LastActive    int64
-	UName         string
-	UID           string
-	Area          string
-	Title         string
-	StartAt       string
-	RemainTrying  int8
-	Face          string
-	Cover         string
-	LiveRoom      string
-	Danmuku       []FrontLiveAction
-	Stream        string
-	StreamKey     int64
-	OnlineWatcher []OnlineWatcher
-}
-
-type Guard struct {
+	Live           bool
+	LastActive     int64
+	UName          string
+	UID            string
+	Area           string
+	Title          string
+	StartAt        string
+	RemainTrying   int8
+	Face           string
+	Cover          string
+	LiveRoom       string
+	Danmuku        []FrontLiveAction
+	Stream         string
+	StreamCacheKey int64
+	OnlineWatcher  []Watcher
+	GuardList      []Watcher
+	GuardCacheKey  int64
 }
 
 type Archive struct {
