@@ -181,24 +181,47 @@ type LiveStreamResponse struct {
 }
 type OnlineWatcherResponse struct {
 	Data struct {
-		Item []OnlineWatcher `json:"item"`
+		Item []Watcher `json:"item"`
 	} `json:"data"`
 }
-type OnlineWatcher struct {
+type Watcher struct {
 	UID   int64  `json:"uid"`
 	Name  string `json:"name"`
 	Face  string `json:"face"`
 	Guard int8   `json:"guard_level"`
+	Days  int16  `json:"days"`
 	Medal struct {
-		Name     string `json:"medal_name"`
-		Level    int8   `json:"level"`
-		ColorDec int    `json:"medal_color_start"`
-		Color    string
+		Name       string `json:"medal_name"`
+		Level      int8   `json:"level"`
+		ColorDec   int    `json:"medal_color_start"`
+		GuardLevel int8
+		Color      string
 	} `json:"medal_info"`
 }
 type LiveStatusResponse struct {
 	Cmd  string `json:"cmd"`
 	Data struct {
 		LiveStatus int `json:"live_status"`
+	} `json:"data"`
+}
+type GuardListResponse struct {
+	Data struct {
+		List []struct {
+			Days int16 `json:"accompany"`
+			Info struct {
+				UID  int64 `json:"uid"`
+				User struct {
+					Name string `json:"name"`
+					Face string `json:"face"`
+				} `json:"base"`
+				Medal struct {
+					Name       string `json:"name"`
+					Level      int8   `json:"level"`
+					ColorDec   int    `json:"color_start"`
+					GuardLevel int8   `json:"guard_level"`
+					Color      string
+				} `json:"medal"`
+			} `json:"uinfo"`
+		} `json:"list"`
 	} `json:"data"`
 }

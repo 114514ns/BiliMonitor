@@ -63,9 +63,9 @@ func RemoveEmpty() {
 	db.Where("money = 0 and message = 0").Delete(&Live{})
 }
 func GetLiveStream(room string) string {
-	var last = lives[room].StreamKey
-	if last == 0 || time.Now().Unix()-last > 60*10+int64(rand.Int()%1800) || lives[room].Stream == "" {
-		lives[room].StreamKey = time.Now().Unix()
+	var last = lives[room].StreamCacheKey
+	if last == 0 || time.Now().Unix()-last > 60*10+int64(rand.Int()%1800) || (lives[room].Stream == "" && lives[room].Live) {
+		lives[room].StreamCacheKey = time.Now().Unix()
 		res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=0&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
 		var s = LiveStreamResponse{}
 		sonic.Unmarshal(res.Body(), &s)
@@ -79,7 +79,7 @@ func GetLiveStream(room string) string {
 	return ""
 
 }
-func GetOnline(room string, liver string) []OnlineWatcher {
+func GetOnline(room string, liver string) []Watcher {
 	var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/queryContributionRank?ruid=%s&room_id=%s", liver, room)
 	res, _ := client.R().Get(url)
 	var o = OnlineWatcherResponse{}
@@ -89,6 +89,40 @@ func GetOnline(room string, liver string) []OnlineWatcher {
 	}
 	return o.Data.Item
 
+}
+func GetGuard(room string, liver string) []Watcher {
+	if time.Now().Unix()-lives[room].GuardCacheKey < 60*5 {
+		return lives[room].GuardList
+	}
+	var arr = make([]Watcher, 0)
+	var page = 1
+	for true {
+		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), liver)
+		res, _ := client.R().Get(url)
+		var r = GuardListResponse{}
+		sonic.Unmarshal(res.Body(), &r)
+		for _, s := range r.Data.List {
+			var watcher = Watcher{}
+			watcher.Name = s.Info.User.Name
+			watcher.Face = s.Info.User.Face
+			watcher.Days = s.Days
+			watcher.UID = s.Info.UID
+			watcher.Medal = struct {
+				Name       string `json:"medal_name"`
+				Level      int8   `json:"level"`
+				ColorDec   int    `json:"medal_color_start"`
+				GuardLevel int8
+				Color      string
+			}(s.Info.Medal)
+			watcher.Medal.Color = fmt.Sprintf("#%06X", s.Info.Medal.ColorDec)
+			arr = append(arr, watcher)
+		}
+		page++
+		if len(r.Data.List) == 0 {
+			break
+		}
+	}
+	return arr
 }
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
@@ -190,6 +224,7 @@ func TraceLive(roomId string) {
 		log.Fatal("["+liver+"]  "+"Dial:", err)
 	}
 	ticker := time.NewTicker(45 * time.Second)
+
 	go func() {
 		log.Printf("[%s] 成功连接到弹幕服务器", liver)
 		var cer = Certificate{}
@@ -466,6 +501,9 @@ func TraceLive(roomId string) {
 
 			}
 			lives[roomId].OnlineWatcher = GetOnline(roomId, liverId)
+			go func() {
+				lives[roomId].GuardList = GetGuard(roomId, liverId)
+			}()
 		}
 	}
 }
