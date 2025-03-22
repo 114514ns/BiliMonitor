@@ -91,9 +91,10 @@ func GetOnline(room string, liver string) []Watcher {
 
 }
 func GetGuard(room string, liver string) []Watcher {
-	if time.Now().Unix()-lives[room].GuardCacheKey < 60*5 {
+	if time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
 		return lives[room].GuardList
 	}
+	lives[room].GuardCacheKey = time.Now().Unix()
 	var arr = make([]Watcher, 0)
 	var page = 1
 	for true {

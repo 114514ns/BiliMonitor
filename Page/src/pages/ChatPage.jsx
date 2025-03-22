@@ -10,26 +10,18 @@ import {Tooltip} from "recharts";
 import {Slider} from "@heroui/slider";
 import { Volume2, VolumeX, Volume1 } from "lucide-react";
 import ReactPlayer from "react-player";
+import WatcherList from "../components/WatcherList";
+import ChatArea from "../components/ChatArea";
 
 
 
-export const CheckIcon = ({size, height, width, ...props}) => {
+export const CheckIcon = React.memo(({ size = 24, color = "currentColor", ...props }) => {
     return (
-        <svg
-            fill="none"
-            height={size || height || 24}
-            viewBox="0 0 24 24"
-            width={size || width || 24}
-            xmlns="http://www.w3.org/2000/svg"
-            {...props}
-        >
-            <path
-                d="M12 2C6.49 2 2 6.49 2 12C2 17.51 6.49 22 12 22C17.51 22 22 17.51 22 12C22 6.49 17.51 2 12 2ZM16.78 9.7L11.11 15.37C10.97 15.51 10.78 15.59 10.58 15.59C10.38 15.59 10.19 15.51 10.05 15.37L7.22 12.54C6.93 12.25 6.93 11.77 7.22 11.48C7.51 11.19 7.99 11.19 8.28 11.48L10.58 13.78L15.72 8.64C16.01 8.35 16.49 8.35 16.78 8.64C17.07 8.93 17.07 9.4 16.78 9.7Z"
-                fill="currentColor"
-            />
+        <svg width={size} height={size} {...props}>
+            <use href="#icon-check" fill={color} />
         </svg>
     );
-};
+});
 
 function MuteButton() {
     const [volume, setVolume] = useState(50);
@@ -96,52 +88,41 @@ function ChatPage(props) {
             });
             if (isFirst) {
                 setRoom(sort[0].LiveRoom)
+                console.log(sort[0].LiveRoom)
                 setCurrentStream(sort[0].Stream)
                 setIsFirst(false);
             }
-            setMonitor(sort)
+            if (JSON.stringify(sort) !== JSON.stringify(monitor)) {
+                setMonitor(sort)
+            }
+
+
 
 
         })
     }
-    const refresh = () => {
-        axios.get(`${protocol}://${host}:${port}/history?room=${room}&last=${lastRef.current}`).then(res => {
-            if (res.data.data.length != 0) {
-                setMessage(res.data.data)
-                setPartMessages(res.data.data)
-                res.data.data.map((item) => {
-                    if (item.ActionName !== 'enter') {
-                        message.push(item)
-                    }
-                })
 
-                setMessage(message)
-                setLast(res.data.data[res.data.data.length - 1].UUID)
-            }
-
-        })
+    const getUser = ()=> {
+        if (monitor.filter((e) => e.LiveRoom === room).length === 0) return []
+        return monitor.filter((e) => e.LiveRoom === room)[0].OnlineWatcher
+    }
+    const getGuard = ()=> {
+        if (monitor.filter((e) => e.LiveRoom === room).length === 0) return []
+        return monitor.filter((e) => e.LiveRoom === room)[0].GuardList
     }
 
     useEffect(() => {
         initRoomList();
     }, [])
 
-    const lastRef = React.useRef(null);
+
 
     useEffect(() => {
-        lastRef.current = last;
-    }, [last]);
-
-    useEffect(() => {
-        setLast("")
-        setMessage([])
         initRoomList()
-        refresh();
-        console.log("useEffect")
+        console.log("room changed")
 
         const interval = setInterval(() => {
             initRoomList()
-            refresh();
 
         }, 1000);
 
@@ -156,23 +137,9 @@ function ChatPage(props) {
 
     const protocol = location.protocol.replace(":", "")
 
-    function GiftPart(props) {
-        return (
-            <div className={classes.giftArea}>
-                <p>{props.name}</p>
-                <img src={`${protocol}://${host}:${port}/proxy?url=${props.img}`} alt="" />
-            </div>
-        );
-    }
-    const rowVirtualizer = useVirtualizer({
-        count: message.length,
-        getScrollElement: () => chatRef.current, // 绑定滚动容器
-        estimateSize: () => 160, // 预估行高
-        overscan: 30
-    });
-    useEffect(() => {
-        rowVirtualizer.scrollToIndex(message.length - 1, { align: "end" });
-    }, [message.length]);
+
+
+
     return (
         <div className={classes.root}>
 
@@ -196,7 +163,7 @@ function ChatPage(props) {
                                     }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "8px", minWidth: 0 }}>
                                             <Badge color={item.Live ? "success" : "default"} content="">
-                                                <Avatar src={`${protocol}://${host}:${port}/proxy?url=${item.Face}`}
+                                                <Avatar src={item.Face}
                                                         onClick={() => toSpace(item.UID)} />
                                             </Badge>
                                             <div style={{ minWidth: 0 }}>
@@ -234,71 +201,9 @@ function ChatPage(props) {
                 })}
             </div>
             <div className={classes.chat}>
-                <div className={classes.chatColumn}>
-                    <div ref={chatRef} style={{ height: "100%", width: "100%", overflow: "auto" }}>
-                        <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: "relative" }}>
-                            {rowVirtualizer.getVirtualItems().map(virtualRow => {
-                                const item = message[virtualRow.index];
-                                return (
-                                    <div
-                                        key={item.UUID}
-                                        ref={virtualRow.measureElement}
-                                        style={{
-                                            position: "absolute",
-                                            top: 0,
-                                            left: 0,
-                                            width: "100%",
-                                            transform: `translateY(${virtualRow.start}px)`,
-                                        }}
-                                    >
-                                        <Card style={{ margin: "15px" }} isHoverable>
-                                            <CardBody>
-                                                <div style={{ display: "flex" }}>
-                                                    <Avatar
-                                                        src={`${protocol}://${host}:${port}/proxy?url=${item.Face}`}
-                                                        onClick={() => toSpace(UID)}
-                                                    />
-                                                    <div>
-                                                        <div className={classes.nameRow}>
-                                                            <p>{item.FromName}</p>
-                                                            {item.MedalName && (
-                                                                <Chip
-                                                                    startContent={<CheckIcon size={18} />}
-                                                                    variant="faded"
-                                                                    style={{ marginLeft: "8px", background: item.MedalColor,color:'white'}}
-                                                                >
-                                                                    {item.MedalName}
-                                                                    <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
-                                                            {item.MedalLevel}
-                                                        </span>
-                                                                </Chip>
-                                                            )}
-                                                        </div>
-                                                        <div style={{ marginLeft: "8px" }}>
-                                                            {item.ActionName === "msg" ? (
-                                                                <span className="messageText" >{item.Extra}</span>
-                                                            ) : (
-                                                                <GiftPart name={item.GiftName} img={item.GiftPicture} />
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </CardBody>
-                                            <CardFooter className={classes.msgTime}>
-                                                <p>
-                                                    {String(new Date(item.CreatedAt).getHours()).padStart(2, '0')}:
-                                                    {String(new Date(item.CreatedAt).getMinutes()).padStart(2, '0')}
-                                                </p>
-                                            </CardFooter>
-                                        </Card>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
 
-                </div>
 
+                {room && <ChatArea room={room} />}
                 <Input label="Email" type="email"  endContent={
                     <Button
                         size="sm"
@@ -315,9 +220,10 @@ function ChatPage(props) {
                     <Tabs aria-label="Options" style={{ marginTop: "10px" ,width: "100%",display:'flex',justifyContent:'space-between' }} fullWidth={true}>
                         <Tab title="在线">
 
+                            <WatcherList list={getUser()}/>
                         </Tab>
                         <Tab title="大航海" >
-
+                            <WatcherList list={getGuard()}/>
                         </Tab>
                     </Tabs>
             </div>
