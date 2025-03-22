@@ -49,6 +49,12 @@ func InitHTTP() {
 			"lives": array,
 		})
 	})
+	r.GET("/monitor/:id", func(c *gin.Context) {
+		id := c.Param("id")
+		c.JSON(http.StatusOK, gin.H{
+			"live": lives[id],
+		})
+	})
 	r.GET("/liver", func(c *gin.Context) {
 		key := c.DefaultQuery("key", "1")
 		var result0 = make([]Live, 0)

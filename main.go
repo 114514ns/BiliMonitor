@@ -412,6 +412,8 @@ func main() {
 		var roomId = config.Tracing[i]
 		lives[roomId] = &Status{RemainTrying: 4}
 		lives[roomId].Danmuku = make([]FrontLiveAction, 0)
+		lives[roomId].OnlineWatcher = make([]Watcher, 0)
+		lives[roomId].GuardList = make([]Watcher, 0)
 		lives[roomId].Stream = GetLiveStream(roomId)
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
