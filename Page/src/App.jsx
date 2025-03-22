@@ -90,7 +90,7 @@ function BasicLayout() {
                     <Route path={'/danmaku'} element={<Danmaku/>}>
 
                     </Route>
-                    <Route path={'chat/:id'} element={<ChatPage/>}/>
+                    <Route path={'chat/'} element={<ChatPage/>}/>
                 </Routes>
             </div>
         </div>
