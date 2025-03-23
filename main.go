@@ -103,12 +103,14 @@ type Status struct {
 	Face           string
 	Cover          string
 	LiveRoom       string
-	Danmuku        []FrontLiveAction
 	Stream         string
 	StreamCacheKey int64
 	OnlineWatcher  []Watcher
+	OnlineCount    int
 	GuardList      []Watcher
 	GuardCacheKey  int64
+	Danmuku        []FrontLiveAction `json:"-"`
+	GuardCount     int
 }
 
 type Archive struct {

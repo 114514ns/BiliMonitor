@@ -72,7 +72,12 @@ func GetLiveStream(room string) string {
 		stream := s.Data.PlayurlInfo.Playurl.Stream
 		if stream != nil {
 			obj := stream[len(stream)-1].Format[0].Codec[ /*len(stream[len(stream)-1].Format[0].Codec)-1*/ 0]
+			if obj.UrlInfo[0].Host+obj.BaseUrl+obj.UrlInfo[0].Extra == "" {
+				time.Now()
+			}
 			return obj.UrlInfo[0].Host + obj.BaseUrl + obj.UrlInfo[0].Extra
+		} else {
+			time.Now().Unix()
 		}
 
 	}
@@ -84,9 +89,7 @@ func GetOnline(room string, liver string) []Watcher {
 	res, _ := client.R().Get(url)
 	var o = OnlineWatcherResponse{}
 	sonic.Unmarshal(res.Body(), &o)
-	for i, watcher := range o.Data.Item {
-		o.Data.Item[i].Medal.Color = fmt.Sprintf("#%06X", watcher.Medal.ColorDec)
-	}
+	lives[room].OnlineCount = o.Data.Count
 	return o.Data.Item
 
 }
@@ -102,20 +105,32 @@ func GetGuard(room string, liver string) []Watcher {
 		res, _ := client.R().Get(url)
 		var r = GuardListResponse{}
 		sonic.Unmarshal(res.Body(), &r)
+		if page == 1 {
+			for _, s := range r.Data.Top {
+				var watcher = Watcher{}
+				watcher.Name = s.Info.User.Name
+				watcher.Face = s.Info.User.Face
+				watcher.Days = s.Days
+				watcher.UID = s.Info.UID
+				watcher.Medal.Name = s.Info.Medal.Name
+				watcher.Medal.Level = s.Info.Medal.Level
+				watcher.Medal.Color = s.Info.Medal.Color
+				watcher.Medal.GuardLevel = s.Info.Medal.GuardLevel
+				watcher.Guard = s.Info.Medal.GuardLevel
+				arr = append(arr, watcher)
+			}
+		}
 		for _, s := range r.Data.List {
 			var watcher = Watcher{}
 			watcher.Name = s.Info.User.Name
 			watcher.Face = s.Info.User.Face
 			watcher.Days = s.Days
 			watcher.UID = s.Info.UID
-			watcher.Medal = struct {
-				Name       string `json:"medal_name"`
-				Level      int8   `json:"level"`
-				ColorDec   int    `json:"medal_color_start"`
-				GuardLevel int8
-				Color      string
-			}(s.Info.Medal)
-			watcher.Medal.Color = fmt.Sprintf("#%06X", s.Info.Medal.ColorDec)
+			watcher.Medal.Name = s.Info.Medal.Name
+			watcher.Medal.Level = s.Info.Medal.Level
+			watcher.Medal.Color = s.Info.Medal.Color
+			watcher.Medal.GuardLevel = s.Info.Medal.GuardLevel
+			watcher.Guard = s.Info.Medal.GuardLevel
 			arr = append(arr, watcher)
 		}
 		page++
@@ -123,6 +138,7 @@ func GetGuard(room string, liver string) []Watcher {
 			break
 		}
 	}
+	lives[room].GuardCount = len(arr)
 	return arr
 }
 func TraceLive(roomId string) {
@@ -476,7 +492,7 @@ func TraceLive(roomId string) {
 		select {
 		case <-ticker.C:
 			err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
-			lives[roomId].LastActive = time.Now().Unix() + 3600*8
+			//lives[roomId].LastActive = time.Now().Unix() + 3600*8
 			if err != nil {
 				log.Println("write:", err)
 				return
@@ -484,7 +500,10 @@ func TraceLive(roomId string) {
 			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
 			res, _ = client.R().Get(url)
 			status := LiveStatusResponse{}
-			lives[roomId].Stream = GetLiveStream(roomId)
+			stream := GetLiveStream(roomId)
+			if stream != "" {
+				lives[roomId].Stream = stream
+			}
 			sonic.Unmarshal(res.Body(), &status)
 			if status.Data.LiveStatus == 0 && lives[roomId].Live {
 				lives[roomId].Live = false
