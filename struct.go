@@ -181,7 +181,8 @@ type LiveStreamResponse struct {
 }
 type OnlineWatcherResponse struct {
 	Data struct {
-		Item []Watcher `json:"item"`
+		Item  []Watcher `json:"item"`
+		Count int       `json:"count"`
 	} `json:"data"`
 }
 type Watcher struct {
@@ -191,11 +192,12 @@ type Watcher struct {
 	Guard int8   `json:"guard_level"`
 	Days  int16  `json:"days"`
 	Medal struct {
-		Name       string `json:"medal_name"`
-		Level      int8   `json:"level"`
-		ColorDec   int    `json:"medal_color_start"`
-		GuardLevel int8
-		Color      string
+		Name          string `json:"medal_name"`
+		Level         int8   `json:"level"`
+		ColorDec      int    `json:"medal_color_start"`
+		ColorInternal string `json:"v2_medal_color_start"`
+		GuardLevel    int8
+		Color         string
 	} `json:"medal_info"`
 }
 type LiveStatusResponse struct {
@@ -206,22 +208,24 @@ type LiveStatusResponse struct {
 }
 type GuardListResponse struct {
 	Data struct {
-		List []struct {
-			Days int16 `json:"accompany"`
-			Info struct {
-				UID  int64 `json:"uid"`
-				User struct {
-					Name string `json:"name"`
-					Face string `json:"face"`
-				} `json:"base"`
-				Medal struct {
-					Name       string `json:"name"`
-					Level      int8   `json:"level"`
-					ColorDec   int    `json:"color_start"`
-					GuardLevel int8   `json:"guard_level"`
-					Color      string
-				} `json:"medal"`
-			} `json:"uinfo"`
-		} `json:"list"`
+		List []GuardResponseItem `json:"list"`
+		Top  []GuardResponseItem `json:"top3"`
 	} `json:"data"`
+}
+type GuardResponseItem struct {
+	Days int16 `json:"accompany"`
+	Info struct {
+		UID  int64 `json:"uid"`
+		User struct {
+			Name string `json:"name"`
+			Face string `json:"face"`
+		} `json:"base"`
+		Medal struct {
+			Name       string `json:"name"`
+			Level      int8   `json:"level"`
+			ColorDec   int    `json:"color_start"`
+			GuardLevel int8   `json:"guard_level"`
+			Color      string `json:"v2_medal_color_start"`
+		} `json:"medal"`
+	} `json:"uinfo"`
 }

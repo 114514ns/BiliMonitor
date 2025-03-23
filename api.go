@@ -41,9 +41,7 @@ func InitHTTP() {
 
 		var array = make([]Status, 0)
 		for s := range lives {
-			copy, _ := DeepCopy(*lives[s])
-			copy.Danmuku = []FrontLiveAction{}
-			array = append(array, copy)
+			array = append(array, *lives[s])
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"lives": array,
