@@ -2,14 +2,12 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {useParams} from "react-router-dom";
 import classes from "./ChatPage.module.css";
 import axios from "axios";
-import {Avatar, Badge, Button, Card, CardBody, CardFooter, Chip, Input, Tab, Tabs} from "@heroui/react";
+import {Avatar, Badge, Button, Card, CardBody, CardFooter, Chip, Input, Tab, Tabs, Tooltip} from "@heroui/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {AutoSizer, List} from 'react-virtualized';
-import {useVirtualizer} from "@tanstack/react-virtual";
-import {Tooltip} from "recharts";
 import {Slider} from "@heroui/slider";
 import { Volume2, VolumeX, Volume1 } from "lucide-react";
-import ReactPlayer from "react-player";
+import ReactPlayer from 'react-player/lazy'
 import WatcherList from "../components/WatcherList";
 import ChatArea from "../components/ChatArea";
 
@@ -23,55 +21,16 @@ export const CheckIcon = React.memo(({ size = 24, color = "currentColor", ...pro
     );
 });
 
-function MuteButton() {
-    const [volume, setVolume] = useState(50);
-    const [isMuted, setIsMuted] = useState(false);
-    const [showSlider, setShowSlider] = useState(false);
-
-    const toggleMute = () => {
-        setIsMuted(!isMuted);
-    };
-
-    const handleVolumeChange = (val) => {
-        setVolume(val);
-        setIsMuted(val === 0);
-    };
-
-    return (
-        <div
-            className=""
-            onMouseEnter={() => setShowSlider(true)}
-            onMouseLeave={() => setShowSlider(false)}
-        >
-            {showSlider && (
-                <Slider
-                    value={isMuted ? 0 : volume}
-                    onChange={handleVolumeChange}
-                    min={0}
-                    max={100}
-                    step={1}
-                    style={{position: 'absolute',width:'20%',marginBottom:'20px',marginLeft:'20px'}}
-                />
-            )}
-            {isMuted ? <VolumeX /> : volume > 50 ? <Volume2 /> : <Volume1 />}
-        </div>
-    );
-}
-
-
 function ChatPage(props) {
 
 
-    const [message, setMessage] = useState([]);
 
-    const [partMessages, setPartMessages] = useState([]);
 
     const [room, setRoom] = useState("");
 
-    const [last, setLast] = useState("");
+
 
     const [currentStream, setCurrentStream] = useState("");
-
 
 
     const [monitor, setMonitor] = useState([])
@@ -92,7 +51,13 @@ function ChatPage(props) {
                 setCurrentStream(sort[0].Stream)
                 setIsFirst(false);
             }
-            if (JSON.stringify(sort) !== JSON.stringify(monitor)) {
+            const n = []
+            sort.forEach(live => {
+                live.OnlineWatcher = []
+                live.GuardList = []
+                n.push(live)
+            })
+            if (JSON.stringify(n) !== JSON.stringify(monitor)) {
                 setMonitor(sort)
             }
 
@@ -100,15 +65,6 @@ function ChatPage(props) {
 
 
         })
-    }
-
-    const getUser = ()=> {
-        if (monitor.filter((e) => e.LiveRoom === room).length === 0) return []
-        return monitor.filter((e) => e.LiveRoom === room)[0].OnlineWatcher
-    }
-    const getGuard = ()=> {
-        if (monitor.filter((e) => e.LiveRoom === room).length === 0) return []
-        return monitor.filter((e) => e.LiveRoom === room)[0].GuardList
     }
 
     useEffect(() => {
@@ -128,6 +84,10 @@ function ChatPage(props) {
 
         return () => clearInterval(interval);
     }, [room]);
+
+    useEffect(() => {
+        console.log("stream changed");
+    },[currentStream])
 
 
     const chatRef = React.useRef(null);
@@ -149,10 +109,9 @@ function ChatPage(props) {
                         <div onClick={() => {
                             console.log(item.LiveRoom)
                             setRoom(item.LiveRoom)
-                            setMessage([])
                             setCurrentStream(item.Stream)
                         }} key={item.UID}>
-                            <Card isHoverable={true} style={{ margin: "10px", width: "100%" }}>
+                            <Card isHoverable={true} style={{ margin: "10px", width: "95%" }} radius={'none'}>
                                 <CardBody>
                                     <div style={{
                                         display: "flex",
@@ -218,12 +177,13 @@ function ChatPage(props) {
                 <ReactPlayer url={currentStream} controls={true} playing={true}/>
 
                     <Tabs aria-label="Options" style={{ marginTop: "10px" ,width: "100%",display:'flex',justifyContent:'space-between' }} fullWidth={true}>
-                        <Tab title="在线">
+                        <Tab title={`在线：${monitor.filter((e) =>e.LiveRoom == room)[0]?.OnlineCount}`}>
 
-                            <WatcherList list={getUser()}/>
+                            <WatcherList room={room} type={'online'}/>
                         </Tab>
-                        <Tab title="大航海" >
-                            <WatcherList list={getGuard()}/>
+
+                        <Tab title={`大航海：${monitor.filter((e) =>e.LiveRoom == room)[0]?.GuardCount}`} >
+                            <WatcherList room={room} type={'guard'}/>
                         </Tab>
                     </Tabs>
             </div>
