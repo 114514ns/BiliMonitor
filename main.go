@@ -355,6 +355,7 @@ var db *gorm.DB
 var lives = map[string]*Status{} //[]string{}
 var file = time.Now().Format(time.DateTime) + ".log"
 var logFile, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
+var wbi = NewDefaultWbi()
 
 func main() {
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
@@ -404,6 +405,8 @@ func main() {
 			DSN: dsl, // DSN data source name
 		}), &gorm.Config{})
 	}
+	wbi.WithRawCookies(config.Cookie)
+	wbi.initWbi()
 	db.AutoMigrate(&Live{})
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
