@@ -1,11 +1,15 @@
 package main
 
 import (
+	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	url2 "net/url"
 	"strconv"
+	"strings"
+	"time"
 )
 
 var cache = []Video{}
@@ -291,6 +295,28 @@ func InitHTTP() {
 			"data":    result,
 		})
 
+	})
+	r.GET("/searchLive", func(context *gin.Context) {
+		url := "https://api.bilibili.com/x/web-interface/wbi/search/type?page=1&page_size=42&order=online&keyword=" + context.Query("keyword") + "&search_type=live_user"
+		obj, _ := url2.Parse((url))
+		now := time.Now()
+		signed, _ := wbi.SignQuery(obj.Query(), now)
+		final := "https://api.bilibili.com/x/web-interface/wbi/search/type?" + signed.Encode()
+		res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).SetHeader("Referer", "https://www.bilibili.com").Get(final)
+		var list = LiveListResponse{}
+		sonic.Unmarshal(res.Body(), &list)
+		for i, s := range list.Data.Result {
+			t := strings.Split(s.UName, "</em>")
+			s.UName = extractTextFromHTML(s.UName)
+			if len(t) == 2 {
+				list.Data.Result[i].UName = s.UName + t[1]
+			}
+
+		}
+		context.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    list,
+		})
 	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")

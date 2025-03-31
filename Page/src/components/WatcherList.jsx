@@ -97,9 +97,9 @@ function WatcherList(props) {
                                                 height: '50px'
                                             }}
                                         >
-                                            <div
+                                            <Avatar
+                                                src={item.face}
                                                 style={{
-                                                    backgroundImage: `url(${protocol}://${host}:${port}/proxy?url=${item.face})`,
                                                     backgroundSize: 'cover',
                                                     backgroundPosition: 'center',
                                                     width: '100%',

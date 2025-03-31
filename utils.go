@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"golang.org/x/net/html"
 	"os"
 	"sort"
 	"strconv"
@@ -143,4 +144,23 @@ func Index(s string, index int) string {
 		}
 	}
 	return ""
+}
+func extractTextFromHTML(htmlStr string) string {
+	doc, _ := html.Parse(strings.NewReader(htmlStr))
+
+	var f func(*html.Node) string
+	f = func(n *html.Node) string {
+		if n.Type == html.TextNode {
+			return n.Data
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			text := f(c)
+			if text != "" {
+				return text
+			}
+		}
+		return ""
+	}
+
+	return f(doc)
 }
