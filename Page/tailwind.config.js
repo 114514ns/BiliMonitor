@@ -8,8 +8,12 @@ module.exports = {
         "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-        extend: {},
+        color:{
+            white: "#F2F2F8",
+        }
     },
     darkMode: "class",
-    plugins: [heroui()],
+    plugins: [heroui({
+        addCommonColors: true,
+    })],
 };

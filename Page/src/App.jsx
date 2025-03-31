@@ -30,6 +30,8 @@ function BasicLayout() {
     }, {
         Name: 'LivePage',
         Path: '/lives'
+    },{
+        Name:'Danmakus',Path :'/chat'
     }]
 
     const [ind, setInd] = React.useState(0);

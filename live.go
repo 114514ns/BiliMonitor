@@ -90,7 +90,20 @@ func GetOnline(room string, liver string) []Watcher {
 	var o = OnlineWatcherResponse{}
 	sonic.Unmarshal(res.Body(), &o)
 	lives[room].OnlineCount = o.Data.Count
-	return o.Data.Item
+	var arr = make([]Watcher, 0)
+	for _, s := range o.Data.Item {
+		var watcher = Watcher{}
+		watcher.Name = s.Name
+		watcher.Face = s.Face
+		watcher.Days = s.Days
+		watcher.UID = s.UID
+		watcher.Guard = s.Guard
+		watcher.Medal.Color = s.UInfo.Medal.Color
+		watcher.Medal.Name = s.UInfo.Medal.Name
+		watcher.Medal.Level = s.UInfo.Medal.Level
+		arr = append(arr, watcher)
+	}
+	return arr
 
 }
 func GetGuard(room string, liver string) []Watcher {
@@ -347,9 +360,9 @@ func TraceLive(roomId string) {
 								if exists {
 									action.GuardLevel = int8(guardLevel.(float64))
 								}
-								color, exists := medal["color"]
+								color, exists := medal["v2_medal_color_start"]
 								if exists {
-									front.MedalColor = fmt.Sprintf("#%06X", int(color.(float64)))
+									front.MedalColor = color.(string)
 								}
 
 							}
@@ -423,13 +436,13 @@ func TraceLive(roomId string) {
 						new.UserName = liver
 						lives[roomId].Live = true
 						lives[roomId].StartAt = time.Now().Add(3600 * 8 * time.Second).Format(time.DateTime)
-						liver = strings.TrimSpace(liver) // 去除前后的空白字符
+						liver = strings.TrimSpace(liver)
 						db.Create(&new)
 						dbLiveId = int(new.ID)
 						var msg = "你关注的主播： " + liver + " 开始直播"
 						PushDynamic(msg, roomInfo.Data.Title)
 					} else {
-						strings.Contains("", "")
+						log.Println("LIVE FALSE")
 					}
 
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
@@ -505,7 +518,7 @@ func TraceLive(roomId string) {
 				lives[roomId].Stream = stream
 			}
 			sonic.Unmarshal(res.Body(), &status)
-			if status.Data.LiveStatus == 0 && lives[roomId].Live {
+			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
 				lives[roomId].Live = false
 				var sum float64
 				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
