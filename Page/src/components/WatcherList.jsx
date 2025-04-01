@@ -9,7 +9,7 @@ function WatcherList(props) {
     const [list, setList] = React.useState([]);
     const host = location.hostname;
 
-    const port = debug ? 8080 : location.port;
+    const port =  location.port;
 
     const protocol = location.protocol.replace(":", "")
     const rowVirtualizer = useVirtualizer({

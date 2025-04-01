@@ -8,7 +8,7 @@ import {Slider} from "@mui/material";
 function MinutesChartDialog(props) {
     const [data, setData] = React.useState([]);
     const host = location.hostname;
-    const port = debug ? 8080 : location.port;
+    const port =  location.port;
     const protocol = location.protocol.replace(":", "");
     const [open, setOpen] = React.useState(true);
     const [value, setValue] = React.useState([0 ,25]);

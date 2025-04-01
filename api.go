@@ -1,12 +1,14 @@
 package main
 
 import (
+	"embed"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	url2 "net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -34,12 +36,21 @@ func removeDuplicates(input []string) []string {
 	return result
 }
 
+//go:embed Page/dist
+var distFS embed.FS
+
 func InitHTTP() {
 	r := gin.Default()
+
 	r.Use(CORSMiddleware())
 	//r.Static("/page", "./Page/dist/")
 	//r.Static("/assets", "./Page/dist/assets")
-	r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
+
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		r.Use(static.Serve("/", static.EmbedFolder(distFS, "")))
+	} else {
+		r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
+	}
 	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.GET("/monitor", func(c *gin.Context) {
 

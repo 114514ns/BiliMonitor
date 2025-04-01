@@ -5,7 +5,7 @@ function LiveCard({liveData}) {
 
     const host = location.hostname;
 
-    const port = debug ? 8080 : location.port;
+    const port =location.port;
 
     const protocol = location.protocol.replace(":", "")
     const {Live, UName, UID, Area, Title, Face, Cover} = liveData;

@@ -86,7 +86,7 @@ function LiveDetailPage(props) {
             }
         ])
     }, [])
-    const port = debug?8080:location.port
+    const port = location.port
     const protocol = location.protocol.replace(":","")
     const refreshData = (page, size, name) => {
         if (page === undefined) {

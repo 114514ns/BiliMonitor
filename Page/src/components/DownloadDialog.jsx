@@ -22,7 +22,7 @@ function DownloadDialog(props) {
     const host = location.hostname;
 
 
-    const port = debug ? 8080 : location.port
+    const port =location.port
     const [id, setId] = useState("");
     const protocol = location.protocol.replace(":", "")
     const [showCard, setShowCard] = useState(false);
