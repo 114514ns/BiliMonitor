@@ -28,7 +28,7 @@ jobs:
         working-directory: Page
 
       - name: Build Page
-        run: vite build
+        run: npm run build
         working-directory: Page
 
       - name: Build
