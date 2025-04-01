@@ -33,6 +33,7 @@ var mailClient = resend.NewClient("")
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
 type Config struct {
+	Port                    int32
 	SpecialDelay            string
 	CommonDelay             string
 	RefreshFollowingsDelay  string
@@ -383,6 +384,7 @@ func main() {
 		config.SQLitePath = "database.db"
 		config.EnableMySQL = false
 		config.EnableCollectionMonitor = false
+		config.Port = 8081
 		Cookie = config.Cookie
 		content, _ = sonic.Marshal(&config)
 		os.Create("config.json")
