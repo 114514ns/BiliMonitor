@@ -1,0 +1,37 @@
+name: Go
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+      - name: Install UPX
+        run: apt install upx -y
+
+      - name: Install Dependencies
+        run: npm i
+        working-directory: Page
+
+      - name: Build Page
+        run: vite build
+        working-directory: Page
+
+      - name: Build
+        run: ./build.sh
+
