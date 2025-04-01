@@ -10,7 +10,7 @@ mkdir -p "$OUTPUT_DIR"
 declare -A TARGETS=(
   ["windows_amd64"]="GOOS=windows GOARCH=amd64"
   ["linux_amd64"]="GOOS=linux GOARCH=amd64"
-  ["linux_mips"]="GOOS=linux GOARCH=mips"
+  ["linux_mips64"]="GOOS=linux GOARCH=mips64 CGO_ENABLED=1 CC=mips64-linux-gnu-gcc"
   ["linux_arm64"]="GOOS=linux GOARCH=arm64"
   ["darwin_amd64"]="GOOS=darwin GOARCH=amd64"
   ["darwin_arm64"]="GOOS=darwin GOARCH=arm64"

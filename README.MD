@@ -16,6 +16,11 @@
 - 下载单个视频/分P视频/播放列表
 - 自动下载收藏夹内的视频（使用场景：想要下载一个视频，或者感觉这个视频会被下架掉，只要点收藏就可以备份/快速获得视频链接）
 
+# Download
+https://github.com/114514ns/BiliMonitor/actions
+<br/>
+当大部分功能完成后会发布release，现在先用actions
+
 # Screenshots
 
 ![](https://example.com/undefined20250305001302952.png)
@@ -28,6 +33,7 @@
 
 # Known issues
 - 偶有直播开始或结束事件无法正确检测
+- 暂时不支持mips64
 # Configuration
 
 ```json5
@@ -115,7 +121,7 @@
 - [ ] 程序启动时检查配置文件正确性
 
 # Referer
-[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
+接口文档：[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
 <br/>
-[CuteReimu/bilibili/](https://github.com/CuteReimu/bilibili/)
+wbi算法：[CuteReimu/bilibili/](https://github.com/CuteReimu/bilibili/)
 
