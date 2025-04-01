@@ -3,9 +3,6 @@ import classes from "../pages/ChatPage.module.css";
 import {Avatar, Card, CardBody, CardFooter, Chip} from "@heroui/react";
 import {CheckIcon} from "../pages/ChatPage";
 import axios from "axios";
-import {useVirtualizer} from "@tanstack/react-virtual";
-import List from 'rc-virtual-list';
-import {motion} from "framer-motion";
 import {Listbox, ListboxItem} from "@heroui/react";
 function GiftPart(props) {
     return (
