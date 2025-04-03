@@ -112,6 +112,7 @@ type Status struct {
 	GuardCacheKey  int64
 	Danmuku        []FrontLiveAction `json:"-"`
 	GuardCount     int
+	StreamSplits   []string
 }
 
 type Archive struct {
