@@ -62,11 +62,38 @@ func FixMoney() {
 func RemoveEmpty() {
 	db.Where("money = 0 and message = 0").Delete(&Live{})
 }
+func RecordStream(room string) {
+	ticker := time.NewTicker(1 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				{
+
+					if lives[room].Live {
+
+						res, _ := client.R().Get(lives[room].Stream)
+						str := res.String()
+						for _, s := range strings.Split(str, "\n") {
+							if strings.HasPrefix(s, "m4s") {
+
+							}
+						}
+					}
+				}
+			}
+		}
+	}()
+}
 func GetLiveStream(room string) string {
 	var last = lives[room].StreamCacheKey
 	if last == 0 || time.Now().Unix()-last > 60*10+int64(rand.Int()%1800) || (lives[room].Stream == "" && lives[room].Live) {
-		lives[room].StreamCacheKey = time.Now().Unix()
-		res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=0&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
+		now := time.Now()
+		lives[room].StreamCacheKey = now.Unix()
+
+		uri, _ := url.Parse("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=10000&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
+		signed, _ := wbi.SignQuery(uri.Query(), now)
+		res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?" + signed.Encode())
 		var s = LiveStreamResponse{}
 		sonic.Unmarshal(res.Body(), &s)
 		stream := s.Data.PlayurlInfo.Playurl.Stream
@@ -386,6 +413,9 @@ func TraceLive(roomId string) {
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
+					if info.Data.Parent.GiftName != "" {
+						action.Extra = info.Data.Parent.GiftName + "," + strconv.Itoa(info.Data.Parent.Price/1000)
+					}
 					front.Face = info.Data.Face
 					front.GiftPicture = GiftPic[info.Data.GiftName]
 					db.Create(&action)
@@ -647,8 +677,13 @@ type GiftList struct {
 type GiftInfo struct {
 	Cmd  string `json:"cmd"`
 	Data struct {
-		GiftName        string `json:"giftName"`
-		Num             int    `json:"num"`
+		GiftName string `json:"giftName"`
+		Num      int    `json:"num"`
+		Price    int    `json:"price"`
+		Parent   struct {
+			Price    int    `json:"original_gift_price"`
+			GiftName string `json:"original_gift_name"`
+		} `json:"blind_gift"`
 		ReceiveUserInfo struct {
 			UID   int    `json:"uid"`
 			Uname string `json:"uname"`
