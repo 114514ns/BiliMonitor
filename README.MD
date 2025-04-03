@@ -119,7 +119,7 @@ https://github.com/114514ns/BiliMonitor/actions
 - [ ] 备份动态的评论？
 - [ ] 录播时将视频为HEVC/AV1以减少文件体积
 - [ ] 程序启动时检查配置文件正确性
-
+ji- [ ] 直播录制
 # Referer
 接口文档：[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
 <br/>
