@@ -14,6 +14,7 @@ import (
 	"log"
 	"math/rand"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -64,26 +65,56 @@ func RemoveEmpty() {
 }
 func RecordStream(room string) {
 	ticker := time.NewTicker(1 * time.Second)
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				{
-
-					if lives[room].Live {
-
-						res, _ := client.R().Get(lives[room].Stream)
-						str := res.String()
-						for _, s := range strings.Split(str, "\n") {
-							if strings.HasPrefix(s, "m4s") {
-
+	id := uuid.New().String()
+	for range ticker.C {
+		if lives[room].Live {
+			res, _ := client.R().Get(lives[room].Stream)
+			str := res.String()
+			for _, s := range strings.Split(str, "\n") {
+				if strings.Contains(s, ".m4s") || strings.Contains(s, ".ts") {
+					if len(lives[room].StreamSplits) == 0 {
+						id = uuid.New().String()
+						os.Mkdir("tmp", 066)
+						os.Mkdir("tmp/"+id, 0666)
+					}
+					save := false
+					for _, split := range lives[room].StreamSplits {
+						if split == s {
+							save = true
+						}
+					}
+					if !save {
+						lives[room].StreamSplits = append(lives[room].StreamSplits, s)
+						master, _ := url.Parse(lives[room].Stream)
+						split := strings.Split(master.Path, "/")
+						merge := ""
+						for i, s2 := range split {
+							if i != len(split)-1 {
+								merge += s2 + "/"
 							}
 						}
+						final := "http://" + master.Host + "/" + merge + s
+						go func() {
+							//time.Sleep(time.Second * 4)
+							res, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(final)
+							if res.StatusCode() == 200 {
+								file, _ := os.Create("tmp/" + id + "/" + s)
+								i, err := io.Copy(file, res.RawBody())
+								if err != nil {
+									log.Println(err)
+									log.Println(i)
+									return
+								}
+								log.Println(final)
+							} else {
+								log.Println(404)
+							}
+						}()
 					}
 				}
 			}
 		}
-	}()
+	}
 }
 func GetLiveStream(room string) string {
 	var last = lives[room].StreamCacheKey
@@ -98,6 +129,7 @@ func GetLiveStream(room string) string {
 		sonic.Unmarshal(res.Body(), &s)
 		stream := s.Data.PlayurlInfo.Playurl.Stream
 		if stream != nil {
+			//Format[0]是ts格式，可以直接拿来拼接，Format[1]是fmp4，需要先把ext-x-map拼到每一个分片前面，好像还有点问题
 			obj := stream[len(stream)-1].Format[0].Codec[ /*len(stream[len(stream)-1].Format[0].Codec)-1*/ 0]
 			if obj.UrlInfo[0].Host+obj.BaseUrl+obj.UrlInfo[0].Extra == "" {
 				time.Now()
