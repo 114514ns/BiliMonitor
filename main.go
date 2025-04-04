@@ -423,6 +423,7 @@ func main() {
 		lives[roomId].OnlineWatcher = make([]Watcher, 0)
 		lives[roomId].GuardList = make([]Watcher, 0)
 		lives[roomId].Stream = GetLiveStream(roomId)
+		go RecordStream(roomId)
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
 
