@@ -30,7 +30,7 @@ jobs:
         working-directory: Page
 
       - name: Build
-        run: ./build.sh
+        run: sed -i 's/const ENV = "DEV"/const ENV = "BUILD"/g' main.go && ./build.sh
       - name: Upload Artifacts
         uses: GeyserMC/actions/upload-multi-artifact@master
         with:
