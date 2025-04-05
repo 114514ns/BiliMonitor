@@ -26,6 +26,14 @@ type SelfInfo struct {
 		Mid int `json:"mid"`
 	} `json:"data"`
 }
+type AreaLiver struct {
+	UName    string
+	UID      int64
+	Room     int
+	MaxWatch int
+	Area     string
+	Fans     int
+}
 
 func SelfUID(cookie string) int {
 	res, _ := client.R().SetHeader("Cookie", cookie).Get("https://api.bilibili.com/x/web-interface/nav")
@@ -212,6 +220,21 @@ func GetGuard(room string, liver string) []Watcher {
 	}
 	lives[room].GuardCount = len(arr)
 	return arr
+}
+func TraceArea(parent int) {
+	var page = 1
+	for {
+		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?platform=web&parent_area_id=%d&area_id=0&sort_type=&page=%d&vajra_business_key=&web_location=444.43", parent, page))
+		var now = time.Now()
+		s, _ := wbi.SignQuery(u.Query(), now)
+		res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
+		obj := AreaLiverListResponse{}
+		sonic.Unmarshal(res.Body(), &obj)
+		if obj.Data.More == 0 {
+			break
+		}
+	}
+
 }
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
