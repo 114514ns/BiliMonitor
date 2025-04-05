@@ -46,7 +46,7 @@ func InitHTTP() {
 	//r.Static("/assets", "./Page/dist/assets")
 
 	if ENV == "BUILD" {
-		r.Use(static.Serve("/", static.EmbedFolder(distFS, "")))
+		r.Use(static.Serve("/", static.EmbedFolder(distFS, "Page/dist")))
 	} else {
 		r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
 	}
@@ -97,7 +97,7 @@ func InitHTTP() {
 			db.Offset(offset).Limit(limit).Find(&f)
 		} else {
 			db.Where("user_name = ?", name).Offset(offset).Limit(limit).Find(&f)
-			db.Model(&Live{}).Where("user_name = ", name).Count(&totalRecords)
+			db.Model(&Live{}).Where("user_name =? ", name).Count(&totalRecords)
 		}
 		var off int64 = 1
 		if totalRecords%int64(limit) == 0 {

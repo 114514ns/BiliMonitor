@@ -16,7 +16,8 @@ declare -A TARGETS=(
 )
 
 for target in "${!TARGETS[@]}"; do
-  eval "${TARGETS[$target]}" go build -o "$OUTPUT_DIR/$APP_NAME-$target" .
+  # eval "${TARGETS[$target]}" go build -o "$OUTPUT_DIR/$APP_NAME-$target" -ldflags="-s -w"
+  go build -o "$OUTPUT_DIR/$APP_NAME-$target" -ldflags="-s -w"
   if [ $? -eq 0 ]; then
     echo "Build successful: $OUTPUT_DIR/$APP_NAME-$target"
     if [[ "$target" != darwin_* ]]; then
