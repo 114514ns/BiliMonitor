@@ -169,7 +169,7 @@ func RefreshCookie() {
 
 }
 func GetDefaultCookie() {
-	resp, err := client.R().Get("https://space.bilibili.com/504140200/dynamic")
+	resp, err := client.R().Get("https://bilibili.com/")
 	if err != nil {
 		panic(err)
 	}
