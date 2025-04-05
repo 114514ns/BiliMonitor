@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"net/http"
 	url2 "net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +45,7 @@ func InitHTTP() {
 	//r.Static("/page", "./Page/dist/")
 	//r.Static("/assets", "./Page/dist/assets")
 
-	if os.Getenv("GITHUB_ACTIONS") == "true" {
+	if ENV == "BUILD" {
 		r.Use(static.Serve("/", static.EmbedFolder(distFS, "")))
 	} else {
 		r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
