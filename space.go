@@ -192,6 +192,14 @@ func RefreshFollowings() {
 		}
 		page++
 	}
+	var livers = make([]AreaLiver, 0)
+	db.Find(&livers)
+	for _, liver := range livers {
+		var user = User{}
+		user.Name = liver.UName
+		user.UserID = strconv.FormatInt(liver.UID, 10)
+		Followings0 = append(Followings0, user)
+	}
 	Followings = Followings0
 	Special = Special0
 }
@@ -219,21 +227,19 @@ func RefreshCollection(id string) {
 			RecordedMedias = append(RecordedMedias, media.BV)
 		}
 	} else {
-		for i := range RecordedMedias {
-			var item = RecordedMedias[i]
-			var title = ""
+		for _, media := range medias.Data.Medias {
+
 			var found = false
-			for _, media := range medias.Data.Medias {
-				if item == media.BV {
+			for i := range RecordedMedias {
+				if RecordedMedias[i] == media.BV {
 					found = true
-					title = media.Title
 				}
 			}
 			if !found {
-				RecordedMedias = append(RecordedMedias, item)
+				RecordedMedias = append(RecordedMedias, media.BV)
 				go func() {
-					var link = UploadArchive(ParseSingleVideo(item)[0])
-					PushDynamic("你收藏的"+title+"已下载完成", link)
+					var link = UploadArchive(ParseSingleVideo(media.BV)[0])
+					PushDynamic("你收藏的"+media.Title+"已下载完成", link)
 				}()
 			}
 		}
@@ -284,6 +290,6 @@ func UploadArchive(video Video) string {
 			os.Remove("cache/" + bv + ".m4s")
 		}
 	})
-	return final
+	return config.AlistServer + final
 
 }

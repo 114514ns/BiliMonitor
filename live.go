@@ -26,14 +26,6 @@ type SelfInfo struct {
 		Mid int `json:"mid"`
 	} `json:"data"`
 }
-type AreaLiver struct {
-	UName    string
-	UID      int64
-	Room     int
-	MaxWatch int
-	Area     string
-	Fans     int
-}
 
 func SelfUID(cookie string) int {
 	res, _ := client.R().SetHeader("Cookie", cookie).Get("https://api.bilibili.com/x/web-interface/nav")
@@ -173,6 +165,55 @@ func GetOnline(room string, liver string) []Watcher {
 	return arr
 
 }
+func GetGuardCount(room string, liver string) string {
+	var page = 1
+	var l1 = 0
+	var l2 = 0
+	var l3 = 0
+	var total = 0
+	var entry = false
+	for true {
+		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), liver)
+		res, _ := client.R().Get(url)
+		var r = GuardListResponse{}
+		sonic.Unmarshal(res.Body(), &r)
+		total = r.Data.Info.Total
+		if page == 1 {
+			for _, item := range r.Data.Top {
+				level := item.Info.Medal.GuardLevel
+				if level == 1 {
+					l1++
+				}
+				if level == 2 {
+					l2++
+				}
+				if level == 3 {
+					l3++
+					entry = true
+				}
+			}
+		}
+		for _, item := range r.Data.List {
+			level := item.Info.Medal.GuardLevel
+			if level == 1 {
+				l1++
+			}
+			if level == 2 {
+				l2++
+			}
+			if level == 3 {
+				l3++
+				entry = true
+			}
+		}
+		if entry {
+			l3 = total - l1 - l2
+			return fmt.Sprintf("%d,%d,%d", l1, l2, l3)
+		}
+		page++
+	}
+	return ""
+}
 func GetGuard(room string, liver string) []Watcher {
 	if time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
 		return lives[room].GuardList
@@ -221,19 +262,74 @@ func GetGuard(room string, liver string) []Watcher {
 	lives[room].GuardCount = len(arr)
 	return arr
 }
+
+type AreaLiver struct {
+	ID       uint `gorm:"primarykey"`
+	UName    string
+	UID      int64
+	Room     int
+	MaxWatch int
+	Area     string
+	Fans     int
+}
+
+type AreaLiverListResponse struct {
+	Data struct {
+		More int8 `json:"has_more"`
+		List []struct {
+			Room       int    `json:"roomid"`
+			ParentArea string `json:"parent_name"`
+			Area       string `json:"area_name"`
+			Title      string `json:"title"`
+			UName      string `json:"uname"`
+			UID        int64  `json:"uid"`
+			Watch      struct {
+				Num int `json:"num"`
+			} `json:"watched_show"`
+		} `json:"list"`
+	} `json:"data"`
+}
+
 func TraceArea(parent int) {
 	var page = 1
+	var arr = make([]AreaLiver, 0)
 	for {
 		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?platform=web&parent_area_id=%d&area_id=0&sort_type=&page=%d&vajra_business_key=&web_location=444.43", parent, page))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
-		res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
+		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
 		sonic.Unmarshal(res.Body(), &obj)
+		for _, s2 := range obj.Data.List {
+			i := AreaLiver{}
+			i.UName = s2.UName
+			i.UID = s2.UID
+			i.Room = s2.Room
+			i.Area = s2.Area
+			i.MaxWatch = s2.Watch.Num
+			arr = append(arr, i)
+			var found = AreaLiver{}
+			db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Find(&found)
+			if found.UID == 0 {
+				var user = FetchUser(strconv.FormatInt(s2.UID, 10))
+				user.Face = ""
+				if i.MaxWatch < found.MaxWatch {
+					i.MaxWatch = found.MaxWatch
+				}
+				db.Save(&user)
+				i.Fans = user.Fans
+				time.Sleep(time.Second * 2)
+				db.Save(&i)
+			}
+
+		}
 		if obj.Data.More == 0 {
 			break
 		}
+		page++
+		time.Sleep(time.Second * 2)
 	}
+	time.Now()
 
 }
 func TraceLive(roomId string) {
