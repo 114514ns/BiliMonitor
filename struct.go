@@ -223,6 +223,9 @@ type GuardListResponse struct {
 	Data struct {
 		List []GuardResponseItem `json:"list"`
 		Top  []GuardResponseItem `json:"top3"`
+		Info struct {
+			Total int `json:"num"`
+		} `json:"info"`
 	} `json:"data"`
 }
 type GuardResponseItem struct {
@@ -252,21 +255,5 @@ type LiveListResponse struct {
 			Room   int    `json:"roomid"`
 			Area   string `json:"cate_name"`
 		} `json:"result"`
-	} `json:"data"`
-}
-type AreaLiverListResponse struct {
-	Data struct {
-		More int8 `json:"has_more"`
-		List []struct {
-			Room       int    `json:"roomid"`
-			ParentArea string `json:"parent_name"`
-			Area       string `json:"area_name"`
-			Title      string `json:"title"`
-			UName      string `json:"uname"`
-			UID        int64  `json:"uid"`
-			Watch      struct {
-				Num int `json:"num"`
-			} `json:"watched_show"`
-		} `json:"list"`
 	} `json:"data"`
 }

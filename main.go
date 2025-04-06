@@ -366,7 +366,6 @@ func main() {
 	log.SetOutput(multiWriter)
 	content, err := os.ReadFile("config.json")
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
-
 	if err != nil {
 		content = []byte("")
 
@@ -416,8 +415,27 @@ func main() {
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Archive{})
+	db.AutoMigrate(&AreaLiver{})
 	RemoveEmpty()
 	go InitHTTP()
+
+	c := cron.New()
+	go func() {
+		RefreshFollowings()
+		UpdateCommon()
+	}()
+
+	c.AddFunc("@every 2m", func() { UpdateSpecial() })
+	c.AddFunc("@every 120m", RefreshFollowings)
+	c.AddFunc("@every 240m", UpdateCommon)
+	c.AddFunc("@every 5m", func() { TraceArea(9) })
+	c.AddFunc("@every 1m", FixMoney)
+	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
+	if err != nil {
+		return
+	}
+
+	c.Start()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]
 		lives[roomId] = &Status{RemainTrying: 4}
@@ -430,17 +448,6 @@ func main() {
 		time.Sleep(30 * time.Second)
 
 	}
-
-	c := cron.New()
-	RefreshFollowings()
-	UpdateCommon()
-	c.AddFunc("@every 2m", func() { UpdateSpecial() })
-	c.AddFunc("@every 120m", RefreshFollowings)
-	c.AddFunc("@every 10m", UpdateCommon)
-	c.AddFunc("@every 1m", FixMoney)
-	//c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(collectId)) })
-
-	c.Start()
 
 	select {}
 }
