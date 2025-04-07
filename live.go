@@ -214,11 +214,13 @@ func GetGuardCount(room string, liver string) string {
 	}
 	return ""
 }
-func GetGuard(room string, liver string) []Watcher {
-	if time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
+func GetGuard(room string, liver string, ignoreCache bool) []Watcher {
+	if !ignoreCache && time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
 		return lives[room].GuardList
 	}
-	lives[room].GuardCacheKey = time.Now().Unix()
+	if !ignoreCache {
+		lives[room].GuardCacheKey = time.Now().Unix()
+	}
 	var arr = make([]Watcher, 0)
 	var page = 1
 	for true {
@@ -258,19 +260,24 @@ func GetGuard(room string, liver string) []Watcher {
 		if len(r.Data.List) == 0 {
 			break
 		}
+		time.Sleep(time.Millisecond * 500)
 	}
-	lives[room].GuardCount = len(arr)
+	if !ignoreCache {
+		lives[room].GuardCount = len(arr)
+	}
 	return arr
 }
 
 type AreaLiver struct {
-	ID       uint `gorm:"primarykey"`
-	UName    string
-	UID      int64
-	Room     int
-	MaxWatch int
-	Area     string
-	Fans     int
+	ID        uint `gorm:"primarykey"`
+	UpdatedAt time.Time
+	UName     string
+	UID       int64
+	Room      int
+	MaxWatch  int
+	Area      string
+	Fans      int
+	GuardList string
 }
 
 type AreaLiverListResponse struct {
@@ -289,7 +296,16 @@ type AreaLiverListResponse struct {
 		} `json:"list"`
 	} `json:"data"`
 }
+type DBGuard struct {
+	UName string `json:"n"`
+	UID   int64  `json:"u"`
+	Type  int8   `json:"t"`
+	Level int8   `json:"l"`
+}
 
+func TraceGuard() {
+
+}
 func TraceArea(parent int) {
 	var page = 1
 	var arr = make([]AreaLiver, 0)
@@ -309,13 +325,28 @@ func TraceArea(parent int) {
 			i.MaxWatch = s2.Watch.Num
 			arr = append(arr, i)
 			var found = AreaLiver{}
-			db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Find(&found)
-			if found.UID == 0 {
+			db.Model(&AreaLiver{}).
+				Where("uid = ?", s2.UID).
+				Order("id DESC").
+				First(&found)
+			//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
+			if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*48 {
 				var user = FetchUser(strconv.FormatInt(s2.UID, 10))
 				user.Face = ""
 				if i.MaxWatch < found.MaxWatch {
 					i.MaxWatch = found.MaxWatch
 				}
+				var guards = make([]DBGuard, 0)
+				for _, watcher := range GetGuard(strconv.Itoa(i.Room), strconv.FormatInt(i.UID, 10), true) {
+					ins := DBGuard{}
+					ins.Type = watcher.Guard
+					ins.UID = watcher.UID
+					ins.UName = watcher.Name
+					ins.Level = watcher.Medal.Level
+					guards = append(guards, ins)
+				}
+				b, _ := sonic.Marshal(guards)
+				i.GuardList = string(b)
 				db.Save(&user)
 				i.Fans = user.Fans
 				time.Sleep(time.Second * 2)
@@ -716,7 +747,7 @@ func TraceLive(roomId string) {
 			}
 			lives[roomId].OnlineWatcher = GetOnline(roomId, liverId)
 			go func() {
-				lives[roomId].GuardList = GetGuard(roomId, liverId)
+				lives[roomId].GuardList = GetGuard(roomId, liverId, false)
 			}()
 		}
 	}

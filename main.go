@@ -424,6 +424,9 @@ func main() {
 		RefreshFollowings()
 		UpdateCommon()
 	}()
+	go func() {
+		TraceArea(9)
+	}()
 
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 	c.AddFunc("@every 120m", RefreshFollowings)
