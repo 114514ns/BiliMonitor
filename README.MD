@@ -86,6 +86,13 @@ https://github.com/114514ns/BiliMonitor/actions
 <br/>
 目前没有前端界面显示粉丝量的趋势，只存储在数据库里，后面会加。
 
+## 收藏夹监控
+~~~json5
+
+"EnableCollectionMonitor": true
+~~~
+被监控的用户就是上面设置的那个User。
+新建一个名字为Monitor的收藏夹，并设为可公开访问，当收藏夹内出现新的视频时可自动下载并发出推送。
 ## 动态监控
 ```json5
   "SpecialList": [12434430], //特别关注列表，列表内的up主发布的动态和稿件会被推送，类型为int
@@ -96,6 +103,7 @@ https://github.com/114514ns/BiliMonitor/actions
 ## 直播间监控
 ```json5
 "Tracing": [], //要监控的直播间，类型为string[]
+
 ```
 主播开播后会发送推送,同时记录直播间内弹幕和礼物。
 可以在web端查看，端口8080
@@ -113,13 +121,20 @@ https://github.com/114514ns/BiliMonitor/actions
 支持下载分P视频，单独的视频，播放列表
 <img src="https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com/undefined20250307010130538.png">
 <img src="https://imgbed-1254007525.cos.ap-nanjing.myqcloud.com/undefined20250307010229305.png">
+
+## 分区监控
+
+每隔一定时间监控分区内所有主播，并记录大航海数据。
+主播在分区内直播时：数据在两天内更新过则不更新。
+不管主播是否直播，数据至少会在7天更新一次。
+
 # TODO
 - [ ] 自动刷新Cookie
 - [ ] 完善文档
 - [ ] 备份动态的评论？
-- [ ] 录播时将视频为HEVC/AV1以减少文件体积
+- [ ] ~~录播时将视频为HEVC/AV1以减少文件体积~~
 - [ ] 程序启动时检查配置文件正确性
-ji- [ ] 直播录制
+- [ ] ~~直播录制~~
 # Referer
 接口文档：[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
 <br/>
