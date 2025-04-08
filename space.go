@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// 获取up主的粉丝数
 func FetchUser(mid string) User {
 	var url = "https://api.bilibili.com/x/web-interface/card?mid=" + mid
 	res, _ := client.R().SetHeader("User-Agent", USER_AGENT).Get(url)
@@ -27,9 +28,14 @@ func FetchUser(mid string) User {
 	user.Fans = userResponse.Data.Followers
 
 	user.UserID = mid
+	if user.Fans == 0 {
+		fmt.Println(string(res.Body()))
+	}
 	return user
 
 }
+
+// 刷新粉丝数
 func UpdateCommon() {
 	for i := range Followings {
 		if i > len(Followings)-1 {
@@ -42,6 +48,8 @@ func UpdateCommon() {
 		time.Sleep(3 * time.Second)
 	}
 }
+
+// 解析服务端返回的动态的json结构
 func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 	var Type = item.Type
 	var orig = Archive{}
@@ -98,6 +106,8 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 	}
 	return archive, orig
 }
+
+// 刷新特别关注的up主的动态
 func UpdateSpecial() {
 	var flag = false
 	if len(RecordedDynamic) == 0 {
@@ -161,8 +171,13 @@ func FetchArchive(mid string, page int, size int) {
 
 	}
 	log.Println(dynamic)
+}
+
+func FetchComments() {
 
 }
+
+// RefreshFollowings 刷新用户关注列表
 func RefreshFollowings() {
 
 	var Followings0 = make([]User, 0)
@@ -204,6 +219,7 @@ func RefreshFollowings() {
 	Special = Special0
 }
 
+// GetCollectionId 获取当前用户的Monitor收藏夹的id
 func GetCollectionId() int {
 	var url = "https://api.bilibili.com/x/v3/fav/folder/created/list?ps=50&pn=1&up_mid=" + config.User
 	res, _ := client.R().Get(url)
@@ -246,6 +262,8 @@ func RefreshCollection(id string) {
 	}
 
 }
+
+// 上传稿件到Alist
 func UploadArchive(video Video) string {
 	log.Printf("[%s] 开始下载", video.Title)
 	os.Mkdir("cache", 066)

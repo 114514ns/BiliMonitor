@@ -11,6 +11,7 @@ import (
 	"github.com/robfig/cron/v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"io"
 	"io/ioutil"
 	"log"
@@ -395,7 +396,14 @@ func main() {
 	err = sonic.Unmarshal(content, &config)
 	mailClient = resend.NewClient(config.ResendToken)
 	if config.EnableSQLite {
-		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
+		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{
+			Logger: logger.New(
+				log.New(os.Stdout, "", log.LstdFlags),
+				logger.Config{
+					IgnoreRecordNotFoundError: true,
+				},
+			),
+		})
 		db.Exec("PRAGMA journal_mode=WAL;")
 	}
 	if config.EnableMySQL {
@@ -416,6 +424,7 @@ func main() {
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Archive{})
 	db.AutoMigrate(&AreaLiver{})
+	db.AutoMigrate(&AreaLive{})
 	RemoveEmpty()
 	go InitHTTP()
 
@@ -431,7 +440,7 @@ func main() {
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 	c.AddFunc("@every 120m", RefreshFollowings)
 	c.AddFunc("@every 240m", UpdateCommon)
-	c.AddFunc("@every 5m", func() { TraceArea(9) })
+	c.AddFunc("@every 15m", func() { TraceArea(9) })
 	c.AddFunc("@every 1m", FixMoney)
 	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 	if err != nil {
