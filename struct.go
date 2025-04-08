@@ -151,6 +151,7 @@ type UserResponse struct {
 }
 type LiveStreamResponse struct {
 	Data struct {
+		Time        int64 `json:"live_time"`
 		PlayurlInfo struct {
 			Playurl struct {
 				Stream []struct {
@@ -204,6 +205,7 @@ type Watcher struct {
 	Face  string `json:"face"`
 	Guard int8   `json:"guard_level"`
 	Days  int16  `json:"days"`
+	Score int
 	Medal struct {
 		Name          string `json:"medal_name"`
 		Level         int8   `json:"level"`
@@ -255,5 +257,19 @@ type LiveListResponse struct {
 			Room   int    `json:"roomid"`
 			Area   string `json:"cate_name"`
 		} `json:"result"`
+	} `json:"data"`
+}
+type FansClubResponse struct {
+	Message string `json:"message"`
+	Data    struct {
+		Item []struct {
+			UID   int64  `json:"uid"`
+			UName string `json:"name"`
+			Score int    `json:"score"`
+			Level int8   `json:"level"`
+			Medal struct {
+				Type int8 `json:"guard_level"`
+			} `json:"uinfo_medal"`
+		} `json:"item"`
 	} `json:"data"`
 }

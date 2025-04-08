@@ -9,7 +9,6 @@ mkdir -p "$OUTPUT_DIR"
 
 declare -A TARGETS=(
   ["windows_amd64"]="GOOS=windows GOARCH=amd64"
-  ["windows_arm64"]="GOOS=windows GOARCH=arm64"
   ["linux_amd64"]="GOOS=linux GOARCH=amd64"
   ["linux_arm64"]="GOOS=linux GOARCH=arm64"
   ["darwin_amd64"]="GOOS=darwin GOARCH=amd64"

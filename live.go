@@ -214,6 +214,38 @@ func GetGuardCount(room string, liver string) string {
 	}
 	return ""
 }
+func GetFansClub(liver string, delay int, full bool) []DBGuard {
+	var page = 1
+	var list = make([]DBGuard, 0)
+	t := "0"
+	if full {
+		t = "2"
+	}
+	for {
+		u := fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/getFansMembersRank?ruid=%s&page=%s&page_size=30&rank_type=%s&ts=%s", liver, strconv.Itoa(page), t, strconv.FormatInt(time.Now().Unix(), 10))
+		res, _ := client.R().Get(u)
+		obj := FansClubResponse{}
+		sonic.Unmarshal(res.Body(), &obj)
+		if len(obj.Data.Item) == 0 && !strings.Contains(obj.Message, "服务调用超时") {
+			break
+		}
+		if !strings.Contains(obj.Message, "服务调用超时") {
+			page++
+		}
+		time.Sleep(time.Duration(delay) * time.Second)
+		for _, s := range obj.Data.Item {
+			var d = DBGuard{}
+			d.Score = s.Score
+			d.Level = s.Level
+			d.Type = s.Medal.Type
+			d.UID = s.UID
+			d.UName = s.UName
+			list = append(list, d)
+		}
+
+	}
+	return list
+}
 func GetGuard(room string, liver string, ignoreCache bool) []Watcher {
 	if !ignoreCache && time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
 		return lives[room].GuardList
@@ -278,6 +310,16 @@ type AreaLiver struct {
 	Area      string
 	Fans      int
 	GuardList string
+	FansClubs string
+}
+type AreaLive struct {
+	ID    uint `gorm:"primarykey"`
+	Time  time.Time
+	UName string
+	UID   int64
+	Room  int
+	Title string
+	Area  string
 }
 
 type AreaLiverListResponse struct {
@@ -301,11 +343,9 @@ type DBGuard struct {
 	UID   int64  `json:"u"`
 	Type  int8   `json:"t"`
 	Level int8   `json:"l"`
+	Score int    `json:"s"`
 }
 
-func TraceGuard() {
-
-}
 func TraceArea(parent int) {
 	var page = 1
 	var arr = make([]AreaLiver, 0)
@@ -325,12 +365,57 @@ func TraceArea(parent int) {
 			i.MaxWatch = s2.Watch.Num
 			arr = append(arr, i)
 			var found = AreaLiver{}
+			var live = AreaLive{}
+			live.UID = s2.UID
+			live.Title = s2.Title
+			live.Room = s2.Room
+			live.Title = s2.Title
+
+			var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
+			r, _ := client.R().Get(u0)
+			var info = LiveStreamResponse{}
+			sonic.Unmarshal(r.Body(), &info)
+
+			db.Model(&AreaLive{}).Where("uid = ?", s2.UID).Last(&live)
+
+			if live.Time.Unix() != time.Unix(info.Data.Time, 0).Unix() {
+				var l = AreaLive{}
+				l.UName = s2.UName
+				l.UID = s2.UID
+				l.Room = s2.Room
+				l.Title = s2.Title
+				l.Area = s2.Area
+				l.Time = time.Unix(info.Data.Time, 0)
+				db.Save(&l)
+			}
+
 			db.Model(&AreaLiver{}).
 				Where("uid = ?", s2.UID).
 				Order("id DESC").
 				First(&found)
 			//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
 			if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*48 {
+				if found.UID == 0 { //如果是第一次被记录，就获取完整的粉丝团数据（包括粉丝牌已经熄灭的
+					marshal, _ := sonic.Marshal(GetFansClub(strconv.FormatInt(s2.UID, 10), 10, true))
+					i.FansClubs = string(marshal)
+				} else {
+					//否则用正常的粉丝团数据去更新原有的数据
+					array := GetFansClub(strconv.FormatInt(s2.UID, 10), 10, false)
+					var first = AreaLiver{}
+					db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&first)
+					var to []DBGuard
+					sonic.Unmarshal([]byte(first.FansClubs), &to)
+					guardMap := make(map[int64]*DBGuard)
+					for _, dbGuard := range to {
+						guardMap[dbGuard.UID] = &dbGuard
+					}
+					for _, guard := range array {
+						if dbGuard, ok := guardMap[guard.UID]; ok {
+							dbGuard.Score = guard.Score
+						}
+					}
+
+				}
 				var user = FetchUser(strconv.FormatInt(s2.UID, 10))
 				user.Face = ""
 				if i.MaxWatch < found.MaxWatch {
@@ -340,7 +425,7 @@ func TraceArea(parent int) {
 				for _, watcher := range GetGuard(strconv.Itoa(i.Room), strconv.FormatInt(i.UID, 10), true) {
 					ins := DBGuard{}
 					ins.Type = watcher.Guard
-					ins.UID = watcher.UID
+					ins.UID = s2.UID
 					ins.UName = watcher.Name
 					ins.Level = watcher.Medal.Level
 					guards = append(guards, ins)
@@ -351,6 +436,7 @@ func TraceArea(parent int) {
 				i.Fans = user.Fans
 				time.Sleep(time.Second * 2)
 				db.Save(&i)
+			} else {
 			}
 
 		}
