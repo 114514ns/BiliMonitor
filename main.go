@@ -362,6 +362,8 @@ var wbi = NewDefaultWbi()
 
 const ENV = "DEV"
 
+var totalRequests = 0
+
 func main() {
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(multiWriter)
@@ -406,6 +408,10 @@ func main() {
 		})
 		db.Exec("PRAGMA journal_mode=WAL;")
 	}
+	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
+		totalRequests++
+		return nil
+	})
 	if config.EnableMySQL {
 		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8mb4&parseTime=True&loc=Local"
 		dsl = strings.Replace(dsl, "#user", config.SQLUser, 1)
@@ -425,6 +431,7 @@ func main() {
 	db.AutoMigrate(&Archive{})
 	db.AutoMigrate(&AreaLiver{})
 	db.AutoMigrate(&AreaLive{})
+	db.AutoMigrate(&FansClub{})
 	RemoveEmpty()
 	go InitHTTP()
 

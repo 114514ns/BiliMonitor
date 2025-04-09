@@ -137,6 +137,22 @@ type FansList struct {
 	Ts        int64  `json:"ts"`
 	RequestID string `json:"request_id"`
 }
+type AreaLiverListResponse struct {
+	Data struct {
+		More int8 `json:"has_more"`
+		List []struct {
+			Room       int    `json:"roomid"`
+			ParentArea string `json:"parent_name"`
+			Area       string `json:"area_name"`
+			Title      string `json:"title"`
+			UName      string `json:"uname"`
+			UID        int64  `json:"uid"`
+			Watch      struct {
+				Num int `json:"num"`
+			} `json:"watched_show"`
+		} `json:"list"`
+	} `json:"data"`
+}
 type UserResponse struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
@@ -268,7 +284,8 @@ type FansClubResponse struct {
 			Score int    `json:"score"`
 			Level int8   `json:"level"`
 			Medal struct {
-				Type int8 `json:"guard_level"`
+				Type int8   `json:"guard_level"`
+				Name string `json:"name"`
 			} `json:"uinfo_medal"`
 		} `json:"item"`
 	} `json:"data"`
