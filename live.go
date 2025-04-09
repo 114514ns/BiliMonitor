@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -214,13 +215,39 @@ func GetGuardCount(room string, liver string) string {
 	}
 	return ""
 }
-func GetFansClub(liver string, delay int, full bool) []DBGuard {
+func GetFreeClubCounts(liver string, delay int) int {
+	left := 1
+	right := 2000
+	found := 0
+	items := 0
+	for left <= right {
+		mid := (left + right) / 2
+		u := fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/getFansMembersRank?ruid=%s&page=%s&page_size=30&rank_type=2&ts=%s", liver, strconv.Itoa(mid), strconv.FormatInt(time.Now().Unix(), 10))
+		res, _ := client.R().Get(u)
+		obj := FansClubResponse{}
+		sonic.Unmarshal(res.Body(), &obj)
+		l := len(obj.Data.Item)
+		if obj.Message == "服务调用超时" {
+			continue
+		}
+		if l == 0 {
+			right = mid - 1
+		} else {
+			found = mid
+			items = l
+			left = mid + 1
+		}
+		time.Sleep(time.Duration(delay) * time.Millisecond)
+	}
+
+	return 30*(found-1) + items
+}
+func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []Log) []DBGuard {
 	var page = 1
 	var list = make([]DBGuard, 0)
 	t := "0"
-	if full {
-		t = "2"
-	}
+	//type=0是活跃的粉丝团用户
+	//type=2是所有没上过舰长的粉丝团用户
 	for {
 		u := fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/getFansMembersRank?ruid=%s&page=%s&page_size=30&rank_type=%s&ts=%s", liver, strconv.Itoa(page), t, strconv.FormatInt(time.Now().Unix(), 10))
 		res, _ := client.R().Get(u)
@@ -232,7 +259,8 @@ func GetFansClub(liver string, delay int, full bool) []DBGuard {
 		if !strings.Contains(obj.Message, "服务调用超时") {
 			page++
 		}
-		time.Sleep(time.Duration(delay) * time.Second)
+		time.Sleep(time.Duration(delay) * time.Millisecond)
+		//addLog(logChain, fmt.Sprintf("getting   fans msg=%s,page=%d,len=%d  url = %s", obj.Message, page, len(obj.Data.Item), u))
 		for _, s := range obj.Data.Item {
 			var d = DBGuard{}
 			d.Score = s.Score
@@ -240,10 +268,13 @@ func GetFansClub(liver string, delay int, full bool) []DBGuard {
 			d.Type = s.Medal.Type
 			d.UID = s.UID
 			d.UName = s.UName
+			d.MedalName = s.Medal.Name
 			list = append(list, d)
+			callback(d)
 		}
 
 	}
+	addLog(logChain, fmt.Sprintf("got fansClub,len=%d", len(list)))
 	return list
 }
 func GetGuard(room string, liver string, ignoreCache bool) []Watcher {
@@ -300,18 +331,21 @@ func GetGuard(room string, liver string, ignoreCache bool) []Watcher {
 	return arr
 }
 
+// 某一时刻的主播信息
 type AreaLiver struct {
 	ID        uint `gorm:"primarykey"`
 	UpdatedAt time.Time
 	UName     string
 	UID       int64
 	Room      int
-	MaxWatch  int
 	Area      string
 	Fans      int
 	GuardList string
-	FansClubs string
+	Guard     string
+	FreeClubs int
 }
+
+// 一场直播
 type AreaLive struct {
 	ID    uint `gorm:"primarykey"`
 	Time  time.Time
@@ -320,36 +354,56 @@ type AreaLive struct {
 	Room  int
 	Title string
 	Area  string
+	Watch int
 }
 
-type AreaLiverListResponse struct {
-	Data struct {
-		More int8 `json:"has_more"`
-		List []struct {
-			Room       int    `json:"roomid"`
-			ParentArea string `json:"parent_name"`
-			Area       string `json:"area_name"`
-			Title      string `json:"title"`
-			UName      string `json:"uname"`
-			UID        int64  `json:"uid"`
-			Watch      struct {
-				Num int `json:"num"`
-			} `json:"watched_show"`
-		} `json:"list"`
-	} `json:"data"`
-}
+// 舰长，以json数组序列化后存在AreaLive的GuardList字段里
 type DBGuard struct {
-	UName string `json:"n"`
-	UID   int64  `json:"u"`
-	Type  int8   `json:"t"`
-	Level int8   `json:"l"`
-	Score int    `json:"s"`
+	UName     string
+	UID       int64
+	Type      int8
+	Level     int8
+	Score     int
+	Liver     string
+	LiverID   int64
+	MedalName string
 }
 
+// 粉丝团，结构同上方的DBGuard，存放在一张单独的表
+type FansClub struct {
+	ID        uint `gorm:"primarykey"`
+	UpdatedAt time.Time
+	DBGuard
+}
+type Log struct {
+	Time    time.Time
+	Content string
+}
+
+var working = false
+
+func addLog(chain []Log, content string) {
+	chain = append(chain, Log{Time: time.Now(), Content: content})
+	_, file, line, ok := runtime.Caller(1)
+	if !ok {
+		file = "???"
+		line = 0
+	}
+
+	// 生成完整日志内容
+	timestamp := time.Now().Format("2006/01/02 15:04:05") // 和标准 log 一致
+	fullMsg := fmt.Sprintf("%s %s:%d: %s", timestamp, file, line, content)
+	fmt.Println(fullMsg)
+}
 func TraceArea(parent int) {
+	if working {
+		log.Println("TraceArea is still executing,break")
+		return //确保不会重叠执行
+	}
 	var page = 1
 	var arr = make([]AreaLiver, 0)
 	for {
+		working = true
 		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?platform=web&parent_area_id=%d&area_id=0&sort_type=&page=%d&vajra_business_key=&web_location=444.43", parent, page))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
@@ -357,36 +411,39 @@ func TraceArea(parent int) {
 		obj := AreaLiverListResponse{}
 		sonic.Unmarshal(res.Body(), &obj)
 		for _, s2 := range obj.Data.List {
+			logChain := make([]Log, 0)
+			var start = time.Now().Unix()
+			var fansMap = make(map[int64]DBGuard)
 			i := AreaLiver{}
 			i.UName = s2.UName
 			i.UID = s2.UID
 			i.Room = s2.Room
 			i.Area = s2.Area
-			i.MaxWatch = s2.Watch.Num
 			arr = append(arr, i)
 			var found = AreaLiver{}
 			var live = AreaLive{}
-			live.UID = s2.UID
-			live.Title = s2.Title
-			live.Room = s2.Room
-			live.Title = s2.Title
-
 			var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
 			r, _ := client.R().Get(u0)
 			var info = LiveStreamResponse{}
 			sonic.Unmarshal(r.Body(), &info)
-
+			addLog(logChain, fmt.Sprintf("Chain start"))
+			addLog(logChain, fmt.Sprintf("Liver:%s  Title=%s", s2.UName, s2.Title))
 			db.Model(&AreaLive{}).Where("uid = ?", s2.UID).Last(&live)
-
 			if live.Time.Unix() != time.Unix(info.Data.Time, 0).Unix() {
+				addLog(logChain, fmt.Sprintf("New Live"))
 				var l = AreaLive{}
 				l.UName = s2.UName
 				l.UID = s2.UID
 				l.Room = s2.Room
 				l.Title = s2.Title
 				l.Area = s2.Area
+				l.Watch = s2.Watch.Num
 				l.Time = time.Unix(info.Data.Time, 0)
 				db.Save(&l)
+			} else {
+				addLog(logChain, fmt.Sprintf("Exist live,update watchNum %d->%d", live.Watch, s2.Watch.Num))
+				live.Watch = s2.Watch.Num
+				db.Save(&live)
 			}
 
 			db.Model(&AreaLiver{}).
@@ -395,48 +452,76 @@ func TraceArea(parent int) {
 				First(&found)
 			//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
 			if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*48 {
-				if found.UID == 0 { //如果是第一次被记录，就获取完整的粉丝团数据（包括粉丝牌已经熄灭的
-					marshal, _ := sonic.Marshal(GetFansClub(strconv.FormatInt(s2.UID, 10), 10, true))
-					i.FansClubs = string(marshal)
-				} else {
-					//否则用正常的粉丝团数据去更新原有的数据
-					array := GetFansClub(strconv.FormatInt(s2.UID, 10), 10, false)
-					var first = AreaLiver{}
-					db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&first)
-					var to []DBGuard
-					sonic.Unmarshal([]byte(first.FansClubs), &to)
-					guardMap := make(map[int64]*DBGuard)
-					for _, dbGuard := range to {
-						guardMap[dbGuard.UID] = &dbGuard
-					}
-					for _, guard := range array {
-						if dbGuard, ok := guardMap[guard.UID]; ok {
-							dbGuard.Score = guard.Score
-						}
-					}
+				if found.UID == 0 {
+					addLog(logChain, fmt.Sprintf("New Liver"))
+					addLog(logChain, fmt.Sprintf("getting fansClub"))
+					//如果这个主播在数据库里没有，就获取活跃的粉丝团用户列表，和免费的粉丝团用户是数量
+					GetFansClub(strconv.FormatInt(s2.UID, 10), 500, func(g DBGuard) {
+						club := FansClub{}
+						fansMap[g.UID] = g
+						club.DBGuard = g
+						club.Liver = s2.UName
+						club.LiverID = s2.UID
+						db.Save(&club)
+					}, logChain)
 
+					i.FreeClubs = GetFreeClubCounts(strconv.FormatInt(s2.UID, 10), 500)
+				} else {
+					//数据库里已经有这个主播的情况下只要更新活跃的用户就可以了
+					GetFansClub(strconv.FormatInt(s2.UID, 10), 5, func(g DBGuard) {
+						club := FansClub{}
+						fansMap[g.UID] = g
+						db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
+						if club.Score != g.Score {
+							addLog(logChain, fmt.Sprintf("Update Medal %d->%d ", club.Score, g.Score))
+						}
+						club.Score = g.Score
+						club.Liver = g.Liver
+						db.Save(&club)
+					}, logChain)
 				}
+
 				var user = FetchUser(strconv.FormatInt(s2.UID, 10))
 				user.Face = ""
-				if i.MaxWatch < found.MaxWatch {
-					i.MaxWatch = found.MaxWatch
-				}
 				var guards = make([]DBGuard, 0)
+				var l1 = 0
+				var l2 = 0
+				var l3 = 0
+				addLog(logChain, "getting guardList")
 				for _, watcher := range GetGuard(strconv.Itoa(i.Room), strconv.FormatInt(i.UID, 10), true) {
 					ins := DBGuard{}
 					ins.Type = watcher.Guard
-					ins.UID = s2.UID
+					ins.UID = watcher.UID
 					ins.UName = watcher.Name
 					ins.Level = watcher.Medal.Level
+					ins.Liver = s2.UName
+					ins.LiverID = s2.UID
+					ins.MedalName = watcher.Medal.Name
+					ins.Score = fansMap[watcher.UID].Score
+
+					if ins.Type == 1 {
+						l1++
+					}
+					if ins.Type == 2 {
+						l2++
+					}
+					if ins.Type == 3 {
+						l3++
+					}
+
 					guards = append(guards, ins)
 				}
+				i.Guard = fmt.Sprintf("%d,%d,%d", l1, l2, l3)
+				addLog(logChain, fmt.Sprintf("got Guard info %s", i.Guard))
 				b, _ := sonic.Marshal(guards)
 				i.GuardList = string(b)
 				db.Save(&user)
 				i.Fans = user.Fans
 				time.Sleep(time.Second * 2)
 				db.Save(&i)
+				addLog(logChain, fmt.Sprintf("Chain END, took %d s", time.Now().Unix()-start))
 			} else {
+				addLog(logChain, "Update recently,skip")
 			}
 
 		}
@@ -446,8 +531,7 @@ func TraceArea(parent int) {
 		page++
 		time.Sleep(time.Second * 2)
 	}
-	time.Now()
-
+	working = false
 }
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
