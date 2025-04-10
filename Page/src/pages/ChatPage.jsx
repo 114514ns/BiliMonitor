@@ -75,6 +75,7 @@ function ChatPage(props) {
         })
     }
 
+
     useEffect(() => {
         initRoomList();
     }, [])
