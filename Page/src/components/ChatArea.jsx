@@ -47,9 +47,11 @@ function ChatArea(props) {
 
     useEffect(() => {
         if (chatRef.current) {
-            chatRef.current.scrollTop = chatRef.current.scrollHeight;
+            chatRef.current.children[0].children[0].children[0].scrollTop=99999999;
+            console.log("scroll");
+
         }
-    }, [message]);
+    }, [last]);
 
     useEffect(() => {
         setLast("");
@@ -69,7 +71,7 @@ function ChatArea(props) {
     return (
         <div>
             <div className={classes.chatColumn}>
-                <div style={{ height: "100%", width: "100%", overflow: "auto" }} ref={chatRef}>
+                <div style={{ }} ref={chatRef}>
                         <Listbox
                             isVirtualized
                             autoFocus={'first'}

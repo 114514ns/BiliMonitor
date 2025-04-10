@@ -31,7 +31,7 @@ var RecordedMedias = make([]string, 0)
 var GiftPrice = map[string]float32{}
 var mailClient = resend.NewClient("")
 
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
 
 type Config struct {
 	Port                    int32
@@ -462,7 +462,7 @@ func main() {
 		lives[roomId].OnlineWatcher = make([]Watcher, 0)
 		lives[roomId].GuardList = make([]Watcher, 0)
 		lives[roomId].Stream = GetLiveStream(roomId)
-		go RecordStream(roomId)
+		//go RecordStream(roomId)
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
 
