@@ -16,6 +16,11 @@
 - 下载单个视频/分P视频/播放列表
 - 自动下载收藏夹内的视频（使用场景：想要下载一个视频，或者感觉这个视频会被下架掉，只要点收藏就可以备份/快速获得视频链接）
 
+
+# Communication
+
+任何问题和建议欢迎在issue或discussion内提出
+
 # Download
 https://github.com/114514ns/BiliMonitor/actions
 <br/>
