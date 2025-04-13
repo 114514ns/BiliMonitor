@@ -15,7 +15,7 @@ import {
     Tabs,
     Tooltip
 } from "@heroui/react";
-import ReactPlayer from 'react-player/streamable'
+import ReactPlayer from 'react-player'
 import WatcherList from "../components/WatcherList";
 import ChatArea from "../components/ChatArea";
 
