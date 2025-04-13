@@ -475,9 +475,18 @@ func TraceArea(parent int) {
 						if club.Score != g.Score {
 							addLog(logChain, fmt.Sprintf("Update Medal %d->%d ", club.Score, g.Score))
 						}
-						club.Score = g.Score
-						club.Liver = g.Liver
-						db.Save(&club)
+						if club.Score != 0 {
+							club.Score = g.Score
+							club.Liver = g.Liver
+							db.Save(&club)
+						} else {
+							fansMap[g.UID] = g
+							club.DBGuard = g
+							club.Liver = s2.UName
+							club.LiverID = s2.UID
+							db.Save(&club)
+						}
+
 					}, logChain)
 				}
 
@@ -944,11 +953,6 @@ var mu sync.RWMutex
 var GiftPic = make(map[string]string)
 
 func FillGiftPrice(room string, area int, parent int) {
-	//对GiftPrice的读写操作得加锁，不然TraceLive炸了然后重试的时候，所有直播间会同时执行FillGiftPrice，对GiftPrice读写，就会炸掉
-	htmlRes, _ := client.R().Get("https://live.bilibili.com/13878454")
-	htmlStr := htmlRes.String()
-	strings.Index(htmlStr, `"area_id"`)
-	Index(htmlStr, strings.Index(htmlStr, `"area_id"`))
 	res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?platform=pc&room_id=" + room + "&area_id=" + strconv.Itoa(area) + "&area_parent_id" + strconv.Itoa(parent))
 	var gift = GiftList{}
 	sonic.Unmarshal(res.Body(), &gift)
