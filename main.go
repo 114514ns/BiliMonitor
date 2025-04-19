@@ -363,8 +363,13 @@ var wbi = NewDefaultWbi()
 const ENV = "DEV"
 
 var totalRequests = 0
+var launchTime = time.Now()
 
 func main() {
+	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
+		totalRequests++
+		return nil
+	})
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(multiWriter)
 	content, err := os.ReadFile("config.json")
@@ -408,10 +413,6 @@ func main() {
 		})
 		db.Exec("PRAGMA journal_mode=WAL;")
 	}
-	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
-		totalRequests++
-		return nil
-	})
 	if config.EnableMySQL {
 		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8mb4&parseTime=True&loc=Local"
 		dsl = strings.Replace(dsl, "#user", config.SQLUser, 1)
@@ -423,6 +424,7 @@ func main() {
 			DSN: dsl, // DSN data source name
 		}), &gorm.Config{})
 	}
+	TotalGuards()
 	wbi.WithRawCookies(config.Cookie)
 	wbi.initWbi()
 	db.AutoMigrate(&Live{})
@@ -457,7 +459,7 @@ func main() {
 	c.Start()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]
-		lives[roomId] = &Status{RemainTrying: 4}
+		lives[roomId] = &Status{RemainTrying: 40}
 		lives[roomId].Danmuku = make([]FrontLiveAction, 0)
 		lives[roomId].OnlineWatcher = make([]Watcher, 0)
 		lives[roomId].GuardList = make([]Watcher, 0)

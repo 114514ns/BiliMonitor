@@ -22,6 +22,9 @@ console.warn = (...args) => {
 
     originalWarn(...args);
 };
+window.toSpace = UID => {
+    window.open('https://space.bilibili.com/' + UID, '_blank');
+}
 const host = location.hostname;
 
 const port = location.port;
