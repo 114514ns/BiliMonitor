@@ -110,7 +110,7 @@ function ChatItem(props) {
                     <img
                         src={item.Face}
                         style={{width:'40px',height:'40px',borderRadius:'50%'}}
-                        onClick={() => toSpace(UID)}
+                        onClick={() => toSpace(item.FromId)}
                     />
                     <div>
                         <div className={classes.nameRow}>
