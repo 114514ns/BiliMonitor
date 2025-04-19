@@ -15,7 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
-	"runtime"
+	_ "runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -383,17 +383,20 @@ type Log struct {
 var working = false
 
 func addLog(chain []Log, content string) {
-	chain = append(chain, Log{Time: time.Now(), Content: content})
-	_, file, line, ok := runtime.Caller(1)
-	if !ok {
-		file = "???"
-		line = 0
-	}
+	/*
+		chain = append(chain, Log{Time: time.Now(), Content: content})
+		_, file, line, ok := runtime.Caller(1)
+		if !ok {
+			file = "???"
+			line = 0
+		}
 
-	// 生成完整日志内容
-	timestamp := time.Now().Format("2006/01/02 15:04:05") // 和标准 log 一致
-	fullMsg := fmt.Sprintf("%s %s:%d: %s", timestamp, file, line, content)
-	fmt.Println(fullMsg)
+		// 生成完整日志内容
+		timestamp := time.Now().Format("2006/01/02 15:04:05") // 和标准 log 一致
+		fullMsg := fmt.Sprintf("%s %s:%d: %s", timestamp, file, line, content)
+		fmt.Println(fullMsg)
+
+	*/
 }
 func TraceArea(parent int) {
 	if working {
@@ -550,7 +553,7 @@ func TraceLive(roomId string) {
 	sonic.Unmarshal(rRes.Body(), &roomInfo)
 	FillGiftPrice(roomId, roomInfo.Data.AreaId, roomInfo.Data.ParentAreaId)
 	var dbLiveId = 0
-	var liverId = strconv.Itoa(roomInfo.Data.UID)
+	var liverId = strconv.FormatInt(roomInfo.Data.UID, 10)
 	var startAt = roomInfo.Data.LiveTime
 
 	var living = false
@@ -898,7 +901,7 @@ func TraceLive(roomId string) {
 			err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
 			//lives[roomId].LastActive = time.Now().Unix() + 3600*8
 			if err != nil {
-				log.Println("write:", err)
+				log.Printf("[%s] write:  %v", liver, err)
 				return
 			}
 			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
@@ -910,16 +913,19 @@ func TraceLive(roomId string) {
 			}
 			sonic.Unmarshal(res.Body(), &status)
 			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
-				lives[roomId].Live = false
-				var sum float64
-				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
+				lives[roomId].Live = true
+				//var sum float64
+				//db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
-				db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
-				living = false
-				i, _ := strconv.Atoi(roomId)
+				//db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+				living = true
+				//i, _ := strconv.Atoi(roomId)
 				if config.EnableLiveBackup {
-					go UploadLive(Live{RoomId: i, UserName: liver})
+					//go UploadLive(Live{RoomId: i, UserName: liver})
 				}
+				var msg = "你关注的主播： " + liver + " 开始直播"
+				lives[roomId].Title = roomInfo.Data.Title
+				PushDynamic(msg, roomInfo.Data.Title)
 			}
 			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
 
@@ -1100,7 +1106,7 @@ type FrontLiveAction struct {
 type RoomInfo struct {
 	Data struct {
 		LiveTime     string `json:"live_time"`
-		UID          int    `json:"uid"`
+		UID          int64  `json:"uid"`
 		Title        string `json:"title"`
 		Area         string `json:"area_name"`
 		AreaId       int    `json:"area_id"`

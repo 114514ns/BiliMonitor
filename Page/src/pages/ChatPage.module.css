@@ -16,6 +16,15 @@
 
     width: 30%;
 }
+@media (max-width: 767px) {
+    /* 写你的移动端样式 */
+    .chat {
+        width: 0;
+    }
+    .roomColumn {
+        width: 0;
+    }
+}
 .nameRow {
     display: flex;
     margin-left: 8px;

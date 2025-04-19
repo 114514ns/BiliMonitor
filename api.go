@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"github.com/bytedance/sonic"
+	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,7 @@ import (
 	"time"
 )
 
-var cache = []Video{}
+var videoCache = []Video{}
 var worker = NewWorker()
 
 func removeDuplicates(input []string) []string {
@@ -187,7 +188,7 @@ func InitHTTP() {
 
 		var videos = ParseSingleVideo(id)
 		for _, video := range videos {
-			cache = append(cache, video)
+			videoCache = append(videoCache, video)
 		}
 		context.JSON(http.StatusOK, gin.H{
 			"message": "success",
@@ -201,7 +202,7 @@ func InitHTTP() {
 
 		var found = ParsePlayList(id, listId)
 		for _, video := range found {
-			cache = append(cache, video)
+			videoCache = append(videoCache, video)
 		}
 		context.JSON(http.StatusOK, gin.H{
 			"message": "success",
@@ -214,7 +215,7 @@ func InitHTTP() {
 		if partStr == "0" {
 			partStr = "1"
 		}
-		for _, video := range cache {
+		for _, video := range videoCache {
 			if strconv.Itoa(video.Part) == partStr && bv == video.BV {
 				worker.AddTask(func() {
 					UploadArchive(video)
@@ -328,9 +329,21 @@ func InitHTTP() {
 			"data":    list,
 		})
 	})
+	r.GET("/status", func(context *gin.Context) {
+		//cache.CacheByRequestURI(memoryStore, 2*time.Second)
+		context.JSON(http.StatusOK, gin.H{
+			"Requests":   totalRequests,
+			"LaunchedAt": launchTime.Format(time.DateTime),
+			"Guards":     TotalGuards(),
+			"Watchers":   TotalWatcher(),
+			"Livers":     TotalLiver(),
+		})
+	})
 
 	r.Run(":" + strconv.Itoa(int(config.Port))) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
+
+var memoryStore = persist.NewMemoryStore(1 * time.Minute)
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
