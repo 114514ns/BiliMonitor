@@ -1,6 +1,6 @@
 module BiliMonitor
 
-go 1.23rc1
+toolchain go1.24.1
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.2
@@ -50,7 +50,7 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	golang.org/x/arch v0.13.0 // indirect
-	golang.org/x/crypto v0.33.0 // indirect
+	golang.org/x/crypto v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	google.golang.org/protobuf v1.36.2 // indirect
