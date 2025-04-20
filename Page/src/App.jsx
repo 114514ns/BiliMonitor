@@ -17,8 +17,9 @@ import {
 } from "@heroui/react";
 import DownloadDialog from "./components/DownloadDialog";
 import PubSub from 'pubsub-js'
-import Danmaku from "./pages/Danmaku";
+
 import ChatPage from "./pages/ChatPage";
+import ListPage from "./pages/ListPage";
 
 
 function BasicLayout() {
@@ -88,11 +89,12 @@ function BasicLayout() {
                     </Route>
                     <Route path={'/lives/:id'} element={<LiveDetailPage/>}>
 
-                    </Route>
-                    <Route path={'/danmaku'} element={<Danmaku/>}>
+
 
                     </Route>
                     <Route path={'chat/'} element={<ChatPage/>}/>
+                    <Route path={'/all'} element={<ListPage/>}/>
+
                 </Routes>
             </div>
         </div>
