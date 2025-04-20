@@ -27,7 +27,7 @@ func FetchUser(mid string) User {
 	user.Face = userResponse.Data.Card.Face
 	user.Fans = userResponse.Data.Followers
 
-	user.UserID = mid
+	user.UserID, _ = strconv.ParseInt(mid, 10, 64)
 	if user.Fans == 0 {
 		fmt.Println(string(res.Body()))
 	}
@@ -42,7 +42,7 @@ func UpdateCommon() {
 			continue
 		}
 		var id = Followings[i].UserID
-		var user = FetchUser(id)
+		var user = FetchUser(strconv.FormatInt(id, 10))
 		user.Face = ""
 		db.Save(&user)
 		time.Sleep(3 * time.Second)
@@ -115,7 +115,7 @@ func UpdateSpecial() {
 	}
 	for i := range config.SpecialList {
 		var id = config.SpecialList[i]
-		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.Itoa(id)) + "&timezone_offset=-480&features=itemOpusStyle")
+		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.FormatInt(id, 10)) + "&timezone_offset=-480&features=itemOpusStyle")
 		var result UserDynamic
 		sonic.Unmarshal(resp.Body(), &result)
 		for i2 := range result.Data.Items {
@@ -194,10 +194,10 @@ func RefreshFollowings() {
 		for i := 0; i < len(users); i++ {
 			var user = User{}
 			user.Name = users[i].Uname
-			user.UserID = users[i].Mid
+			user.UserID, _ = strconv.ParseInt(users[i].Mid, 10, 64)
 			Followings0 = append(Followings0, user)
 			for j := 0; j < len(config.SpecialList); j++ {
-				if strconv.Itoa(config.SpecialList[j]) == user.UserID {
+				if config.SpecialList[j] == user.UserID {
 					Special0 = append(Special0, user)
 				}
 			}
@@ -212,7 +212,7 @@ func RefreshFollowings() {
 	for _, liver := range livers {
 		var user = User{}
 		user.Name = liver.UName
-		user.UserID = strconv.FormatInt(liver.UID, 10)
+		user.UserID = liver.UID
 		Followings0 = append(Followings0, user)
 	}
 	Followings = Followings0
@@ -310,4 +310,28 @@ func UploadArchive(video Video) string {
 	})
 	return config.AlistServer + final
 
+}
+
+func GetFace(uid string) string {
+	var obj = FaceCache{}
+	db.Model(&obj).Where("uid = ?", uid).First(&obj)
+	if obj.UID == 0 || time.Now().Unix()-obj.UpdateAt.Unix() > 3600*6 {
+		var url = "https://api.bilibili.com/x/web-interface/card?mid=" + uid
+		res, _ := client.R().Get(url)
+		var userResponse = UserResponse{}
+		sonic.Unmarshal(res.Body(), &userResponse)
+		if obj.Face != userResponse.Data.Card.Face {
+			if obj.UID == 0 {
+				obj.Face = userResponse.Data.Card.Face
+				obj.UID, _ = strconv.ParseInt(uid, 10, 64)
+				obj.UpdateAt = time.Now()
+				db.Create(&obj)
+			} else {
+				db.Model(&FaceCache{}).Where("uid = ?", uid).UpdateColumns(FaceCache{Face: userResponse.Data.Card.Face})
+			}
+		}
+		return userResponse.Data.Card.Face
+	} else {
+		return obj.Face
+	}
 }
