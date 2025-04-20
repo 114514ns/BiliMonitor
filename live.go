@@ -422,6 +422,7 @@ func TraceArea(parent int) {
 			i.UID = s2.UID
 			i.Room = s2.Room
 			i.Area = s2.Area
+			GetFace(strconv.FormatInt(s2.UID, 10))
 			arr = append(arr, i)
 			var found = AreaLiver{}
 			var live = AreaLive{}

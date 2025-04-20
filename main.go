@@ -39,7 +39,7 @@ type Config struct {
 	CommonDelay             string
 	RefreshFollowingsDelay  string
 	User                    string
-	SpecialList             []int
+	SpecialList             []int64
 	Cookie                  string
 	LoginMode               bool
 	EnableEmail             bool
@@ -74,7 +74,7 @@ type Config struct {
 type User struct {
 	gorm.Model
 	Name   string
-	UserID string
+	UserID int64
 	Fans   int
 	Face   string
 }
@@ -126,6 +126,11 @@ type Archive struct {
 	Title     string
 	Text      string
 	BiliID    string
+}
+type FaceCache struct {
+	UID      int64
+	Face     string
+	UpdateAt time.Time
 }
 
 func CheckConfig() {
@@ -370,9 +375,14 @@ func main() {
 		totalRequests++
 		return nil
 	})
+	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
+		request.Header.Set("User-Agent", USER_AGENT)
+		return nil
+	})
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(multiWriter)
 	content, err := os.ReadFile("config.json")
+
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 	if err != nil {
 		content = []byte("")
@@ -381,7 +391,7 @@ func main() {
 		config.CommonDelay = "30m"
 		config.User = "2"
 		config.RefreshFollowingsDelay = "30m"
-		config.SpecialList = []int{}
+		config.SpecialList = []int64{}
 		config.EnableQQBot = false
 		config.EnableEmail = true
 		config.FromMail = "bili@ikun.dev"
@@ -434,6 +444,7 @@ func main() {
 	db.AutoMigrate(&AreaLiver{})
 	db.AutoMigrate(&AreaLive{})
 	db.AutoMigrate(&FansClub{})
+	db.AutoMigrate(&FaceCache{})
 	RemoveEmpty()
 	go InitHTTP()
 
@@ -445,6 +456,9 @@ func main() {
 	go func() {
 		TraceArea(9)
 	}()
+	go func() {
+		RefreshLivers()
+	}()
 
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
 	c.AddFunc("@every 120m", RefreshFollowings)
@@ -452,6 +466,7 @@ func main() {
 	c.AddFunc("@every 15m", func() { TraceArea(9) })
 	c.AddFunc("@every 1m", FixMoney)
 	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
+	c.AddFunc("@every 60m", RefreshLivers)
 	if err != nil {
 		return
 	}

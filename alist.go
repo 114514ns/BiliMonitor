@@ -61,7 +61,7 @@ func UploadFile(path string, alistPath string) error {
 		log.Println("读取响应失败: %w", err)
 	}
 
-	fmt.Printf("[%s] %d %s\n", alistPath, resp.StatusCode, string(body))
+	log.Printf("[%s] %d %s\n", alistPath, resp.StatusCode, string(body))
 	return nil
 }
 func GetAlistToken() string {

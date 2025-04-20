@@ -3,12 +3,13 @@ package main
 import (
 	"embed"
 	"github.com/bytedance/sonic"
-	"github.com/chenyahui/gin-cache/persist"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 	"net/http"
 	url2 "net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,12 @@ func removeDuplicates(input []string) []string {
 	}
 
 	return result
+}
+
+type FrontAreaLiver struct {
+	AreaLiver
+	LastActive time.Time
+	DailyDiff  int
 }
 
 //go:embed Page/dist
@@ -340,10 +347,60 @@ func InitHTTP() {
 		})
 	})
 
+	r.GET("/face", func(c *gin.Context) {
+		if c.Query("mid") == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "missing mid",
+			})
+		}
+		c.Redirect(http.StatusMovedPermanently, GetFace(c.Query("mid")))
+	})
+
+	r.GET("/areaLivers", func(c *gin.Context) {
+		var dist = make([]FrontAreaLiver, 0)
+		copier.Copy(&dist, &cachedLivers)
+		var sortType = c.Query("sort")
+		if sortType == "guard" {
+			sort.Slice(dist, func(i, j int) bool {
+				var g1 = 0
+				for _, s := range strings.Split(dist[i].Guard, ",") {
+					var n, _ = strconv.ParseInt(s, 10, 64)
+					g1 = g1 + int(n)
+				}
+				var g2 = 0
+				for _, s := range strings.Split(dist[j].Guard, ",") {
+					var n, _ = strconv.ParseInt(s, 10, 64)
+					g1 = g1 + int(n)
+				}
+				return g1 > g2
+			})
+		} else if sortType == "l1-guard" {
+			sort.Slice(dist, func(i, j int) bool {
+				var g1, _ = strconv.ParseInt(strings.Split(dist[i].Guard, ",")[0], 10, 64)
+				var g2, _ = strconv.ParseInt(strings.Split(dist[j].Guard, ",")[0], 10, 64)
+				return g1 > g2
+			})
+		} else if sortType == "diff" {
+			sort.Slice(dist, func(i, j int) bool {
+				return dist[i].DailyDiff > dist[j].DailyDiff
+			})
+		} else if sortType == "diff-desc" {
+			sort.Slice(dist, func(i, j int) bool {
+				return dist[i].DailyDiff < dist[j].DailyDiff
+			})
+		} else {
+			sort.Slice(dist, func(i, j int) bool {
+				return dist[i].Fans > dist[j].Fans
+			})
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"list": dist,
+		})
+	})
+
 	r.Run(":" + strconv.Itoa(int(config.Port))) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
-
-var memoryStore = persist.NewMemoryStore(1 * time.Minute)
 
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -356,8 +413,6 @@ func CORSMiddleware() gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-
-		// 继续处理请求
 		c.Next()
 	}
 }
