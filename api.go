@@ -388,6 +388,21 @@ func InitHTTP() {
 			sort.Slice(dist, func(i, j int) bool {
 				return dist[i].DailyDiff < dist[j].DailyDiff
 			})
+		} else if sortType == "guard-equal" {
+			var price = []int{19998, 1998, 168}
+			sort.Slice(dist, func(i, j int) bool {
+				var g1 = 0
+				for i, s := range strings.Split(dist[i].Guard, ",") {
+					var n, _ = strconv.ParseInt(s, 10, 64)
+					g1 = g1 + int(n)*price[i]
+				}
+				var g2 = 0
+				for i, s := range strings.Split(dist[j].Guard, ",") {
+					var n, _ = strconv.ParseInt(s, 10, 64)
+					g2 = g2 + int(n)*price[i] //https://www.bilibili.com/video/BV1QTZdYZEn1/
+				}
+				return g1 > g2
+			})
 		} else {
 			sort.Slice(dist, func(i, j int) bool {
 				return dist[i].Fans > dist[j].Fans
