@@ -54,8 +54,11 @@ function ListPage(props) {
             <Autocomplete
                 className="max-w-xs"
                 defaultItems={sort}
-                label="Favorite Animal"
-                placeholder="排序方式"
+                label="排序方式"
+                placeholder="粉丝"
+                style={{
+                    marginLeft:'4px'
+                }}
             >
                 {(sort) => <AutocompleteItem key={sort.key} onPress={(e) => {
                     var url = `${protocol}://${host}:${port}/areaLivers?sort=${sort.key}`
@@ -94,7 +97,7 @@ function ListPage(props) {
 
 function LiverCard(props) {
     return (
-        <Card isHoverable  style={{ width: "100%", marginBottom: "16px" }}  isPressable>
+        <Card isHoverable  style={{ width: "100%", marginTop: "16px" }}  isPressable>
             <CardBody style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "16px" }}>
 
 

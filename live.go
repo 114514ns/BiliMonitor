@@ -924,12 +924,33 @@ func TraceLive(roomId string) {
 				if config.EnableLiveBackup {
 					//go UploadLive(Live{RoomId: i, UserName: liver})
 				}
+				var new = Live{}
+				new.StartAt = status.Data.LiveTime
+				new.Title = roomInfo.Data.Title
+				new.Area = roomInfo.Data.Area
+				var i, _ = strconv.Atoi(roomId)
+				new.RoomId = i
+				new.UserName = liver
+				lives[roomId].Live = true
+				lives[roomId].StartAt = time.Now().Add(3600 * 8 * time.Second).Format(time.DateTime)
+				liver = strings.TrimSpace(liver)
+				db.Create(&new)
+				dbLiveId = int(new.ID) //似乎直播间的ws服务器有概率不发送开播消息，导致漏数据，这里做个兜底。
 				var msg = "你关注的主播： " + liver + " 开始直播"
 				lives[roomId].Title = roomInfo.Data.Title
 				PushDynamic(msg, roomInfo.Data.Title)
 			}
-			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
+			if status.Data.LiveStatus == 0 && lives[roomId].Live {
+				lives[roomId].Live = false
+				var sum float64
+				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
+				db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+				living = false
+				i, _ := strconv.Atoi(roomId)
+				if config.EnableLiveBackup {
+					go UploadLive(Live{RoomId: i, UserName: liver})
+				}
 			}
 			lives[roomId].OnlineWatcher = GetOnline(roomId, liverId)
 			go func() {
