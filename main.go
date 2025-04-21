@@ -15,6 +15,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	url2 "net/url"
 	"os"
 	"os/exec"
@@ -369,14 +370,22 @@ const ENV = "DEV"
 
 var totalRequests = 0
 var launchTime = time.Now()
+var USER_AGENTS = []string{
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.3",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.6",
+	"Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Mobile Safari/537.36",
+	"Mozilla/5.0 (iPhone14,3; U; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) Version/10.0 Mobile/19A346 Safari/602.1",
+}
 
 func main() {
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		totalRequests++
 		return nil
 	})
+	rand.Seed(time.Now().UnixNano())
 	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
-		request.Header.Set("User-Agent", USER_AGENT)
+		request.Header.Set("User-Agent", USER_AGENTS[rand.Uint32()%uint32(len(USER_AGENTS))])
 		return nil
 	})
 	multiWriter := io.MultiWriter(os.Stdout, logFile)

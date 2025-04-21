@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/jinzhu/copier"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,6 +53,7 @@ func TotalLiver() int {
 	return count
 }
 func RefreshLivers() {
+	cachedLivers = []FrontAreaLiver{}
 	var result []AreaLiver
 	db.Model(&AreaLiver{}).Omit("guard_list").Find(&result)
 	var m = make(map[int64]AreaLiver)
@@ -62,9 +64,9 @@ func RefreshLivers() {
 	for _, liver := range m {
 		result = append(result, liver)
 	}
-	var final []FrontAreaLiver
 	d1 := time.Now().AddDate(0, 0, -1) // 昨天
 	d0 := time.Now().AddDate(0, 0, -2) // 前天
+	temp := make([]FrontAreaLiver, 0)
 	for _, liver := range result {
 		var o0 = User{}
 		var o1 = User{}
@@ -88,11 +90,12 @@ func RefreshLivers() {
 		var lastLive = AreaLive{}
 		db.Model(&AreaLive{}).Where("uid = ?", liver.UID).Find(&lastLive)
 		f.LastActive = lastLive.Time
-		cachedLivers = append(cachedLivers, f)
+		temp = append(temp, f)
 	}
-	sort.Slice(final, func(i, j int) bool {
-		return final[i].Fans > final[j].Fans
+	sort.Slice(temp, func(i, j int) bool {
+		return temp[i].Fans > temp[j].Fans
 	})
+	copier.Copy(&cachedLivers, &temp)
 }
 
 var cachedLivers = make([]FrontAreaLiver, 0)

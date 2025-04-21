@@ -93,7 +93,7 @@ function BasicLayout() {
 
                     </Route>
                     <Route path={'chat/'} element={<ChatPage/>}/>
-                    <Route path={'/all'} element={<ListPage/>}/>
+                    <Route path={'/list'} element={<ListPage/>}/>
 
                 </Routes>
             </div>

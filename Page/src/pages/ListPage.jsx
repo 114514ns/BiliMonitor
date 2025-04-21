@@ -1,5 +1,15 @@
 import React, {useEffect, useLayoutEffect} from 'react';
-import {Avatar, Card, CardBody, Listbox, ListboxItem, Spacer} from "@heroui/react";
+import {
+    Autocomplete,
+    AutocompleteItem,
+    Avatar,
+    Card,
+    CardBody,
+    Chip,
+    Listbox,
+    ListboxItem,
+    Spacer
+} from "@heroui/react";
 import axios from "axios";
 function formatTime(isoString) {
     const date = new Date(isoString);
@@ -18,6 +28,13 @@ function formatNumber(num) {
         return String(num);
     }
 }
+const sort = [
+    {label: "guard", key: "guard", description: "大航海"},
+    {label: "l1-guard", key: "l1-guard", description: "总督"},
+    {label: "fans", key: "fans", description: "粉丝"},
+    {label: "diff", key: "diff", description: "日增"},
+    {label: "guard-equal", key: "guard-equal", description: "等效舰长"},
+];
 function ListPage(props) {
     const [list, setList] = React.useState([]);
     const host = location.hostname;
@@ -34,14 +51,30 @@ function ListPage(props) {
     },[])
     return (
         <div>
+            <Autocomplete
+                className="max-w-xs"
+                defaultItems={sort}
+                label="Favorite Animal"
+                placeholder="排序方式"
+            >
+                {(sort) => <AutocompleteItem key={sort.key} onPress={(e) => {
+                    var url = `${protocol}://${host}:${port}/areaLivers?sort=${sort.key}`
+                    axios.get(url).then((response) => {
+                        setList(response.data.list);
+                    })
+                    console.log(sort.key);
+                }}>{sort.description}</AutocompleteItem>}
+            </Autocomplete>
             <Listbox
                 virtualization={{
                     maxListboxHeight: window.innerHeight,
-                    itemHeight: 200,
+                    itemHeight: 240,
                 }}
+                hideSelectedIcon
+                variant={'light'}
                 isVirtualized>
                 {list.map((item, index) => (
-                    <ListboxItem key={index} value={item.value} css={{width:'100%'}}>
+                    <ListboxItem key={index} value={item.value} css={{width:'100%'}} aria-label={item.label}>
                         <LiverCard
                             Avatar={`${protocol}://${host}:${port}/face?mid=${item.UID}`}
                             UName={item.UName}
@@ -49,6 +82,7 @@ function ListPage(props) {
                             DailyDiff={item.DailyDiff}
                             Fans={item.Fans}
                             LastActive={(item.LastActive)}
+                            UID={item.UID}
 
                         />
                     </ListboxItem>))}
@@ -57,15 +91,10 @@ function ListPage(props) {
     );
 
 }
-const sort = [
-    {label: "guard", key: "guard", description: "大航海"},
-    {label: "l1-guard", key: "l1-guard", description: "总督"},
-    {label: "fans", key: "fans", description: "粉丝"},
-    {label: "diff", key: "diff", description: "日增"},
-];
+
 function LiverCard(props) {
     return (
-        <Card isHoverable isPressable style={{ width: "100%", marginBottom: "16px" }}>
+        <Card isHoverable  style={{ width: "100%", marginBottom: "16px" }}  isPressable>
             <CardBody style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "16px" }}>
 
 
@@ -81,6 +110,7 @@ function LiverCard(props) {
                         <p style={{ fontSize: "16px", fontWeight: "500", margin: 0 }}>{props.UName}</p>
                     </div>
                 </div>
+                <Chip style={{margin:'4px'}} onClick={() => {toSpace(props.UID)}}>{props.UID}</Chip>
 
 
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.6 }}>
