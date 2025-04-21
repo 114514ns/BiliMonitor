@@ -186,7 +186,7 @@ func RefreshFollowings() {
 	for true {
 		resp, err := client.R().Get("https://line3-h5-mobile-api.biligame.com/game/center/h5/user/relationship/following_list?vmid=" + string(config.User) + "&ps=50&pn=" + strconv.Itoa(page))
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 		var list = FansList{}
 		sonic.Unmarshal(resp.Body(), &list)
@@ -315,7 +315,7 @@ func UploadArchive(video Video) string {
 func GetFace(uid string) string {
 	var obj = FaceCache{}
 	db.Model(&obj).Where("uid = ?", uid).First(&obj)
-	if obj.UID == 0 || time.Now().Unix()-obj.UpdateAt.Unix() > 3600*6 {
+	if obj.UID == 0 || time.Now().Unix()-obj.UpdateAt.Unix() > 3600*24*7 {
 		var url = "https://api.bilibili.com/x/web-interface/card?mid=" + uid
 		res, _ := client.R().Get(url)
 		var userResponse = UserResponse{}
@@ -327,7 +327,9 @@ func GetFace(uid string) string {
 				obj.UpdateAt = time.Now()
 				db.Create(&obj)
 			} else {
-				db.Model(&FaceCache{}).Where("uid = ?", uid).UpdateColumns(FaceCache{Face: userResponse.Data.Card.Face})
+				if obj.Face != "" {
+					db.Model(&FaceCache{}).Where("uid = ?", uid).UpdateColumns(FaceCache{Face: userResponse.Data.Card.Face})
+				}
 			}
 		}
 		return userResponse.Data.Card.Face

@@ -8,6 +8,7 @@ import {HeroUIProvider} from "@heroui/react";
 window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
+/*
 const originalWarn = console.warn
 console.warn = (...args) => {
     const [firstArg] = args;
@@ -22,6 +23,8 @@ console.warn = (...args) => {
 
     originalWarn(...args);
 };
+
+ */
 window.toSpace = UID => {
     window.open('https://space.bilibili.com/' + UID, '_blank');
 }
