@@ -5,7 +5,6 @@ import './App.css'
 import LivePage from "./pages/LivePage.jsx";
 import LiveDetailPage from "./pages/LiveDetailPage.jsx";
 import {
-    Avatar,
     Dropdown,
     DropdownItem,
     DropdownMenu,
@@ -31,9 +30,10 @@ function BasicLayout() {
     }, {
         Name: 'LivePage',
         Path: '/lives'
-    },{
-        Name:'Danmakus',Path :'/chat'
-    }]
+    }, {
+        Name: 'Danmakus', Path: '/chat'
+    }, {Name: 'List', path: '/list'}
+    ]
 
     const [ind, setInd] = React.useState(0);
 
@@ -41,8 +41,8 @@ function BasicLayout() {
 
     const [showDownload, setShowDownload] = React.useState(false);
 
-    PubSub.subscribe('DownloadDialog', (msg,data) => {
-        console.log(msg,data);
+    PubSub.subscribe('DownloadDialog', (msg, data) => {
+        console.log(msg, data);
         setShowDownload(false);
     });
     return (
@@ -88,7 +88,6 @@ function BasicLayout() {
 
                     </Route>
                     <Route path={'/lives/:id'} element={<LiveDetailPage/>}>
-
 
 
                     </Route>
