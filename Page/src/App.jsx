@@ -32,7 +32,8 @@ function BasicLayout() {
         Path: '/lives'
     }, {
         Name: 'Danmakus', Path: '/chat'
-    }, {Name: 'List', path: '/list'}
+    }, {
+        Name: 'List', Path: '/list'}
     ]
 
     const [ind, setInd] = React.useState(0);

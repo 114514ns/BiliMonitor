@@ -293,7 +293,8 @@ func UploadArchive(video Video) string {
 			//defer videoFile.Close()
 			io.Copy(videoFile, videoLink.RawBody())
 			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
-			//out, _ := cmd.CombinedOutput()
+			out, _ := cmd.CombinedOutput()
+			log.Println(string(out))
 			cmd.Run() // 执行命令
 
 			if video.ParentTitle != "" {
