@@ -466,7 +466,7 @@ func main() {
 		TraceArea(9)
 	}()
 	go func() {
-		RefreshLivers()
+		//RefreshLivers()
 	}()
 
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
@@ -475,7 +475,7 @@ func main() {
 	c.AddFunc("@every 15m", func() { TraceArea(9) })
 	c.AddFunc("@every 1m", FixMoney)
 	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
-	c.AddFunc("@every 60m", RefreshLivers)
+	//c.AddFunc("@every 60m", RefreshLivers)
 	if err != nil {
 		return
 	}
