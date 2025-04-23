@@ -412,6 +412,12 @@ func InitHTTP() {
 		c.JSON(http.StatusOK, gin.H{
 			"list": dist,
 		})
+
+		r.GET("/money", func(c *gin.Context) {
+			array := make([]LiveAction, 0)
+			uid := c.Query("uid")
+			db.Model(&LiveAction{}).Where("from_id = ? and gift_price != 0", uid).Find(&array)
+		})
 	})
 
 	r.Run(":" + strconv.Itoa(int(config.Port))) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
