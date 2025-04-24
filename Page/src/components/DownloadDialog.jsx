@@ -53,7 +53,7 @@ function DownloadDialog(props) {
                                 }
                                 if (id.indexOf("lists") !== -1) {
                                     type = 'list'
-                                    axios.get(`${protocol}://${host}:${port}/parseList?mid=${path[1]}&season=${path[3]}`).then((res) => {
+                                    axios.get(`${protocol}://${host}:${port}/api/parseList?mid=${path[1]}&season=${path[3]}`).then((res) => {
                                         setVideo(res.data.data)
                                         setShowCard(true)
                                     })
@@ -65,7 +65,7 @@ function DownloadDialog(props) {
 
                             }
                             if (type === "video") {
-                                axios.get(`${protocol}://${host}:${port}/parse?bv=${real}`).then(res => {
+                                axios.get(`${protocol}://${host}:${port}/api/parse?bv=${real}`).then(res => {
                                     setVideo(res.data.data)
                                     setShowCard(true)
                                 })
@@ -108,7 +108,7 @@ function DownloadDialog(props) {
                         <Button color="primary" onPress={() => {
                             PubSub.publish('DownloadDialog', 'Close')
                             selectedVideo.forEach(video => {
-                                axios.get(`${protocol}://${host}:${port}/download?bv=${video.BV}&part=${video.Part}`)
+                                axios.get(`${protocol}://${host}:${port}/api/download?bv=${video.BV}&part=${video.Part}`)
                             })
                             addToast({
                                 title: "添加成功",

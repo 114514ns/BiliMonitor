@@ -117,6 +117,14 @@ func InitHTTP() {
 			"lives":     f,
 		})
 	})
+	r.GET("/liveDetail/:id/", func(c *gin.Context) {
+		id := c.Param("id")
+		var obj = Live{}
+		db.Model(&Live{}).Where("id = ?", id).Find(&obj)
+		c.JSON(http.StatusOK, gin.H{
+			"live": obj,
+		})
+	})
 	r.GET("/live/:id/", func(c *gin.Context) {
 		id := c.Param("id")
 		pageStr := c.DefaultQuery("page", "1")
