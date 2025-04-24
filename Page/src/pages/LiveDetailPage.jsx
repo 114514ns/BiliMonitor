@@ -4,7 +4,7 @@ import axios from "axios";
 import  "./LivePage.css"
 import {
     Autocomplete,
-    AutocompleteItem,
+    AutocompleteItem, Avatar, Card, CardHeader,
     Dropdown,
     DropdownItem,
     DropdownMenu,
@@ -42,9 +42,12 @@ function LiveDetailPage(props) {
         {text: 'Category 2', value: 'Category 2'},
     ]);
     const [columns, setColumn] = useState([])
+
+    const [liveInfo, setLiveInfo] = useState({});
     useEffect(() => {
         refreshData(currentPage,pageSize)
     },[order])
+
     useEffect(() => {
 
         setColumn([
@@ -92,7 +95,7 @@ function LiveDetailPage(props) {
         if (page === undefined) {
             return
         }
-        var url = `${protocol}://${host}:${port}/live/` + id + "/?" +  "page=" + page + "&limit=" + size + "&order=" + order
+        var url = `${protocol}://${host}:${port}/api/live/` + id + "/?" +  "page=" + page + "&limit=" + size + "&order=" + order
         if (name != null) {
             url = url + `&name=${name}`
         }
@@ -111,7 +114,13 @@ function LiveDetailPage(props) {
             setDatasource(res.data.records)
         })
     }
-    // 处理页码改变事件
+    useEffect(() => {
+        var url = `${protocol}://${host}:${port}/api/liveDetail/` + id + "/"
+        axios.get(url).then(res => {
+            setLiveInfo(res.data.live)
+        })
+    }, []);
+
 
     const handlePageChange = (page, pageSize,sorter) => {
         refreshData(page, pageSize,name)
@@ -124,8 +133,40 @@ function LiveDetailPage(props) {
 
     return (
         <div>
+            <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md">
+                <div className="flex-1 space-y-2">
+                    <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
+                    <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
+                        <div className=" bg-blue-100 p-2 rounded-xl transition-transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer">
+                            <span className="text-blue-600">主播</span>
+                            <div className='flex flex-row items-center'>
+                                <Avatar src={`${protocol}://${host}:${port}/api/face?mid=${liveInfo.UserID}`}></Avatar>
+                                <br/>
+                                {liveInfo.UserName}
+                            </div>
+
+                        </div>
+                        <div className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer">房间号<br/>{liveInfo.RoomId}</div>
+                        <div className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer">分区<br/>{liveInfo.Area}</div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer">开始时间<br/><span className="font-semibold">{new Date(liveInfo.StartAt*1000).toLocaleString()}</span>
+                        </div>
+                        <div className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer">结束时间<br/><span className="font-semibold">{new Date(liveInfo.EndAt*1000).toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3  gap-2 text-sm">
+                        <div className="rounded-xl bg-green-100 p-2 text-green-700">观众数<br/>{liveInfo.Watch}</div>
+                        <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600">弹幕数<br/>{liveInfo.Message}</div>
+                        <div className="rounded-xl bg-rose-100 p-2 text-rose-600">流水<br/>{liveInfo.Money}</div>
+                    </div>
+                </div>
+            </div>
+
             <Autocomplete
-                className="max-w-xs"
+                className="max-w-xs mt-4 mb-4"
                 defaultItems={[{
                     key: 'ascend',
                     value: "Ascend"
@@ -147,7 +188,7 @@ function LiveDetailPage(props) {
             >
                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
             </Autocomplete>
-            <Table  bottomContent={
+            <Table bottomContent={
                 <div className="flex w-full justify-center">
                     <Pagination
                         isCompact
@@ -159,7 +200,7 @@ function LiveDetailPage(props) {
                         onChange={(page) => handlePageChange(page, pageSize)}
                     />
                 </div>
-            }  isStriped>
+            } isStriped>
 
                 <TableHeader>
                     {columns.map((col, index) => (

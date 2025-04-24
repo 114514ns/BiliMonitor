@@ -565,6 +565,25 @@ func BuildAuthMessage(room string) string {
 	return string(json)
 
 }
+
+var mu0 sync.RWMutex
+
+func isLive(roomId string) bool {
+	mu0.RLock()
+	defer mu0.RUnlock()
+	if s, ok := lives[roomId]; ok {
+		return s.Live
+	}
+	return false
+}
+
+func setLive(roomId string, live bool) {
+	mu0.Lock()
+	defer mu0.Unlock()
+	if s, ok := lives[roomId]; ok {
+		s.Live = live
+	}
+}
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
@@ -682,7 +701,7 @@ func TraceLive(roomId string) {
 
 			// 打印接收到的消息
 			var msg = ""
-			if lives[roomId].Live {
+			if isLive(roomId) {
 				_, message, err := c.ReadMessage()
 				if err != nil {
 					log.Printf("[%s] 断开连接，尝试重连次数："+strconv.FormatInt(int64(lives[roomId].RemainTrying), 10), liver)
@@ -972,10 +991,15 @@ func TraceLive(roomId string) {
 				PushDynamic(msg, roomInfo.Data.Title)
 				log.Printf("[%s] 直播开始，连接ws服务器", liver)
 				c, _, err = dialer.Dial(u.String(), nil)
-				lives[roomId].Live = true
+				err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
+				if err == nil {
+					log.Printf("[%s] 连接成功", liver)
+					break
+				}
+				setLive(roomId, true)
 			}
 			if status.Data.LiveStatus == 0 && lives[roomId].Live {
-				lives[roomId].Live = false
+				setLive(roomId, false)
 				var sum float64
 				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 

@@ -44,7 +44,7 @@ function ListPage(props) {
 
     const protocol = location.protocol.replace(":", "")
     useEffect(() => {
-        var url = `${protocol}://${host}:${port}/areaLivers`
+        var url = `${protocol}://${host}:${port}/api/areaLivers`
         axios.get(url).then((response) => {
             setList(response.data.list);
         })
@@ -61,7 +61,7 @@ function ListPage(props) {
                 }}
             >
                 {(sort) => <AutocompleteItem key={sort.key} onPress={(e) => {
-                    var url = `${protocol}://${host}:${port}/areaLivers?sort=${sort.key}`
+                    var url = `${protocol}://${host}:${port}/api/areaLivers?sort=${sort.key}`
                     axios.get(url).then((response) => {
                         setList(response.data.list);
                     })

@@ -46,7 +46,7 @@ function ChatPage(props) {
     var [isFirst, setIsFirst] = useState(true);
 
     const initRoomList = () => {
-        axios.get(`${protocol}://${host}:${port}/monitor`).then(res => {
+        axios.get(`${protocol}://${host}:${port}/api/monitor`).then(res => {
             const sort = res.data.lives.sort((a, b) => {
                 if (a.Live === b.Live) {
                     return a.UID > b.UID ? 1 : -1;
@@ -125,12 +125,12 @@ function ChatPage(props) {
 
             <div className={classes.roomColumn}>
                 <Autocomplete
-                    className="max-w-xs"
+                    //className="max-w-xs"
                     defaultItems={users}
                     label="Assigned to"
                     labelPlacement="inside"
-                    placeholder="Select a user"
                     variant="bordered"
+                    style={{ margin: "10px" }}
                 >
                     {(user) => (
                         <AutocompleteItem key={user.id} textValue={user.name}>
@@ -151,7 +151,7 @@ function ChatPage(props) {
                             setRoom(item.LiveRoom)
                             setCurrentStream(item.Stream)
                         }} key={item.UID}>
-                            <Card isHoverable={true} style={{ margin: "10px", width: "95%" }} radius={'none'}>
+                            <Card isHoverable={true} style={{ margin: "10px" }} radius={'none'}>
                                 <CardBody>
                                     <div style={{
                                         display: "flex",
@@ -214,8 +214,7 @@ function ChatPage(props) {
                 }/>
             </div>
             <div className={classes.right}>
-                <ReactPlayer url={currentStream} controls={true} playing={true}/>
-
+                <ReactPlayer url={currentStream} controls={true} playing={true} style={{width:'100%',height:'auto'}} />
                     <Tabs aria-label="Options" style={{ marginTop: "10px" ,width: "100%",display:'flex',justifyContent:'space-between' }} fullWidth={true}>
                         <Tab title={`在线：${monitor.filter((e) =>e.LiveRoom == room)[0]?.OnlineCount}`}>
 
