@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
+import axios from "axios";
 
 window.debug = true
 
@@ -25,6 +26,13 @@ console.warn = (...args) => {
 };
 
  */
+
+axios.interceptors.request.use((config) => {
+    if (import.meta.env.PROD) {
+        //config.url = config.url?.replace(/^\/api/, '');
+    }
+    return config;
+});
 window.toSpace = UID => {
     window.open('https://space.bilibili.com/' + UID, '_blank');
 }

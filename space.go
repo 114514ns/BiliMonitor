@@ -302,7 +302,11 @@ func UploadArchive(video Video) string {
 			}
 			//log.Println(string(out))
 			final = config.AlistPath + "/Archive/" + video.Author + "/" + video.ParentTitle + "[" + strings.ReplaceAll(video.PublishAt, ":", "-") + "] " + video.Title + ".mp4"
-			UploadFile("cache/"+bv+".mp4", final)
+			if audio.StatusCode() == 200 {
+				UploadFile("cache/"+bv+".mp4", final)
+			} else {
+
+			}
 
 			os.Remove("cache/" + bv + ".mp4")
 			os.Remove("cache/" + bv + ".mp3")

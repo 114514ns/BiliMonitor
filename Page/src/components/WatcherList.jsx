@@ -19,7 +19,7 @@ function WatcherList(props) {
         overscan: 3,
     });
     const refresh = () => {
-        axios.get(`${protocol}://${host}:${port}/monitor/${props.room}`).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/monitor/${props.room}`).then((response) => {
             if (props.type=="guard") {
                 setList(response.data.live.GuardList);
             } else {

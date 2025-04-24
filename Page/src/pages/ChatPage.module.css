@@ -7,6 +7,7 @@
 .roomColumn {
     width: 20%;
     overflow: scroll;
+    overflow-x: hidden;
 }
 .chat {
     width: 50%;
@@ -64,7 +65,8 @@
     word-wrap: break-word;
 }
 .right {
-    height: 82vh;
-    overflow: auto;
+    max-height: 82vh;
+    overflow: hidden;
+    overflow-anchor:none
 }
 

@@ -28,7 +28,7 @@ function ChatArea(props) {
 
     const refresh = () => {
         axios
-            .get(`${protocol}://${host}:${port}/history?room=${props.room}&last=${lastRef.current}`)
+            .get(`${protocol}://${host}:${port}/api/history?room=${props.room}&last=${lastRef.current}`)
             .then((res) => {
                 if (res.data.data.length !== 0) {
                     const newData = res.data.data.filter((item) => item.ActionName !== "enter");

@@ -74,12 +74,15 @@ function LivePage(props) {
 
     const [chart, setChart] = useState(false)
     const [chartId, setChartId] = useState(0)
+    const [liver,setLiver] = useState("")
 
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
-        var url = `${protocol}://${host}:${port}/live?page=` + page + "&limit=" + size
+        var url = `${protocol}://${host}:${port}/api/live?page=` + page + "&limit=" + size
         if (name != null) {
             url = url + `&name=${name}`
+        }else if (liver !== "" && liver !== null) {
+            url = url + `&name=${liver}`
         }
         axios.get(url).then(res => {
 
@@ -171,6 +174,10 @@ function LivePage(props) {
         setPageSize(pageSize)
 
     }
+
+    useEffect(() => {
+        refreshData(currentPage, 10)
+    },[liver])
     useEffect(() => {
         if (chartId !== null && chartId !== 0) {
             setChart(true);
@@ -181,7 +188,7 @@ function LivePage(props) {
 
         <div>
             <Button onClick={() => {
-                axios.get(`http://${host}:${port}/refreshMoney`).then(res => {
+                axios.get(`http://${host}:${port}/api/refreshMoney`).then(res => {
                     refreshData(currentPage, pageSize)
                 })
             }} type="primary"  style={{ position: "fixed", bottom: "20px", right: "20px" }}><RefreshIcon/></Button>
@@ -196,19 +203,19 @@ function LivePage(props) {
                 label="Liver"
                 onSelectionChange={e => {
                     setCurrentPage(1)
-                    refreshData(currentPage, pageSize, e)
+                    setLiver(e)
+                    setTimeout(() => {
+                        //refreshData(currentPage, pageSize, e)
+                    },50)
+                    console.log("onSelectionChange")
                 }}
                 onInputChange={e => {
-                    axios.get(`${protocol}://${host}:${port}/liver?key=` + e).then(res => {
+                    console.log(e)
+                    axios.get(`${protocol}://${host}:${port}/api/liver?key=` + e).then(res => {
                         if (!res.data.result) return; // 处理 null/undefined/空数据
                         const newFilters = res.data.result.map((item) => ({key: item, value: item}));
-
                         setFilters(newFilters);
                     })
-                }}
-                onChange={(e) => {
-                    console.log(e)
-
                 }}
             >
                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}

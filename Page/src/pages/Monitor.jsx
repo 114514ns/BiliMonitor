@@ -18,7 +18,7 @@ const Monitor = () => {
     let init = {}
 
     const refresh = () => {
-        axios.get(`${protocol}://${host}:${port}/monitor`).then(res => {
+        axios.get(`${protocol}://${host}:${port}/api/monitor`).then(res => {
             if (JSON.stringify(init) === "{}") {
                 var j = res.data.lives.sort((a, b) => {
                     if (a.Live === b.Live) {
@@ -80,7 +80,7 @@ const Monitor = () => {
                         setText(e.target.value)
                     }}/>
                     <Button onClick={() => {
-                        axios.get(`http://${host}:${port}/add/` + text).then(res => {
+                        axios.get(`http://${host}:${port}/api/add/` + text).then(res => {
                             if (res.data.message === "success") {
                                 addToast({
                                     title: "添加成功",
