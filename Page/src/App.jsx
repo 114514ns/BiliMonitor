@@ -19,6 +19,7 @@ import PubSub from 'pubsub-js'
 
 import ChatPage from "./pages/ChatPage";
 import ListPage from "./pages/ListPage";
+import LiverPage from "./pages/LiverPage";
 
 
 function BasicLayout() {
@@ -94,6 +95,7 @@ function BasicLayout() {
                     </Route>
                     <Route path={'chat/'} element={<ChatPage/>}/>
                     <Route path={'/list'} element={<ListPage/>}/>
+                    <Route path={'/liver/:id'} element={<LiverPage/>}/>
 
                 </Routes>
             </div>

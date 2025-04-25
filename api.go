@@ -88,6 +88,44 @@ func InitHTTP() {
 			"result": result,
 		})
 	})
+	r.GET("/sendMsg", func(c *gin.Context) {
+		room := c.DefaultQuery("room", "-1")
+		msg := c.DefaultQuery("msg", "-@")
+		if room == "-1" || msg == "-@" {
+			c.JSON(http.StatusOK, gin.H{
+				"msg": "missing params",
+			})
+		} else {
+			i, _ := strconv.Atoi(room)
+			SendMessage(msg, i, func(s string) {
+				c.JSON(http.StatusOK, gin.H{
+					"msg": "success",
+				})
+			})
+		}
+	})
+	r.GET("/liver/:id", func(c *gin.Context) {
+		type S struct {
+			AreaLiver
+			LiveCount int
+			LiveMoney float64
+			FansMoney float64
+		}
+		uid := c.DefaultQuery("id", "-1")
+		if uid == "-1" {
+			c.JSON(http.StatusOK, gin.H{
+				"msg": "params missing",
+			})
+		}
+		var result0 = AreaLiver{}
+		var s = S{}
+		db.Model(&AreaLiver{}).Where("uid = ?", uid).Find(&result0)
+		s.AreaLiver = result0
+		//db.Model()
+		c.JSON(http.StatusOK, gin.H{
+			"liver": s,
+		})
+	})
 	r.GET("/live", func(c *gin.Context) {
 		var f []Live
 		name := c.DefaultQuery("name", "1")
