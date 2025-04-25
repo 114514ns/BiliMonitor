@@ -4,7 +4,7 @@ import {useNavigate} from "react-router";
 import "./LivePage.css"
 import {
     Autocomplete,
-    AutocompleteItem, Button,
+    AutocompleteItem, Button, DateRangePicker,
     Dropdown,
     DropdownItem,
     DropdownMenu,
@@ -197,29 +197,31 @@ function LivePage(props) {
             }}>
 
             </MinutesChartDialog>:<></>}
-            <Autocomplete
-                className="max-w-xs"
-                defaultItems={filters}
-                label="Liver"
-                onSelectionChange={e => {
-                    setCurrentPage(1)
-                    setLiver(e)
-                    setTimeout(() => {
-                        //refreshData(currentPage, pageSize, e)
-                    },50)
-                    console.log("onSelectionChange")
-                }}
-                onInputChange={e => {
-                    console.log(e)
-                    axios.get(`${protocol}://${host}:${port}/api/liver?key=` + e).then(res => {
-                        if (!res.data.result) return; // 处理 null/undefined/空数据
-                        const newFilters = res.data.result.map((item) => ({key: item, value: item}));
-                        setFilters(newFilters);
-                    })
-                }}
-            >
-                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-            </Autocomplete>
+            <div className='flex-row flex mb-4'>
+                <Autocomplete
+                    className="max-w-xs"
+                    defaultItems={filters}
+                    label="Liver"
+                    onSelectionChange={e => {
+                        setCurrentPage(1)
+                        setLiver(e)
+                        setTimeout(() => {
+                            //refreshData(currentPage, pageSize, e)
+                        },50)
+                        console.log("onSelectionChange")
+                    }}
+                    onInputChange={e => {
+                        console.log(e)
+                        axios.get(`${protocol}://${host}:${port}/api/liver?key=` + e).then(res => {
+                            if (!res.data.result) return; // 处理 null/undefined/空数据
+                            const newFilters = res.data.result.map((item) => ({key: item, value: item}));
+                            setFilters(newFilters);
+                        })
+                    }}
+                >
+                    {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
+                </Autocomplete>
+            </div>
             <Table bottomContent={
                 <div className="flex w-full justify-center">
                     <Pagination

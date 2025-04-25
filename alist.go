@@ -53,8 +53,9 @@ func UploadFile(path string, alistPath string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println("上传请求失败: %w", err.Error())
+	} else {
+		defer resp.Body.Close()
 	}
-	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
