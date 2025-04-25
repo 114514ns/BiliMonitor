@@ -127,6 +127,7 @@ func InitHTTP() {
 	})
 	r.GET("/live/:id/", func(c *gin.Context) {
 		id := c.Param("id")
+		Type := c.DefaultQuery("type", "")
 		pageStr := c.DefaultQuery("page", "1")
 		page, err := strconv.Atoi(pageStr)
 		if err != nil || page < 1 {
@@ -140,8 +141,14 @@ func InitHTTP() {
 
 		orderStr := c.DefaultQuery("order", "ascend")
 
+		query := db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id)
+
+		if Type != "" {
+			query = query.Where("action_name = ?", Type)
+		}
+
 		var totalRecords int64
-		if err := db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id).Count(&totalRecords).Error; err != nil {
+		if err := query.Count(&totalRecords).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database count error"})
 			return
 		}
@@ -158,7 +165,13 @@ func InitHTTP() {
 		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
 
 		var records []LiveAction
-		if err := db.Where("live = ? and action_name != 'enter'", id).Order(orderQuery).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
+		query = db.Where("live = ? and action_name != 'enter'", id)
+
+		if Type != "" {
+			query = query.Where("action_name = ?", Type)
+		}
+
+		if err := query.Order(orderQuery).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database query error"})
 			return
 		}

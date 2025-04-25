@@ -29,7 +29,7 @@ console.warn = (...args) => {
 
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
-        //config.url = config.url?.replace(/^\/api/, '');
+        config.url = config.url?.replace('/api', '');
     }
     return config;
 });

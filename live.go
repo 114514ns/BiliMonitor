@@ -703,7 +703,7 @@ func TraceLive(roomId string) {
 			var msg = ""
 			if isLive(roomId) {
 				_, message, err := c.ReadMessage()
-				if err != nil {
+				if err != nil && isLive(roomId) {
 					log.Printf("[%s] 断开连接，尝试重连次数："+strconv.FormatInt(int64(lives[roomId].RemainTrying), 10), liver)
 					for {
 						if lives[roomId].RemainTrying > 0 {
@@ -967,7 +967,7 @@ func TraceLive(roomId string) {
 				lives[roomId].Stream = stream
 			}
 			sonic.Unmarshal(res.Body(), &status)
-			if status.Data.LiveStatus == 1 && !lives[roomId].Live {
+			if status.Data.LiveStatus == 1 && !isLive(roomId) {
 
 				//var sum float64
 				//db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
@@ -998,7 +998,7 @@ func TraceLive(roomId string) {
 				}
 				setLive(roomId, true)
 			}
-			if status.Data.LiveStatus == 0 && lives[roomId].Live {
+			if status.Data.LiveStatus == 0 && isLive(roomId) {
 				setLive(roomId, false)
 				var sum float64
 				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
