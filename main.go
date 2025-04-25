@@ -6,7 +6,6 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
-	"github.com/google/uuid"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"gorm.io/driver/mysql"
@@ -21,6 +20,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -95,6 +95,7 @@ type Video struct {
 }
 
 type Status struct {
+	sync.RWMutex
 	Live           bool
 	LastActive     int64
 	UName          string
@@ -238,52 +239,6 @@ func FixPrice() {
 	}
 }
 
-func UploadLive(live Live) {
-
-	var debug = true
-	time.Sleep(60 * time.Second)
-	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
-	var flv, t, _ = Last(dir)
-	os.MkdirAll("cache", 0777)
-	if time.Now().Unix()-t.Unix() < 60000000 {
-		var file = dir + "/" + flv
-		log.Println(config.AlistPath + "Live/" + live.UserName + "/" + time.Now().Format(time.DateTime) + "/")
-		split := strings.Split(file, "-")
-		var ext = "flv"
-		var title = strings.Replace(split[len(split)-1], ".flv", "", 10)
-		var uuid = uuid.New().String() + ".mp4"
-
-		if config.CodeToMP4 {
-			file = dir + "/" + flv
-			cmd := exec.Command("ffmpeg", "-i", file, "-vcodec", "copy", "-acodec", "copy", "cache/"+uuid)
-			cmd.Run()
-			out, _ := cmd.CombinedOutput()
-			if debug {
-				fmt.Println(string(out))
-			}
-			ext = "mp4"
-			file = "cache/" + uuid
-		}
-		var alistName = config.AlistPath + "Live/" + live.UserName + "/" + strings.Replace(time.Now().Format(time.DateTime), ":", "-", 3) + "/" + title + "." + ext
-		if config.SplitAudio {
-			file = dir + "/" + flv
-			var auido = strings.Replace("cache/"+uuid, "."+ext, ".mp3", 1)
-			cmd := exec.Command("ffmpeg", "-i", file, "-vn", auido)
-			cmd.Run()
-			output, _ := cmd.CombinedOutput()
-			if debug {
-				fmt.Println(string(output))
-			}
-			UploadFile(auido, strings.Replace(alistName, "."+ext, ".mp3", 1))
-
-			os.Remove(auido)
-		}
-
-		UploadFile(file, alistName)
-		os.Remove(file)
-	}
-}
-
 func ParseSingleVideo(bv string) (result []Video) {
 	res, _ := client.R().
 		SetHeader("Referer", "https://www.bilibili.com/").
@@ -350,6 +305,33 @@ func ParsePlayList(mid string, session string) []Video {
 
 }
 
+func SortTracing() {
+	var m = make(map[string]bool)
+	for _, s := range config.Tracing {
+		var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + s
+		var rRes, _ = client.R().Get(roomUrl)
+		var roomInfo = RoomInfo{}
+		sonic.Unmarshal(rRes.Body(), &roomInfo)
+		if roomInfo.Data.LiveTime == "0000-00-00 00:00:00" {
+			m[s] = false
+		} else {
+			m[s] = true
+		}
+		time.Sleep(400 * time.Millisecond)
+	}
+	config.Tracing = []string{}
+	for s, b := range m {
+		if b {
+			config.Tracing = append(config.Tracing, s)
+		}
+	}
+	for s, b := range m {
+		if !b {
+			config.Tracing = append(config.Tracing, s)
+		}
+	}
+}
+
 func SaveConfig() {
 	content, _ := sonic.Marshal(&config)
 	os.WriteFile("config.json", content, 666)
@@ -378,6 +360,17 @@ var USER_AGENTS = []string{
 	"Mozilla/5.0 (iPhone14,3; U; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) Version/10.0 Mobile/19A346 Safari/602.1",
 }
 
+func CSRF() string {
+	split := strings.Split(config.Cookie, ";")
+	jct := ""
+	for _, s := range split {
+		if strings.Contains(s, "bili_jct=") {
+			jct = strings.Replace(s, "bili_jct=", "", 1)
+		}
+	}
+	jct = jct[1:len(jct)]
+	return jct
+}
 func main() {
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		totalRequests++
@@ -441,7 +434,12 @@ func main() {
 
 		db, _ = gorm.Open(mysql.New(mysql.Config{
 			DSN: dsl, // DSN data source name
-		}), &gorm.Config{})
+		}), &gorm.Config{Logger: logger.New(
+			log.New(os.Stdout, "", log.LstdFlags),
+			logger.Config{
+				IgnoreRecordNotFoundError: true,
+			},
+		)})
 	}
 	TotalGuards()
 	wbi.WithRawCookies(config.Cookie)
@@ -481,6 +479,7 @@ func main() {
 	}
 
 	c.Start()
+	SortTracing()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]
 		lives[roomId] = &Status{RemainTrying: 40}
@@ -491,7 +490,6 @@ func main() {
 		//go RecordStream(roomId)
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
-
 	}
 
 	select {}

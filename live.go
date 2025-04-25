@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/url"
 	"os"
+	"os/exec"
 	_ "runtime"
 	"strconv"
 	"strings"
@@ -61,6 +62,52 @@ func FixMoney() {
 		db.Save(&v)
 	}
 }
+func UploadLive(live Live) {
+
+	var debug = true
+	time.Sleep(60 * time.Second)
+	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
+	var flv, t, _ = Last(dir)
+	os.MkdirAll("cache", 0777)
+	if time.Now().Unix()-t.Unix() < 60000000 {
+		var file = dir + "/" + flv
+		log.Println(config.AlistPath + "Live/" + live.UserName + "/" + time.Now().Format(time.DateTime) + "/")
+		split := strings.Split(file, "-")
+		var ext = "flv"
+		var title = strings.Replace(split[len(split)-1], ".flv", "", 10)
+		var uuid = uuid.New().String() + ".mp4"
+
+		if config.CodeToMP4 {
+			file = dir + "/" + flv
+			cmd := exec.Command("ffmpeg", "-i", file, "-vcodec", "copy", "-acodec", "copy", "cache/"+uuid)
+			cmd.Run()
+			out, _ := cmd.CombinedOutput()
+			if debug {
+				fmt.Println(string(out))
+			}
+			ext = "mp4"
+			file = "cache/" + uuid
+		}
+		var alistName = config.AlistPath + "Live/" + live.UserName + "/" + strings.Replace(time.Now().Format(time.DateTime), ":", "-", 3) + "/" + title + "." + ext
+		if config.SplitAudio {
+			file = dir + "/" + flv
+			var auido = strings.Replace("cache/"+uuid, "."+ext, ".mp3", 1)
+			cmd := exec.Command("ffmpeg", "-i", file, "-vn", auido)
+			cmd.Run()
+			output, _ := cmd.CombinedOutput()
+			if debug {
+				fmt.Println(string(output))
+			}
+			UploadFile(auido, strings.Replace(alistName, "."+ext, ".mp3", 1))
+
+			os.Remove(auido)
+		}
+
+		UploadFile(file, alistName)
+		os.Remove(file)
+	}
+}
+
 func RemoveEmpty() {
 	db.Where("money = 0 and message = 0").Delete(&Live{})
 }
@@ -398,6 +445,20 @@ func addLog(chain []Log, content string) {
 
 	*/
 }
+func SendMessage(msg string, room int, onResponse func(string)) {
+
+	//u := "https://api.live.bilibili.com/msg/send?"
+	//url3, _ := url.Parse(u)
+	//signed, _ := client.WBI.SignQuery(url3.Query(), time.Now())
+	st := `{"appId":100,"platform":5}`
+	body := fmt.Sprintf("bubble=0&msg=%s&color=16777215&mode=1&room_type=0&jumpfrom=71001&reply_mid=0&reply_attr=0&replay_dmid=&statistics=%s&fontsize=25&rnd=%d&roomid=%d&csrf=%s&csrf_token=%s", msg, st, time.Now().Unix()/1000, room, CSRF(), CSRF())
+	res, _ := client.R().SetHeader("Content-Type", "application/x-www-form-urlencoded").SetBody(body).Post("https://api.live.bilibili.com/msg/send?" /*+ signed.Encode()*/)
+	fmt.Println(res.String())
+	if onResponse != nil {
+		onResponse(res.String())
+	}
+}
+
 func TraceArea(parent int) {
 	if working {
 		log.Println("TraceArea is still executing,break")
@@ -569,8 +630,8 @@ func BuildAuthMessage(room string) string {
 var mu0 sync.RWMutex
 
 func isLive(roomId string) bool {
-	mu0.RLock()
-	defer mu0.RUnlock()
+	lives[roomId].RLock()
+	defer lives[roomId].RUnlock()
 	if s, ok := lives[roomId]; ok {
 		return s.Live
 	}
@@ -578,8 +639,9 @@ func isLive(roomId string) bool {
 }
 
 func setLive(roomId string, live bool) {
-	mu0.Lock()
-	defer mu0.Unlock()
+	log.Printf("[%s] setLive %b", lives[roomId].UName, live)
+	lives[roomId].Lock()
+	defer lives[roomId].Unlock()
 	if s, ok := lives[roomId]; ok {
 		s.Live = live
 	}
@@ -654,6 +716,7 @@ func TraceLive(roomId string) {
 			//new.ID,_ : = strconv.Atoi(roomId)
 			new.Title = roomInfo.Data.Title
 			new.Area = roomInfo.Data.Area
+			new.Cover = roomInfo.Data.Face
 			//new.UserName = roomInfo.Data
 
 			var i, _ = strconv.Atoi(roomId)
@@ -967,6 +1030,7 @@ func TraceLive(roomId string) {
 				lives[roomId].Stream = stream
 			}
 			sonic.Unmarshal(res.Body(), &status)
+
 			if status.Data.LiveStatus == 1 && !isLive(roomId) {
 
 				//var sum float64
@@ -982,6 +1046,8 @@ func TraceLive(roomId string) {
 				var i, _ = strconv.Atoi(roomId)
 				new.RoomId = i
 				new.UserName = liver
+				new.UserID = liverId
+				new.Cover = roomInfo.Data.Face
 				lives[roomId].StartAt = time.Now().Format(time.DateTime)
 				liver = strings.TrimSpace(liver)
 				db.Create(&new)
@@ -994,9 +1060,9 @@ func TraceLive(roomId string) {
 				err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
 				if err == nil {
 					log.Printf("[%s] 连接成功", liver)
-					break
+					setLive(roomId, true)
 				}
-				setLive(roomId, true)
+
 			}
 			if status.Data.LiveStatus == 0 && isLive(roomId) {
 				setLive(roomId, false)
@@ -1208,6 +1274,7 @@ type Live struct {
 	Money    float64 `gorm:"type:decimal(7,2)"`
 	Message  int
 	Watch    int
+	Cover    string
 }
 type EnterLive struct {
 	Cmd  string `json:"cmd"`
