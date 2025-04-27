@@ -165,6 +165,10 @@ func RecordStream(room string) {
 	}
 }
 func GetLiveStream(room string) string {
+	_, ok := lives[room]
+	if !ok {
+		return ""
+	}
 	var last = lives[room].StreamCacheKey
 	if last == 0 || time.Now().Unix()-last > 60*10+int64(rand.Int()%1800) || (lives[room].Stream == "" && lives[room].Live) {
 		now := time.Now()
@@ -555,7 +559,10 @@ func TraceArea(parent int) {
 					}, logChain)
 				}
 
-				var user = FetchUser(strconv.FormatInt(s2.UID, 10))
+				var user = FetchUser(strconv.FormatInt(s2.UID, 10), func() {
+					time.Sleep(300 * time.Second)
+					return
+				})
 				user.Face = ""
 				var guards = make([]DBGuard, 0)
 				var l1 = 0
@@ -597,6 +604,45 @@ func TraceArea(parent int) {
 			} else {
 				addLog(logChain, "Update recently,skip")
 			}
+			//var logStr = "" + i.UName
+			o := AreaLiver{}
+			db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&o)
+			if o.Fans > 10000 {
+				//logStr = logStr + "fans > 10000"
+				_, ok := lives[strconv.Itoa(i.Room)]
+				if !ok {
+					//logStr = logStr + "haven't recorded"
+					var has = false
+					recording := 0
+					for _, s := range lives {
+						if s.Live {
+							recording++
+						}
+						if s.LiveRoom == strconv.Itoa(i.Room) {
+							has = true
+						}
+					}
+					if recording < 20 && !has {
+						//logStr = logStr + "current recording:" + strconv.Itoa(recording)
+
+						var roomId = strconv.Itoa(i.Room)
+						lives[roomId] = &Status{RemainTrying: 40}
+						lives[roomId].Danmuku = make([]FrontLiveAction, 0)
+						lives[roomId].OnlineWatcher = make([]Watcher, 0)
+						lives[roomId].GuardList = make([]Watcher, 0)
+						lives[roomId].Stream = GetLiveStream(roomId)
+						lives[roomId].Live = true
+						worker.AddTask(func() {
+							time.Sleep(30 * time.Second)
+							go TraceLive(roomId)
+						})
+					}
+
+				}
+			} else {
+				//logStr = logStr + "fans < 10000"
+			}
+			//log.Printf(logStr)
 
 		}
 		if obj.Data.More == 0 {
@@ -630,6 +676,12 @@ func BuildAuthMessage(room string) string {
 var mu0 sync.RWMutex
 
 func isLive(roomId string) bool {
+
+	_, ok := lives[roomId]
+	if !ok {
+		return false
+	}
+
 	lives[roomId].RLock()
 	defer lives[roomId].RUnlock()
 	if s, ok := lives[roomId]; ok {
@@ -783,6 +835,7 @@ func TraceLive(roomId string) {
 					lives[roomId].LastActive = 114514
 					return
 				}
+				websocketBytes += len(message)
 				reader := io.NewSectionReader(bytes.NewReader(message), 16, int64(len(message)-16))
 				brotliReader := brotli.NewReader(reader)
 				var decompressedData bytes.Buffer
@@ -885,6 +938,9 @@ func TraceLive(roomId string) {
 					mu.RLock()
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
 					mu.RUnlock()
+					if price == 0 {
+						price = float64(info.Data.Price/1000) * float64(info.Data.Num)
+					}
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 					action.GiftAmount = sql.NullInt16{Int16: int16(info.Data.Num), Valid: true}
@@ -1011,10 +1067,11 @@ func TraceLive(roomId string) {
 
 		}
 	}()
+
 	for {
 		select {
 		case <-ticker.C:
-			if lives[roomId].Live {
+			if isLive(roomId) {
 				err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
 				//lives[roomId].LastActive = time.Now().Unix() + 3600*8
 				if err != nil {
@@ -1040,7 +1097,7 @@ func TraceLive(roomId string) {
 				living = true
 				//i, _ := strconv.Atoi(roomId)
 				var new = Live{}
-				new.StartAt = status.Data.LiveTime
+				new.StartAt = time.Now().Unix() + 8*3600
 				new.Title = roomInfo.Data.Title
 				new.Area = roomInfo.Data.Area
 				var i, _ = strconv.Atoi(roomId)
@@ -1054,7 +1111,10 @@ func TraceLive(roomId string) {
 				dbLiveId = int(new.ID) //似乎直播间的ws服务器有概率不发送开播消息，导致漏数据，这里做个兜底。
 				var msg = "你关注的主播： " + liver + " 开始直播"
 				lives[roomId].Title = roomInfo.Data.Title
-				PushDynamic(msg, roomInfo.Data.Title)
+
+				if Has(config.Tracing, roomId) {
+					PushDynamic(msg, roomInfo.Data.Title)
+				}
 				log.Printf("[%s] 直播开始，连接ws服务器", liver)
 				c, _, err = dialer.Dial(u.String(), nil)
 				err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
@@ -1064,7 +1124,8 @@ func TraceLive(roomId string) {
 				}
 
 			}
-			if status.Data.LiveStatus == 0 && isLive(roomId) {
+			e, ok := lives[roomId]
+			if status.Data.LiveStatus == 0 && (isLive(roomId) || (ok && e.Live)) {
 				setLive(roomId, false)
 				var sum float64
 				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
@@ -1077,6 +1138,12 @@ func TraceLive(roomId string) {
 				}
 				log.Printf("[%s] 直播结束，断开连接", liver)
 				c.Close()
+				if !Has(config.Tracing, roomId) {
+					log.Println("不在关注列表，结束")
+					delete(lives, roomId)
+					return
+				}
+
 			}
 			lives[roomId].OnlineWatcher = GetOnline(roomId, liverId)
 			go func() {
@@ -1084,6 +1151,7 @@ func TraceLive(roomId string) {
 			}()
 		}
 	}
+	ticker.Stop()
 }
 func BuildMessage(str string, opCode int) []byte {
 	buffer := new(bytes.Buffer)

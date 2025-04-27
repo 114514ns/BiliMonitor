@@ -16,7 +16,7 @@ import (
 )
 
 // 获取up主的粉丝数
-func FetchUser(mid string) User {
+func FetchUser(mid string, onError func()) User {
 	var url = "https://api.bilibili.com/x/web-interface/card?mid=" + mid
 	res, _ := client.R().SetHeader("User-Agent", USER_AGENT).Get(url)
 	var userResponse = UserResponse{}
@@ -30,6 +30,9 @@ func FetchUser(mid string) User {
 	user.UserID, _ = strconv.ParseInt(mid, 10, 64)
 	if user.Fans == 0 {
 		fmt.Println(string(res.Body()))
+		if onError != nil {
+			onError()
+		}
 	}
 	return user
 
@@ -42,7 +45,7 @@ func UpdateCommon() {
 			continue
 		}
 		var id = Followings[i].UserID
-		var user = FetchUser(strconv.FormatInt(id, 10))
+		var user = FetchUser(strconv.FormatInt(id, 10), nil)
 		user.Face = ""
 		db.Save(&user)
 		time.Sleep(3 * time.Second)

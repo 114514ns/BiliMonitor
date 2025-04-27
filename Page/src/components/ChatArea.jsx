@@ -7,7 +7,7 @@ import {Listbox, ListboxItem} from "@heroui/react";
 function GiftPart(props) {
     return (
         <div className={classes.giftArea}>
-            <p>{props.name}：CNY {props.price}</p>
+            <p>{props.name}*{props.amount}：CNY {props.price}</p>
             <img src={props.img} alt="" style={{objectFit: "cover",width:"70px"}} />
         </div>
     );
@@ -132,7 +132,7 @@ function ChatItem(props) {
                             {item.ActionName === "msg" ? (
                                 <span className="messageText" >{item.Extra}</span>
                             ) : (
-                                <GiftPart name={item.GiftName} img={item.GiftPicture} price={item.GiftPrice.Float64} />
+                                <GiftPart name={item.GiftName} img={item.GiftPicture} price={item.GiftPrice.Float64} amount={item.GiftAmount.Int16}/>
                             )}
                         </div>
                     </div>

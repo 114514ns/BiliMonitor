@@ -164,3 +164,11 @@ func extractTextFromHTML(htmlStr string) string {
 
 	return f(doc)
 }
+func Has[T comparable](a []T, b T) bool {
+	for _, s := range a {
+		if b == s {
+			return true
+		}
+	}
+	return false
+}

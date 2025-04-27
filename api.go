@@ -398,11 +398,16 @@ func InitHTTP() {
 	r.GET("/status", func(context *gin.Context) {
 		//cache.CacheByRequestURI(memoryStore, 2*time.Second)
 		context.JSON(http.StatusOK, gin.H{
-			"Requests":   totalRequests,
-			"LaunchedAt": launchTime.Format(time.DateTime),
-			"Guards":     TotalGuards(),
-			"Watchers":   TotalWatcher(),
-			"Livers":     TotalLiver(),
+			"Requests":      totalRequests,
+			"LaunchedAt":    launchTime.Format(time.DateTime),
+			"Guards":        TotalGuards(),
+			"Watchers":      TotalWatcher(),
+			"Livers":        TotalLiver(),
+			"TotalMessages": TotalMessage(),
+			"Minute1":       MinuteMessageCount(1),
+			"Minute5":       MinuteMessageCount(5),
+			"HTTPBytes":     httpBytes,
+			"WSBytes":       websocketBytes,
 		})
 	})
 
