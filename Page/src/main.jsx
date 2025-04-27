@@ -5,7 +5,7 @@ import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
 import axios from "axios";
-
+import {ThemeProvider as NextThemesProvider} from "next-themes";
 window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
@@ -36,17 +36,19 @@ axios.interceptors.request.use((config) => {
 window.toSpace = UID => {
     window.open('https://space.bilibili.com/' + UID, '_blank');
 }
-const host = location.hostname;
+window.host = location.hostname;
 
-const port = location.port;
+window.port = location.port;
 
-const protocol = location.protocol.replace(":","")
+window.protocol = location.protocol.replace(":","")
 createRoot(document.getElementById('root')).render(
   <StrictMode>
       <HeroUIProvider>
-          <BrowserRouter>
-              <App />
-          </BrowserRouter>
+          <NextThemesProvider defaultTheme={'light'}>
+              <BrowserRouter>
+                  <App />
+              </BrowserRouter>
+          </NextThemesProvider>
       </HeroUIProvider>
   </StrictMode>,
 )

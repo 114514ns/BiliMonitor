@@ -97,5 +97,22 @@ func RefreshLivers() {
 	})
 	copier.Copy(&cachedLivers, &temp)
 }
+func MinuteMessageCount(minute int64) int {
+	var now = time.Now().Unix()
+	count := 0
+	for _, status := range lives {
+		for _, action := range status.Danmuku {
+			if now-action.CreatedAt.Unix() < 60*minute {
+				count++
+			}
+		}
+	}
+	return count
+}
+func TotalMessage() int64 {
+	var count int64
+	db.Model(&LiveAction{}).Count(&count)
+	return count
+}
 
 var cachedLivers = make([]FrontAreaLiver, 0)
