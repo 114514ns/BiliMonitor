@@ -9,7 +9,7 @@ function LiveCard({liveData}) {
 
     const protocol = location.protocol.replace(":", "")
     const {Live, UName, UID, Area, Title, Face, Cover} = liveData;
-    const cover = `${protocol}://${host}:${port}/proxy?url=${Cover}`
+    const cover = Cover//`${protocol}://${host}:${port}/proxy?url=${Cover}`
 
 
     const toSpace = (id) => {
@@ -25,8 +25,8 @@ function LiveCard({liveData}) {
             >
                 <CardHeader className="flex items-center gap-3">
                     {Live != null ? <Badge color={Live ? "success" : "default"} content="">
-                        <Avatar src={`${protocol}://${host}:${port}/proxy?url=${Face}`} onClick={() => {toSpace(UID)}}/>
-                    </Badge> : <Avatar src={`${protocol}://${host}:${port}/proxy?url=${Face}`} onClick={() => {toSpace(UID)}}/>}
+                        <Avatar src={`${Face}`} onClick={() => {toSpace(UID)}}/>
+                    </Badge> : <Avatar src={`${Face}`} onClick={() => {toSpace(UID)}}/>}
 
                     <div>
                         <h4 className="font-semibold">{UName}</h4>

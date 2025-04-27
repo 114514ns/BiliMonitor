@@ -29,11 +29,16 @@ export const CheckIcon = React.memo(({ size = 24, color = "currentColor", ...pro
     );
 });
 
+
 function ChatPage(props) {
 
 
 
+    const sendMessage = () => {
 
+        var url = `${protocol}://${host}:${port}/api/sendMsg?room=${room}&msg=${msg}`
+        console.log(url);
+    }
     const [room, setRoom] = useState("");
 
 
@@ -44,6 +49,8 @@ function ChatPage(props) {
     const [monitor, setMonitor] = useState([])
 
     var [isFirst, setIsFirst] = useState(true);
+
+    const [msg,setMsg] = useState("");
 
     const initRoomList = () => {
         axios.get(`${protocol}://${host}:${port}/api/monitor`).then(res => {
@@ -145,13 +152,17 @@ function ChatPage(props) {
                     )}
                 </Autocomplete>
                 {monitor.map(item => {
+                    var color = 'rgba(105,205,255,0.2)'
+                    if (item.LiveRoom !== room) {
+                        color = 'rgb(255,255,255)'
+                    }
                     return (
                         <div onClick={() => {
                             console.log(item.LiveRoom)
                             setRoom(item.LiveRoom)
                             setCurrentStream(item.Stream)
                         }} key={item.UID}>
-                            <Card isHoverable={true} style={{ margin: "10px" }} radius={'none'}>
+                            <Card isHoverable={true} style={{ margin: "10px" ,background:color,width:'90%'}}  >
                                 <CardBody>
                                     <div style={{
                                         display: "flex",
@@ -203,15 +214,17 @@ function ChatPage(props) {
 
 
                 {room && <ChatArea room={room} />}
-                <Input label="Email" type="email"  endContent={
+                <Input label="Email"  endContent={
                     <Button
                         size="sm"
                         color="primary"
-                        onPress={() => console.log("发送消息")}
+                        onPress={(e) => sendMessage()}
                     >
                         发送
                     </Button>
-                }/>
+                } onChange={e => {
+                    setMsg(e.target.value);
+                }}/>
             </div>
             <div className={classes.right}>
                 <ReactPlayer url={currentStream} controls={true} playing={true} style={{width:'100%',height:'auto'}} />

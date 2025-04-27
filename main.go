@@ -274,7 +274,7 @@ func ParseSingleVideo(bv string) (result []Video) {
 func ParsePlayList(mid string, session string) []Video {
 	var array []Video
 	var page = 1
-	var user = FetchUser(mid)
+	var user = FetchUser(mid, nil)
 	for true {
 		var url = "https://api.bilibili.com/x/polymer/web-space/seasons_archives_list?mid=" + mid + "&season_id=" + session + "&page_num=" + strconv.Itoa(page) + "&page_size=30"
 		res, _ := client.R().SetHeader("Referer", "https://www.bilibili.com/").SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get(url)
@@ -347,6 +347,8 @@ var lives = map[string]*Status{} //[]string{}
 var file = time.Now().Format(time.DateTime) + ".log"
 var logFile, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 var wbi = NewDefaultWbi()
+var httpBytes int64 = 0
+var websocketBytes = 0
 
 const ENV = "DEV"
 
@@ -374,6 +376,7 @@ func CSRF() string {
 func main() {
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		totalRequests++
+		httpBytes += response.RawResponse.ContentLength
 		return nil
 	})
 	rand.Seed(time.Now().UnixNano())
@@ -464,7 +467,7 @@ func main() {
 		TraceArea(9)
 	}()
 	go func() {
-		//RefreshLivers()
+		RefreshLivers()
 	}()
 
 	c.AddFunc("@every 2m", func() { UpdateSpecial() })
@@ -473,7 +476,7 @@ func main() {
 	c.AddFunc("@every 15m", func() { TraceArea(9) })
 	c.AddFunc("@every 1m", FixMoney)
 	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
-	//c.AddFunc("@every 60m", RefreshLivers)
+	c.AddFunc("@every 60m", RefreshLivers)
 	if err != nil {
 		return
 	}

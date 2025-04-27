@@ -159,7 +159,7 @@ function LiveDetailPage(props) {
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600">主播</span>
-                            <div className='flex flex-row items-center'>
+                            <div className='flex flex-row items-center' onClick={() => {toSpace(liveInfo.UserID)}}>
                                 <img src={`${protocol}://${host}:${port}/api/face?mid=${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
                                 <br/>
                                 {liveInfo.UserName}
