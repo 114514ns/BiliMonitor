@@ -74,6 +74,9 @@ function WatcherList(props) {
 
                         return (
                             <Card
+                                onPress ={() => {
+                                    toSpace(item.uid)
+                                }}
                                 key={item.uid}
                                 ref={virtualRow.measureElement}
                                 style={{
@@ -99,6 +102,9 @@ function WatcherList(props) {
                                         >
                                             <Avatar
                                                 src={item.face}
+                                                onClick={() => {
+                                                    toSpace(item.uid)
+                                                }}
                                                 style={{
                                                     backgroundSize: 'cover',
                                                     backgroundPosition: 'center',

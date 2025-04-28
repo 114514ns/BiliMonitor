@@ -71,7 +71,7 @@ function ChatArea(props) {
     return (
         <div>
             <div className={classes.chatColumn}>
-                <div style={{ }} ref={chatRef}>
+                <div style={{ alignItems:'center'}} ref={chatRef}>
                         <Listbox
                             isVirtualized
                             autoFocus={'first'}
@@ -85,8 +85,10 @@ function ChatArea(props) {
                             }}
                         >
                             {message.map((item, index) => (
-                                <ListboxItem key={index} value={item.value} textValue={'1'}>
-                                    <ChatItem item={item} />
+                                <ListboxItem key={index} value={item.value} textValue={'1'} >
+                                    <div style={{width:'100%'}}>
+                                        <ChatItem item={item} />
+                                    </div>
                                 </ListboxItem>
                             ))}
                         </Listbox>
