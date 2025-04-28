@@ -89,14 +89,20 @@ function ChatPage(props) {
 
 
 
+
+
     useEffect(() => {
         initRoomList()
         console.log("room changed")
+        axios.get("/api/stream?room=" + room).then(res => {
+            setCurrentStream(res.data["Stream:"]);
+        })
 
         const interval = setInterval(() => {
             initRoomList()
 
         }, 1000);
+
 
         return () => clearInterval(interval);
     }, [room]);
@@ -161,8 +167,9 @@ function ChatPage(props) {
                             console.log(item.LiveRoom)
                             setRoom(item.LiveRoom)
                             setCurrentStream(item.Stream)
+                            document.title = item.UName + "  " + item.Title
                         }} key={item.UID}>
-                            <Card isHoverable={true} style={{ margin: "10px" ,background:color,width:'90%'}}  >
+                            <Card style={{ margin: "10px" ,background:color,width:'90%'}} isHoverable={true} >
                                 <CardBody>
                                     <div style={{
                                         display: "flex",

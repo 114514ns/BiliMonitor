@@ -79,7 +79,7 @@ function ListPage(props) {
                 {list.map((item, index) => (
                     <ListboxItem key={index} value={item.value} css={{width:'100%'}} aria-label={item.label}>
                         <LiverCard
-                            Avatar={`${protocol}://${host}:${port}/face?mid=${item.UID}`}
+                            Avatar={`${protocol}://${host}:${port}/api/face?mid=${item.UID}`}
                             UName={item.UName}
                             Guard={item.Guard}
                             DailyDiff={item.DailyDiff}

@@ -62,6 +62,13 @@ func FixMoney() {
 		db.Save(&v)
 	}
 }
+func ServerLiveStatus(roomId string) bool {
+	url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
+	res, _ := client.R().Get(url)
+	status := LiveStatusResponse{}
+	sonic.Unmarshal(res.Body(), &status)
+	return status.Data.LiveStatus == 1
+}
 func UploadLive(live Live) {
 
 	var debug = true
@@ -107,91 +114,61 @@ func UploadLive(live Live) {
 		os.Remove(file)
 	}
 }
-
+func GetServerState(room string) bool {
+	url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + room
+	res, _ := client.R().Get(url)
+	status := LiveStatusResponse{}
+	sonic.Unmarshal(res.Body(), &status)
+	return status.Data.LiveStatus == 1
+}
 func RemoveEmpty() {
 	db.Where("money = 0 and message = 0").Delete(&Live{})
 }
-func RecordStream(room string) {
-	ticker := time.NewTicker(1 * time.Second)
-	id := uuid.New().String()
-	for range ticker.C {
-		if lives[room].Live {
-			res, _ := client.R().Get(lives[room].Stream)
-			str := res.String()
-			for _, s := range strings.Split(str, "\n") {
-				if strings.Contains(s, ".m4s") || strings.Contains(s, ".ts") {
-					if len(lives[room].StreamSplits) == 0 {
-						id = uuid.New().String()
-						os.Mkdir("tmp", 066)
-						os.Mkdir("tmp/"+id, 0666)
-					}
-					save := false
-					for _, split := range lives[room].StreamSplits {
-						if split == s {
-							save = true
-						}
-					}
-					if !save {
-						lives[room].StreamSplits = append(lives[room].StreamSplits, s)
-						master, _ := url.Parse(lives[room].Stream)
-						split := strings.Split(master.Path, "/")
-						merge := ""
-						for i, s2 := range split {
-							if i != len(split)-1 {
-								merge += s2 + "/"
-							}
-						}
-						final := "http://" + master.Host + "/" + merge + s
-						go func() {
-							//time.Sleep(time.Second * 4)
-							res, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(final)
-							if res.StatusCode() == 200 {
-								file, _ := os.Create("tmp/" + id + "/" + s)
-								i, err := io.Copy(file, res.RawBody())
-								if err != nil {
-									log.Println(err)
-									log.Println(i)
-									return
-								}
-								log.Println(final)
-							} else {
-								log.Println(404)
-							}
-						}()
-					}
+func RecoverLive() {
+	var array []Live
+	db.Model(&array).Limit(20).Order("id desc").Find(&array)
+	for _, live := range array {
+		var roomId = strconv.Itoa(live.RoomId)
+		if live.EndAt == 0 {
+			if GetServerState(strconv.Itoa(live.RoomId)) {
+				var _, ok = lives[roomId]
+				if len(lives) < 25 && !ok && !Has(config.Tracing, roomId) {
+
+					lives[roomId] = &Status{RemainTrying: 40}
+					lives[roomId].Danmuku = make([]FrontLiveAction, 0)
+					lives[roomId].OnlineWatcher = make([]Watcher, 0)
+					lives[roomId].GuardList = make([]Watcher, 0)
+					go func() {
+						TraceLive(strconv.Itoa(live.RoomId))
+					}()
+					log.Printf("[%s] 恢复直播", live.UserName)
+					time.Sleep(30 * time.Second)
+
 				}
 			}
 		}
 	}
 }
 func GetLiveStream(room string) string {
-	_, ok := lives[room]
-	if !ok {
-		return ""
-	}
-	var last = lives[room].StreamCacheKey
-	if last == 0 || time.Now().Unix()-last > 60*10+int64(rand.Int()%1800) || (lives[room].Stream == "" && lives[room].Live) {
-		now := time.Now()
-		lives[room].StreamCacheKey = now.Unix()
 
-		uri, _ := url.Parse("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=10000&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
-		signed, _ := wbi.SignQuery(uri.Query(), now)
-		res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?" + signed.Encode())
-		var s = LiveStreamResponse{}
-		sonic.Unmarshal(res.Body(), &s)
-		stream := s.Data.PlayurlInfo.Playurl.Stream
-		if stream != nil {
-			//Format[0]是ts格式，可以直接拿来拼接，Format[1]是fmp4，需要先把ext-x-map拼到每一个分片前面，好像还有点问题
-			obj := stream[len(stream)-1].Format[0].Codec[ /*len(stream[len(stream)-1].Format[0].Codec)-1*/ 0]
-			if obj.UrlInfo[0].Host+obj.BaseUrl+obj.UrlInfo[0].Extra == "" {
-				time.Now()
-			}
-			return obj.UrlInfo[0].Host + obj.BaseUrl + obj.UrlInfo[0].Extra
-		} else {
-			time.Now().Unix()
+	now := time.Now()
+	uri, _ := url.Parse("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=10000&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
+	signed, _ := wbi.SignQuery(uri.Query(), now)
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?" + signed.Encode())
+	var s = LiveStreamResponse{}
+	sonic.Unmarshal(res.Body(), &s)
+	stream := s.Data.PlayurlInfo.Playurl.Stream
+	if stream != nil {
+		//Format[0]是ts格式，可以直接拿来拼接，Format[1]是fmp4，需要先把ext-x-map拼到每一个分片前面，好像还有点问题
+		obj := stream[len(stream)-1].Format[0].Codec[ /*len(stream[len(stream)-1].Format[0].Codec)-1*/ 0]
+		if obj.UrlInfo[0].Host+obj.BaseUrl+obj.UrlInfo[0].Extra == "" {
+			time.Now()
 		}
-
+		return obj.UrlInfo[0].Host + obj.BaseUrl + obj.UrlInfo[0].Extra
+	} else {
+		time.Now().Unix()
 	}
+
 	return ""
 
 }
@@ -630,7 +607,6 @@ func TraceArea(parent int) {
 						lives[roomId].Danmuku = make([]FrontLiveAction, 0)
 						lives[roomId].OnlineWatcher = make([]Watcher, 0)
 						lives[roomId].GuardList = make([]Watcher, 0)
-						lives[roomId].Stream = GetLiveStream(roomId)
 						lives[roomId].Live = true
 						worker.AddTask(func() {
 							time.Sleep(30 * time.Second)
@@ -889,7 +865,6 @@ func TraceLive(roomId string) {
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
 					action.Extra = text.Info[1].(string)
-					db.Create(&action)
 					value, ok := text.Info[0].([]interface{})[15].(map[string]interface{})
 					if ok {
 						user, exists := value["user"].(map[string]interface{})
@@ -923,6 +898,7 @@ func TraceLive(roomId string) {
 							}
 						}
 					}
+					db.Create(&action)
 					log.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
@@ -1082,10 +1058,6 @@ func TraceLive(roomId string) {
 			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
 			res, _ = client.R().Get(url)
 			status := LiveStatusResponse{}
-			stream := GetLiveStream(roomId)
-			if stream != "" {
-				lives[roomId].Stream = stream
-			}
 			sonic.Unmarshal(res.Body(), &status)
 
 			if status.Data.LiveStatus == 1 && !isLive(roomId) {
@@ -1125,7 +1097,7 @@ func TraceLive(roomId string) {
 
 			}
 			e, ok := lives[roomId]
-			if status.Data.LiveStatus == 0 && (isLive(roomId) || (ok && e.Live)) {
+			if !ServerLiveStatus(roomId) && (isLive(roomId) || (ok && e.Live)) {
 				setLive(roomId, false)
 				var sum float64
 				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
