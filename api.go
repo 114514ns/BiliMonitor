@@ -398,14 +398,15 @@ func InitHTTP() {
 	r.GET("/status", func(context *gin.Context) {
 		//cache.CacheByRequestURI(memoryStore, 2*time.Second)
 		context.JSON(http.StatusOK, gin.H{
-			"Requests":      totalRequests,
-			"LaunchedAt":    launchTime.Format(time.DateTime),
-			"Guards":        TotalGuards(),
-			"Watchers":      TotalWatcher(),
+			"Requests":   totalRequests,
+			"LaunchedAt": launchTime.Format(time.DateTime),
+			"Guards":     TotalGuards(),
+			//"Watchers":      TotalWatcher(),
 			"Livers":        TotalLiver(),
 			"TotalMessages": TotalMessage(),
 			"Minute1":       MinuteMessageCount(1),
 			"Minute5":       MinuteMessageCount(5),
+			"Minute60":      MinuteMessageCount(60),
 			"HTTPBytes":     httpBytes,
 			"WSBytes":       websocketBytes,
 		})
@@ -481,6 +482,23 @@ func InitHTTP() {
 			array := make([]LiveAction, 0)
 			uid := c.Query("uid")
 			db.Model(&LiveAction{}).Where("from_id = ? and gift_price != 0", uid).Find(&array)
+		})
+	})
+	r.GET("/debug", func(c *gin.Context) {
+		var room = c.Query("room")
+		url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + room
+		res, _ := client.R().Get(url)
+		status := LiveStatusResponse{}
+		sonic.Unmarshal(res.Body(), &status)
+		c.JSON(http.StatusOK, gin.H{
+			"ServerState": status.Data.LiveStatus,
+			"IsLive":      isLive(room),
+		})
+	})
+	r.GET("/stream", func(c *gin.Context) {
+		var room = c.Query("room")
+		c.JSON(http.StatusOK, gin.H{
+			"Stream:": GetLiveStream(room),
 		})
 	})
 

@@ -107,7 +107,6 @@ type Status struct {
 	Face           string
 	Cover          string
 	LiveRoom       string
-	Stream         string
 	StreamCacheKey int64
 	OnlineWatcher  []Watcher
 	OnlineCount    int
@@ -457,7 +456,7 @@ func main() {
 	db.AutoMigrate(&FaceCache{})
 	RemoveEmpty()
 	go InitHTTP()
-
+	RecoverLive()
 	c := cron.New()
 	go func() {
 		RefreshFollowings()
@@ -482,6 +481,7 @@ func main() {
 	}
 
 	c.Start()
+
 	SortTracing()
 	for i := range config.Tracing {
 		var roomId = config.Tracing[i]
@@ -489,7 +489,6 @@ func main() {
 		lives[roomId].Danmuku = make([]FrontLiveAction, 0)
 		lives[roomId].OnlineWatcher = make([]Watcher, 0)
 		lives[roomId].GuardList = make([]Watcher, 0)
-		lives[roomId].Stream = GetLiveStream(roomId)
 		//go RecordStream(roomId)
 		go TraceLive(config.Tracing[i])
 		time.Sleep(30 * time.Second)
