@@ -154,7 +154,7 @@ func GetLiveStream(room string) string {
 	now := time.Now()
 	uri, _ := url.Parse("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?qn=10000&protocol=0,1&format=0,1,2&codec=0,1,2&web_location=444.8&room_id=" + room)
 	signed, _ := wbi.SignQuery(uri.Query(), now)
-	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?" + signed.Encode())
+	res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?" + signed.Encode())
 	var s = LiveStreamResponse{}
 	sonic.Unmarshal(res.Body(), &s)
 	stream := s.Data.PlayurlInfo.Playurl.Stream
@@ -1097,7 +1097,7 @@ func TraceLive(roomId string) {
 
 			}
 			e, ok := lives[roomId]
-			if !ServerLiveStatus(roomId) && (isLive(roomId) || (ok && e.Live)) {
+			if status.Data.LiveStatus != 1 && (isLive(roomId) || (ok && e.Live)) {
 				setLive(roomId, false)
 				var sum float64
 				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
