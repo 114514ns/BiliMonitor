@@ -97,16 +97,11 @@ func RefreshLivers() {
 	})
 	copier.Copy(&cachedLivers, &temp)
 }
-func MinuteMessageCount(minute int64) int {
-	var now = time.Now().Unix()
-	count := 0
-	for _, status := range lives {
-		for _, action := range status.Danmuku {
-			if now-action.CreatedAt.Unix() < 60*minute {
-				count++
-			}
-		}
-	}
+func MinuteMessageCount(minute int64) int64 {
+	var count int64
+	db.Model(&LiveAction{}).
+		Where("created_at >= (NOW() + INTERVAL 8 HOUR) - INTERVAL ? MINUTE", minute).
+		Count(&count)
 	return count
 }
 func TotalMessage() int64 {

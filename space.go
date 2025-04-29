@@ -323,7 +323,7 @@ func UploadArchive(video Video) string {
 func GetFace(uid string) string {
 	var obj = FaceCache{}
 	db.Model(&obj).Where("uid = ?", uid).First(&obj)
-	if obj.UID == 0 || time.Now().Unix()-obj.UpdateAt.Unix() > 3600*24*7 {
+	if obj.UID == 0 || time.Now().Unix()-obj.UpdateAt.Unix() > 3600*24*30 {
 		var url = "https://api.bilibili.com/x/web-interface/card?mid=" + uid
 		res, _ := client.R().Get(url)
 		var userResponse = UserResponse{}

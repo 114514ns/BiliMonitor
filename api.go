@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -62,8 +63,12 @@ func InitHTTP() {
 	r.GET("/monitor", func(c *gin.Context) {
 
 		var array = make([]Status, 0)
-		for s := range lives {
-			array = append(array, *lives[s])
+		for _, status := range lives {
+			var cpy = Status{}
+			copier.Copy(&cpy, &status)
+			cpy.GuardList = []Watcher{}
+			cpy.OnlineWatcher = []Watcher{}
+			array = append(array, cpy)
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"lives": array,
@@ -397,16 +402,44 @@ func InitHTTP() {
 	})
 	r.GET("/status", func(context *gin.Context) {
 		//cache.CacheByRequestURI(memoryStore, 2*time.Second)
+		var (
+			m1, m5, m60, m1440 int64
+			wg                 sync.WaitGroup
+		)
+
+		wg.Add(4)
+
+		go func() {
+			defer wg.Done()
+			m1 = MinuteMessageCount(1)
+		}()
+
+		go func() {
+			defer wg.Done()
+			m5 = MinuteMessageCount(5)
+		}()
+
+		go func() {
+			defer wg.Done()
+			m60 = MinuteMessageCount(60)
+		}()
+
+		go func() {
+			defer wg.Done()
+			m1440 = MinuteMessageCount(60 * 24)
+		}()
+
+		wg.Wait()
+
 		context.JSON(http.StatusOK, gin.H{
-			"Requests":   totalRequests,
-			"LaunchedAt": launchTime.Format(time.DateTime),
-			"Guards":     TotalGuards(),
-			//"Watchers":      TotalWatcher(),
+			"Requests":      totalRequests,
+			"LaunchedAt":    launchTime.Format(time.DateTime),
 			"Livers":        TotalLiver(),
 			"TotalMessages": TotalMessage(),
-			"Minute1":       MinuteMessageCount(1),
-			"Minute5":       MinuteMessageCount(5),
-			"Minute60":      MinuteMessageCount(60),
+			"Message1":      m1,
+			"Message5":      m5,
+			"MessageHour":   m60,
+			"MessageDaily":  m1440,
 			"HTTPBytes":     httpBytes,
 			"WSBytes":       websocketBytes,
 		})
@@ -419,6 +452,21 @@ func InitHTTP() {
 			})
 		}
 		c.Redirect(http.StatusMovedPermanently, GetFace(c.Query("mid")))
+	})
+
+	r.GET("/setCookie", func(c *gin.Context) {
+		var cookie = c.Query("cookie")
+		if SelfUID(cookie) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid cookie",
+			})
+		} else {
+			config.Cookie = cookie
+			SaveConfig()
+			c.JSON(http.StatusOK, gin.H{
+				"msg": "success",
+			})
+		}
 	})
 
 	r.GET("/areaLivers", func(c *gin.Context) {

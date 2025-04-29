@@ -20,13 +20,14 @@ import PubSub from 'pubsub-js'
 import ChatPage from "./pages/ChatPage";
 import ListPage from "./pages/ListPage";
 import LiverPage from "./pages/LiverPage";
+import StatusPage from "./pages/StatusPage";
 
 
 function BasicLayout() {
 
 
     const menu = [{
-        Name: 'Monitor',
+        Name: 'Overview',
         Path: '/'
     }, {
         Name: 'LivePage',
@@ -34,7 +35,8 @@ function BasicLayout() {
     }, {
         Name: 'Danmakus', Path: '/chat'
     }, {
-        Name: 'List', Path: '/list'}
+        Name: 'List', Path: '/list'},{
+        Name: 'Status', Path: '/stat'}
     ]
 
     const [ind, setInd] = React.useState(0);
@@ -95,6 +97,7 @@ function BasicLayout() {
                     </Route>
                     <Route path={'chat/'} element={<ChatPage/>}/>
                     <Route path={'/list'} element={<ListPage/>}/>
+                    <Route path={'/stat'} element={<StatusPage/>}/>
                     <Route path={'/liver/:id'} element={<LiverPage/>}/>
 
                 </Routes>
