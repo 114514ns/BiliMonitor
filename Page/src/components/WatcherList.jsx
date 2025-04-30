@@ -57,7 +57,7 @@ function WatcherList(props) {
             <div
                 ref={parentRef}
                 style={{
-                    height: "530px",
+                    height: 'calc(100vh - 4rem - 360px)',
                     overflow: "auto",
                     position: "relative",
                 }}
