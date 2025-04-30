@@ -12,6 +12,12 @@ function GiftPart(props) {
         </div>
     );
 }
+function calcHeight() {
+    const vh = window.innerHeight;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const result = vh - 4 * rem;
+    return result*0.9; // 返回的是 px 数值
+}
 function ChatArea(props) {
     const chatRef = useRef(null);
     const [last, setLast] = useState("");
@@ -69,7 +75,7 @@ function ChatArea(props) {
     }, [props.room]);
 
     return (
-        <div>
+        <div style={{height:'90%'}}>
             <div className={classes.chatColumn}>
                 <div style={{ alignItems:'center'}} ref={chatRef}>
                         <Listbox
@@ -80,7 +86,7 @@ function ChatArea(props) {
                             hideSelectedIcon
                             variant={'light'}
                             virtualization={{
-                                maxListboxHeight: 800,
+                                maxListboxHeight: calcHeight(),
                                 itemHeight: 160,
                             }}
                         >

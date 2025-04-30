@@ -199,7 +199,7 @@ function LivePage(props) {
             </MinutesChartDialog>:<></>}
             <div className='flex-row flex mb-4'>
                 <Autocomplete
-                    className="max-w-xs"
+                    className="max-w-xs mt-4 mb-4 ml-4"
                     defaultItems={filters}
                     label="Liver"
                     onSelectionChange={e => {
@@ -217,6 +217,29 @@ function LivePage(props) {
                             const newFilters = res.data.result.map((item) => ({key: item, value: item}));
                             setFilters(newFilters);
                         })
+                    }}
+                >
+                    {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
+                </Autocomplete>
+                <Autocomplete
+                    className="max-w-xs mt-4 mb-4 ml-4"
+                    defaultItems={[{
+                        key: 'Time',
+                        value: "Time"
+                    },
+                        {
+                            key: 'Money',
+                            value: "Money"
+
+                        },
+                        {
+                            key: 'Message',
+                            value: "Message"
+                        }
+                    ]}
+                    label="Sort by"
+                    onSelectionChange={e => {
+                        setOrder(e)
                     }}
                 >
                     {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
