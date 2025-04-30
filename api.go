@@ -49,6 +49,7 @@ var distFS embed.FS
 
 func InitHTTP() {
 	r := gin.Default()
+	r.UseH2C = true
 
 	r.Use(CORSMiddleware())
 	//r.Static("/page", "./Page/dist/")

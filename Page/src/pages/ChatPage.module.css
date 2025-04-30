@@ -1,8 +1,7 @@
 .root {
     width: 100%;
-    height: 100%;
+    height: calc(100vh - 4rem);
     display: flex;
-    max-height: 82vh;
 }
 .roomColumn {
     width: 20%;
@@ -37,7 +36,7 @@
 .chatColumn {
     display: flex;
     flex-direction: column;
-    max-height: 82vh;
+    height: 100%;
     overflow: hidden;
     overflow-anchor:none
 }
@@ -65,7 +64,7 @@
     word-wrap: break-word;
 }
 .right {
-    max-height: 82vh;
+    height: calc(100vh - 4rem);
     overflow: hidden;
     overflow-anchor:none
 }

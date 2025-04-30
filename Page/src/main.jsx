@@ -42,7 +42,6 @@ window.port = location.port;
 
 window.protocol = location.protocol.replace(":","")
 createRoot(document.getElementById('root')).render(
-  <StrictMode>
       <HeroUIProvider>
           <NextThemesProvider defaultTheme={'light'}>
               <BrowserRouter>
@@ -50,5 +49,4 @@ createRoot(document.getElementById('root')).render(
               </BrowserRouter>
           </NextThemesProvider>
       </HeroUIProvider>
-  </StrictMode>,
 )

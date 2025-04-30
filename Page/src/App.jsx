@@ -83,7 +83,7 @@ function BasicLayout() {
                     </Dropdown>
                 </NavbarContent>
             </Navbar>
-            <div className="site-layout-background" style={{padding: 24, width: '100%', height: '100%'}}>
+            <div className="site-layout-background" style={{padding: 24, width: '100%', height: '100vh'}}>
                 <Routes>
                     <Route path="/" element={<Monitor/>}>
 

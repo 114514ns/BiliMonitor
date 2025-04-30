@@ -5,11 +5,12 @@ function StatusPage(props) {
 
     const [overview, setOverview] = React.useState({});
     useEffect(() => {
-        setInterval(() => {
+        var intervalId = setInterval(() => {
             axios.get('/api/status').then(res => {
                 setOverview(res.data);
             })
-        },1000)
+        },500)
+        return () => clearInterval(intervalId);
     },[])
     return (
 
