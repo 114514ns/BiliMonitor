@@ -179,7 +179,7 @@ function LiveDetailPage(props) {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                         <div
                             className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间<br/><span
-                            className="font-semibold">{new Date(liveInfo.StartAt * 1000).toLocaleString()}</span>
+                            className="font-semibold">{new Date(liveInfo.StartAt * 1000-8*3600*1000).toLocaleString()}</span>
                         </div>
                         <div
                             className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">结束时间<br/>

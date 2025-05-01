@@ -324,23 +324,34 @@ func GetFace(uid string) string {
 	var obj = FaceCache{}
 	db.Model(&obj).Where("uid = ?", uid).First(&obj)
 	if obj.UID == 0 || time.Now().Unix()-obj.UpdateAt.Unix() > 3600*24*30 {
-		var url = "https://api.bilibili.com/x/web-interface/card?mid=" + uid
-		res, _ := client.R().Get(url)
-		var userResponse = UserResponse{}
-		sonic.Unmarshal(res.Body(), &userResponse)
-		if obj.Face != userResponse.Data.Card.Face {
+		var s = "https://api.live.bilibili.com/xlive/fuxi-interface/UserService/getUserInfo?_ts_rpc_args_=[[" + uid
+		s = s + `],true,""]`
+		res, _ := client.R().Get(s)
+		type Response struct {
+			TsRpcReturn struct {
+				Data map[string]struct {
+					UID   string `json:"uid"`
+					UName string `json:"uname"`
+					Face  string `json:"face"`
+				} `json:"data"`
+			} `json:"_ts_rpc_return_"`
+		}
+
+		var r = Response{}
+		sonic.Unmarshal(res.Body(), &r)
+		if obj.Face != r.TsRpcReturn.Data[uid].Face {
 			if obj.UID == 0 {
-				obj.Face = userResponse.Data.Card.Face
+				obj.Face = r.TsRpcReturn.Data[uid].Face
 				obj.UID, _ = strconv.ParseInt(uid, 10, 64)
 				obj.UpdateAt = time.Now()
 				db.Create(&obj)
 			} else {
 				if obj.Face != "" {
-					db.Model(&FaceCache{}).Where("uid = ?", uid).UpdateColumns(FaceCache{Face: userResponse.Data.Card.Face})
+					db.Model(&FaceCache{}).Where("uid = ?", uid).UpdateColumns(FaceCache{Face: r.TsRpcReturn.Data[uid].Face})
 				}
 			}
 		}
-		return userResponse.Data.Card.Face
+		return r.TsRpcReturn.Data[uid].Face
 	} else {
 		return obj.Face
 	}
