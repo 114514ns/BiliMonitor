@@ -551,6 +551,20 @@ func InitHTTP() {
 		})
 	})
 
+	r.GET("/trace", func(c *gin.Context) {
+		var room = c.Query("room")
+		worker.AddTask(func() {
+			go TraceLive(room)
+			time.Sleep(30 * time.Second)
+		})
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
+		})
+	})
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	})
+
 	r.Run(":" + strconv.Itoa(int(config.Port))) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
 

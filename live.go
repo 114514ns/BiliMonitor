@@ -808,7 +808,6 @@ func TraceLive(roomId string) {
 							}
 						}
 					}
-					lives[roomId].LastActive = 114514
 					return
 				}
 				websocketBytes += len(message)
@@ -865,6 +864,7 @@ func TraceLive(roomId string) {
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
 					action.Extra = text.Info[1].(string)
+					action.HonorLevel = int8(text.Info[16].([]interface{})[0].(float64))
 					value, ok := text.Info[0].([]interface{})[15].(map[string]interface{})
 					if ok {
 						user, exists := value["user"].(map[string]interface{})
@@ -1283,6 +1283,7 @@ type LiveAction struct {
 	MedalName  string
 	MedalLevel int8
 	GuardLevel int8
+	HonorLevel int8
 }
 type FrontLiveAction struct {
 	LiveAction

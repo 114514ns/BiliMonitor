@@ -234,7 +234,7 @@ function ChatPage(props) {
                 }}/>
             </div>
             <div className={classes.right}>
-                <ReactPlayer url={currentStream} controls={true} playing={true} style={{width:'100%',height:'auto'}} />
+                <ReactPlayer url={currentStream} controls={true} playing={true} style={{width:'640px',height:'560px'}} />
                     <Tabs aria-label="Options" style={{ marginTop: "10px" ,width: "100%",display:'flex',justifyContent:'space-between' }} fullWidth={true}>
                         <Tab title={`在线：${monitor.filter((e) =>e.LiveRoom == room)[0]?.OnlineCount}`}>
 

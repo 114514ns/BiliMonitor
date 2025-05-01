@@ -70,6 +70,9 @@ type Config struct {
 	CodeToMP4               bool
 	SplitAudio              bool
 	EnableCollectionMonitor bool
+	Mode                    string
+	Slaves                  []string
+	TraceArea               bool
 }
 
 type User struct {
@@ -369,9 +372,12 @@ func CSRF() string {
 			jct = strings.Replace(s, "bili_jct=", "", 1)
 		}
 	}
-	jct = jct[1:len(jct)]
+	jct = jct[1:]
 	return jct
 }
+
+var man *SlaverManager
+
 func main() {
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		totalRequests++
@@ -409,6 +415,8 @@ func main() {
 		config.EnableMySQL = false
 		config.EnableCollectionMonitor = false
 		config.Port = 8081
+		config.Mode = "Master"
+		config.TraceArea = false
 		Cookie = config.Cookie
 		content, _ = sonic.Marshal(&config)
 		os.Create("config.json")
@@ -456,42 +464,63 @@ func main() {
 	db.AutoMigrate(&FaceCache{})
 	RemoveEmpty()
 	go InitHTTP()
-	RecoverLive()
+
 	c := cron.New()
-	go func() {
-		RefreshFollowings()
-		UpdateCommon()
-	}()
-	go func() {
-		TraceArea(9)
-	}()
-	go func() {
-		RefreshLivers()
-	}()
 
-	c.AddFunc("@every 2m", func() { UpdateSpecial() })
-	c.AddFunc("@every 120m", RefreshFollowings)
-	c.AddFunc("@every 240m", UpdateCommon)
-	c.AddFunc("@every 15m", func() { TraceArea(9) })
-	c.AddFunc("@every 1m", FixMoney)
-	c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
-	c.AddFunc("@every 60m", RefreshLivers)
-	if err != nil {
-		return
+	if config.Mode == "Master" {
+		man = NewSlaverManager(config.Slaves)
+		RecoverLive()
+		go func() {
+			RefreshFollowings()
+			UpdateCommon()
+		}()
+		go func() {
+			if config.TraceArea {
+				TraceArea(9)
+			}
+		}()
+		go func() {
+			RefreshLivers()
+		}()
+		go func() {
+			for _, slave := range config.Slaves {
+				res, _ := client.R().Get(slave + "/ping")
+				if res.String() != "pong" {
+
+				}
+			}
+		}()
+		c.AddFunc("@every 2m", func() { UpdateSpecial() })
+		c.AddFunc("@every 120m", RefreshFollowings)
+		c.AddFunc("@every 240m", UpdateCommon)
+		c.AddFunc("@every 15m", func() {
+			if config.TraceArea {
+				TraceArea(9)
+			}
+		})
+		c.AddFunc("@every 1m", FixMoney)
+		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
+		c.AddFunc("@every 60m", RefreshLivers)
+		if err != nil {
+			return
+		}
+
+		c.Start()
+
+		SortTracing()
+		for i := range config.Tracing {
+			var roomId = config.Tracing[i]
+			lives[roomId] = &Status{RemainTrying: 40}
+			lives[roomId].Danmuku = make([]FrontLiveAction, 0)
+			lives[roomId].OnlineWatcher = make([]Watcher, 0)
+			lives[roomId].GuardList = make([]Watcher, 0)
+			//go RecordStream(roomId)
+			go TraceLive(config.Tracing[i])
+			time.Sleep(30 * time.Second)
+		}
 	}
+	if config.Mode == "Slaver" {
 
-	c.Start()
-
-	SortTracing()
-	for i := range config.Tracing {
-		var roomId = config.Tracing[i]
-		lives[roomId] = &Status{RemainTrying: 40}
-		lives[roomId].Danmuku = make([]FrontLiveAction, 0)
-		lives[roomId].OnlineWatcher = make([]Watcher, 0)
-		lives[roomId].GuardList = make([]Watcher, 0)
-		//go RecordStream(roomId)
-		go TraceLive(config.Tracing[i])
-		time.Sleep(30 * time.Second)
 	}
 
 	select {}
