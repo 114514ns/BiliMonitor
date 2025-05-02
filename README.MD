@@ -35,6 +35,8 @@ https://github.com/114514ns/BiliMonitor/actions
 ![](https://example.com/undefined20250305001302952.png)
 ![](https://example.com/undefined20250305001138294.png)
 ![](https://example.com/undefined20250302233820130.png)
+![](https://example.com//img/20250502170730.png)
+![](https://example.com//img/20250502170853.png)
 ![](https://example.com//img/20250212235435.png)
 ![](https://example.com/undefined20250220222834082.png)
 ![](https://example.com/undefined20250302233902605.png)
@@ -89,7 +91,9 @@ https://github.com/114514ns/BiliMonitor/actions
 不是所有功能都需要数据库.
 ## 粉丝量监控
 ```json5
-"User": "2", //你的uid，列表内的所有up主会被定时记录粉丝量，需要设置关注列表允许公开访问
+{
+  "User": "2", //你的uid，列表内的所有up主会被定时记录粉丝量，需要设置关注列表允许公开访问
+}
 ```
 这里改成你的uid，然后允许公开访问你的关注列表即可。
 <br/>
@@ -98,20 +102,26 @@ https://github.com/114514ns/BiliMonitor/actions
 ## 收藏夹监控
 ~~~json5
 
-"EnableCollectionMonitor": true
+{
+  "EnableCollectionMonitor": true
+}
 ~~~
 被监控的用户就是上面设置的那个User。
 新建一个名字为Monitor的收藏夹，并设为可公开访问，当收藏夹内出现新的视频时可自动下载并发出推送。
 ## 动态监控
 ```json5
-  "SpecialList": [12434430], //特别关注列表，列表内的up主发布的动态和稿件会被推送，类型为int
-  "SpecialDelay": "2m", //刷新特别关注列表内up主动态的间隔
+{
+    "SpecialList": [12434430], //特别关注列表，列表内的up主发布的动态和稿件会被推送，类型为int
+    "SpecialDelay": "2m", //刷新特别关注列表内up主动态的间隔
+}
 ```
 当up主发送动态后，会推送到设置的平台，如果安装了ffmpeg，可以自动备份新稿件到alist
 ![](https://example.com/undefined20250307003814757.png)
 ## 直播间监控
 ```json5
-"Tracing": [], //要监控的直播间，类型为string[]
+{
+  "Tracing": [], //要监控的直播间，类型为string[]
+}
 
 ```
 主播开播后会发送推送,同时记录直播间内弹幕和礼物。
@@ -133,19 +143,19 @@ https://github.com/114514ns/BiliMonitor/actions
 
 ## 分区监控
 
-每隔一定时间监控分区内所有主播，并记录大航海数据。
+每隔一定时间监控分区内所有主播，并记录大航海和粉丝数据，可在前端页面查看趋势。
 <br/>
 主播在分区内直播时：数据在两天内更新过则不更新。
 <br/>
-不管主播是否直播，数据至少会在7天更新一次。
+程序最多同时连接20个直播间ws服务器，如果当前不到20个，会选择从分区内选择直播间连接。
 <br/>
 **最后做出来大概是类似vtbs.moe，这块代码日后可能会迁移到新的仓库内**
 
 # TODO
 - [ ] 自动刷新Cookie
 - [ ] 完善文档
-- [ ] 备份动态的评论？
 - [ ] 程序启动时检查配置文件正确性
+- [ ] 分布式爬虫
 # Referer
 接口文档：[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
 <br/>
