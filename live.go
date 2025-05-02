@@ -866,6 +866,17 @@ func TraceLive(roomId string) {
 					action.Extra = text.Info[1].(string)
 					action.HonorLevel = int8(text.Info[16].([]interface{})[0].(float64))
 					value, ok := text.Info[0].([]interface{})[15].(map[string]interface{})
+					var o interface{}
+					sonic.Unmarshal([]byte(text.Info[0].([]interface{})[15].(map[string]interface{})["extra"].(string)), &o)
+					e, ok := o.(map[string]interface{})["emots"]
+					if e != nil {
+						emots := e.(map[string]interface{})
+						if len(emots) != 0 {
+							for s, i := range emots {
+								front.Emoji[s] = i.(map[string]interface{})["url"].(string)
+							}
+						}
+					}
 					if ok {
 						user, exists := value["user"].(map[string]interface{})
 						if exists {
@@ -908,6 +919,7 @@ func TraceLive(roomId string) {
 					action.FromName = info.Data.Uname
 					action.GiftName = info.Data.GiftName
 					action.MedalLevel = int8(info.Data.Medal.Level)
+					action.HonorLevel = info.Data.HonorLevel
 					action.MedalName = info.Data.Medal.Name
 					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
 					front.MedalColor = fmt.Sprintf("#%06X", info.Data.Medal.Color)
@@ -1246,12 +1258,13 @@ type GiftInfo struct {
 		} `json:"sender_uinfo"`
 		UID   int `json:"uid"`
 		Medal struct {
-			Name  string `json:"name"`
-			Level int    `json:"level"`
+			Name  string `json:"medal_name"`
+			Level int    `json:"medal_level"`
 			Color int    `json:"medal_color"`
-		}
-		Uname string `json:"uname"`
-		Face  string `json:"face"`
+		} `json:"medal_info"`
+		Uname      string `json:"uname"`
+		Face       string `json:"face"`
+		HonorLevel int8   `json:"wealth_level"`
 	} `json:"data"`
 }
 type LiveText struct {
@@ -1291,6 +1304,7 @@ type FrontLiveAction struct {
 	UUID        string
 	MedalColor  string
 	GiftPicture string
+	Emoji       map[string]string
 }
 type RoomInfo struct {
 	Data struct {
