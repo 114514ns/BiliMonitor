@@ -134,15 +134,8 @@ func RecoverLive() {
 				var _, ok = lives[roomId]
 				if len(lives) < 25 && !ok && !Has(config.Tracing, roomId) {
 
-					lives[roomId] = &Status{RemainTrying: 40}
-					lives[roomId].Danmuku = make([]FrontLiveAction, 0)
-					lives[roomId].OnlineWatcher = make([]Watcher, 0)
-					lives[roomId].GuardList = make([]Watcher, 0)
-					go func() {
-						TraceLive(strconv.Itoa(live.RoomId))
-					}()
+					man.AddTask(strconv.Itoa(live.RoomId))
 					log.Printf("[%s] 恢复直播", live.UserName)
-					time.Sleep(30 * time.Second)
 
 				}
 			}
@@ -603,14 +596,8 @@ func TraceArea(parent int) {
 						//logStr = logStr + "current recording:" + strconv.Itoa(recording)
 
 						var roomId = strconv.Itoa(i.Room)
-						lives[roomId] = &Status{RemainTrying: 40}
-						lives[roomId].Danmuku = make([]FrontLiveAction, 0)
-						lives[roomId].OnlineWatcher = make([]Watcher, 0)
-						lives[roomId].GuardList = make([]Watcher, 0)
-						lives[roomId].Live = true
 						worker.AddTask(func() {
-							time.Sleep(30 * time.Second)
-							go TraceLive(roomId)
+							man.AddTask(roomId)
 						})
 					}
 
@@ -865,6 +852,7 @@ func TraceLive(roomId string) {
 					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
 					action.Extra = text.Info[1].(string)
 					action.HonorLevel = int8(text.Info[16].([]interface{})[0].(float64))
+					front.Emoji = make(map[string]string)
 					value, ok := text.Info[0].([]interface{})[15].(map[string]interface{})
 					var o interface{}
 					sonic.Unmarshal([]byte(text.Info[0].([]interface{})[15].(map[string]interface{})["extra"].(string)), &o)
@@ -938,7 +926,7 @@ func TraceLive(roomId string) {
 					front.Face = info.Data.Face
 					front.GiftPicture = GiftPic[info.Data.GiftName]
 					db.Create(&action)
-					log.Printf("[%s] %s 赠送了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
+					log.Printf("[%s] %s 投喂了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
 
 					var enter = EnterLive{}
@@ -1064,7 +1052,12 @@ func TraceLive(roomId string) {
 				//lives[roomId].LastActive = time.Now().Unix() + 3600*8
 				if err != nil {
 					log.Printf("[%s] write:  %v", liver, err)
-					return
+					c, _, err = dialer.Dial(u.String(), nil)
+					err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
+					if err == nil {
+						log.Printf("[%s] 重新连接成功", liver)
+						setLive(roomId, true)
+					}
 				}
 			}
 			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
@@ -1129,9 +1122,14 @@ func TraceLive(roomId string) {
 				}
 
 			}
-			lives[roomId].OnlineWatcher = GetOnline(roomId, liverId)
+			var online = GetOnline(roomId, liverId)
+			var guard = GetGuard(roomId, liverId, false)
+
 			go func() {
-				lives[roomId].GuardList = GetGuard(roomId, liverId, false)
+				if lives[roomId] != nil {
+					lives[roomId].OnlineWatcher = online
+					lives[roomId].GuardList = guard
+				}
 			}()
 		}
 	}

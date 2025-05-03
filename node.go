@@ -1,8 +1,10 @@
 package main
 
 import (
+	"github.com/bytedance/sonic"
 	"log"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -23,9 +25,17 @@ func (man *SlaverManager) AddTask(task string) {
 	man.Lock.Lock()
 	defer man.Lock.Unlock()
 
+	for _, node := range man.Nodes {
+		for _, t := range node.Tasks {
+			if t == task {
+				return
+			}
+		}
+	}
+
 	var aliveNodes []*SlaverNode
 	for i := range man.Nodes {
-		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 20 {
+		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 25 && Has(config.Tracing, task) /*特别关注列表内无视限制*/ {
 			aliveNodes = append(aliveNodes, &man.Nodes[i])
 		}
 	}
@@ -38,14 +48,54 @@ func (man *SlaverManager) AddTask(task string) {
 
 	target := aliveNodes[rand.Intn(len(aliveNodes))]
 	target.Tasks = append(target.Tasks, task)
+
 	go func(addr string) {
-		_, err := client.R().Get(addr + "/trace?room=" + task)
+		_, err := client.R().
+			Get(addr + "/trace?room=" + task)
 		if err != nil && man.OnErr != nil {
 			man.OnErr([]string{task})
 		}
 	}(target.Address)
 }
+func (man *SlaverManager) RemoveTasks(tasks []string) {
+	man.Lock.Lock()
+	defer man.Lock.Unlock()
 
+	// 构建快速查找表
+	toRemove := make(map[string]struct{})
+	for _, t := range tasks {
+		toRemove[t] = struct{}{}
+	}
+
+	for i := range man.Nodes {
+		var newTasks []string
+		for _, task := range man.Nodes[i].Tasks {
+			if _, found := toRemove[task]; !found {
+				newTasks = append(newTasks, task)
+			} else {
+				log.Printf("从节点 %s 移除任务 %s", man.Nodes[i].Address, task)
+			}
+		}
+		man.Nodes[i].Tasks = newTasks
+	}
+}
+func (man *SlaverManager) GetAllTasks() []string {
+	man.Lock.Lock()
+	defer man.Lock.Unlock()
+
+	var result []string
+	seen := make(map[string]struct{})
+
+	for _, node := range man.Nodes {
+		for _, task := range node.Tasks {
+			if _, exists := seen[task]; !exists {
+				seen[task] = struct{}{}
+				result = append(result, task)
+			}
+		}
+	}
+	return result
+}
 func NewSlaverManager(node []string) *SlaverManager {
 	var man = &SlaverManager{}
 	for _, s := range node {
@@ -86,6 +136,47 @@ func NewSlaverManager(node []string) *SlaverManager {
 			}
 		}
 	}()
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+
+			all := man.GetAllTasks()
+
+			for _, s := range all {
+				var u = "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?req_biz=web_room_componet&room_ids=" + s
+				r, _ := client.R().Get(u)
+				var o map[string]interface{}
+				sonic.Unmarshal(r.Body(), &o)
+				for _, i := range o["data"].(map[string]interface{})["by_room_ids"].(map[string]interface{}) {
+					if i.(map[string]interface{})["live_status"].(float64) != 1 {
+						if !Has(config.Tracing, s) {
+							man.RemoveTasks([]string{s})
+						}
+					}
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
+
+		}
+	}()
 
 	return man
+}
+func (man *SlaverManager) isSelf(address string) bool {
+	return "http://127.0.0.1:"+strconv.Itoa(int(config.Port)) == address
+}
+func (man *SlaverManager) GetNodeByTask(task string) (string, bool) {
+	man.Lock.Lock()
+	defer man.Lock.Unlock()
+
+	for _, node := range man.Nodes {
+		for _, t := range node.Tasks {
+			if t == task {
+				return node.Address, true
+			}
+		}
+	}
+	return "", false
 }
