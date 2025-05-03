@@ -7,6 +7,7 @@ import (
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
+	"log"
 	"net/http"
 	url2 "net/url"
 	"sort"
@@ -64,6 +65,41 @@ func InitHTTP() {
 	r.GET("/monitor", func(c *gin.Context) {
 
 		var array = make([]Status, 0)
+		var wg sync.WaitGroup
+		var lock sync.Mutex
+
+		if config.Mode == "Master" {
+			for _, node := range man.Nodes {
+				if !node.Alive {
+					continue
+				}
+				if node.Address == "http://127.0.0.1:"+strconv.Itoa(int(config.Port)) {
+					continue
+				}
+
+				wg.Add(1)
+				go func(n SlaverNode) {
+					defer wg.Done()
+					var result map[string][]Status
+
+					_, err := client.R().
+						SetResult(&result).
+						Get(n.Address + "/monitor")
+
+					if err != nil {
+						log.Printf("请求子节点 %s 失败: %v", n.Address, err)
+						return
+					}
+					if remoteStatuses, ok := result["lives"]; ok {
+						lock.Lock()
+						array = append(array, remoteStatuses...)
+						lock.Unlock()
+					}
+				}(node)
+			}
+
+			wg.Wait()
+		}
 		for _, status := range lives {
 			var cpy = Status{}
 			copier.Copy(&cpy, &status)
@@ -77,6 +113,19 @@ func InitHTTP() {
 	})
 	r.GET("/monitor/:id", func(c *gin.Context) {
 		id := c.Param("id")
+		if config.Mode == "Master" {
+			add, ok := man.GetNodeByTask(id)
+			if !ok {
+				c.JSON(http.StatusOK, gin.H{
+					"message": "<UNK>",
+				})
+			}
+			if !man.isSelf(add) {
+				r, _ := client.R().Get(add + "/monitor/" + id)
+				c.String(r.StatusCode(), r.String())
+				return
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"live": lives[id],
 		})
@@ -139,25 +188,42 @@ func InitHTTP() {
 		page, _ := strconv.Atoi(pageStr)
 		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
+		order := c.DefaultQuery("order", "id")
+
 		offset := (page - 1) * limit
 		var totalRecords int64
+
 		if err := db.Model(&Live{}).Count(&totalRecords).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database count error"})
 			return
 		}
-		if name == "1" {
-			db.Offset(offset).Limit(limit).Find(&f)
-		} else {
-			db.Where("user_name = ?", name).Offset(offset).Limit(limit).Find(&f)
-			db.Model(&Live{}).Where("user_name =? ", name).Count(&totalRecords)
+		validOrders := map[string]bool{
+			"id":      true,
+			"money":   true,
+			"message": true,
+			"watch":   true,
 		}
+		if !validOrders[order] {
+			order = "id"
+		}
+
+		query := db.Model(&Live{}).Order(order + " desc").Offset(offset).Limit(limit)
+
+		if name == "1" {
+			query.Find(&f)
+		} else {
+			query = query.Where("user_name = ?", name)
+			query.Find(&f)
+			db.Model(&Live{}).Where("user_name = ?", name).Count(&totalRecords)
+		}
+
 		var off int64 = 1
 		if totalRecords%int64(limit) == 0 {
 			off = 0
 		}
-		c.JSON(http.StatusOK, gin.H{
 
-			"totalPage": totalRecords/(int64(limit)) + off,
+		c.JSON(http.StatusOK, gin.H{
+			"totalPage": totalRecords/int64(limit) + off,
 			"lives":     f,
 		})
 	})
@@ -236,7 +302,7 @@ func InitHTTP() {
 		id := context.Param("id")
 		if lives[id] == nil {
 			lives[id] = &Status{}
-			go TraceLive(id)
+			man.AddTask(id)
 			config.Tracing = append(config.Tracing, id)
 			SaveConfig()
 			context.JSON(http.StatusOK, gin.H{
@@ -345,8 +411,17 @@ func InitHTTP() {
 		})
 	})
 	r.GET("/history", func(context *gin.Context) {
-		roomStr := context.DefaultQuery("room", "1")
 		last := context.DefaultQuery("last", "")
+		roomStr := context.DefaultQuery("room", "1")
+		if config.Mode == "Master" {
+			add, _ := man.GetNodeByTask(roomStr)
+			if !man.isSelf(add) {
+				r, _ := client.R().Get(add + "/history?room=" + roomStr + "&last=" + last)
+				context.String(r.StatusCode(), r.String())
+				return
+			}
+		}
+
 		var result = []FrontLiveAction{}
 		if lives[roomStr] == nil {
 			context.JSON(http.StatusOK, gin.H{
@@ -553,6 +628,11 @@ func InitHTTP() {
 
 	r.GET("/trace", func(c *gin.Context) {
 		var room = c.Query("room")
+		lives[room] = &Status{RemainTrying: 40}
+		lives[room].LiveRoom = room
+		lives[room].Danmuku = make([]FrontLiveAction, 0)
+		lives[room].OnlineWatcher = make([]Watcher, 0)
+		lives[room].GuardList = make([]Watcher, 0)
 		worker.AddTask(func() {
 			go TraceLive(room)
 			time.Sleep(30 * time.Second)
@@ -560,6 +640,7 @@ func InitHTTP() {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
 		})
+		log.Printf("从[%s]接收到任务：%s", c.RemoteIP(), room)
 	})
 	r.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
