@@ -18,6 +18,38 @@ function calcHeight() {
     const result = vh - 4 * rem;
     return result*0.9; // 返回的是 px 数值
 }
+function parseMessage(message,emojiMap) {
+    const regex = /\[([^\[\]]+)\]/g;
+    const parts = [];
+    let lastIndex = 0
+    let match
+
+    while ((match = regex.exec(message)) !== null) {
+        const matchText = match[0]
+        const emojiKey = match[0]
+        const matchIndex = match.index
+
+        if (matchIndex > lastIndex) {
+            parts.push(message.slice(lastIndex, matchIndex));
+        }
+
+        if (emojiMap[emojiKey]) {
+            parts.push(
+                `<img src="${emojiMap[emojiKey]}" alt="${emojiKey}" style="width: 30px; height: 30px; vertical-align: middle;">`
+            );
+        } else {
+            parts.push(matchText)
+        }
+
+        lastIndex = regex.lastIndex
+    }
+    if (lastIndex < message.length) {
+        parts.push(message.slice(lastIndex))
+    }
+
+    return parts.join('')
+}
+
 function ChatArea(props) {
     const chatRef = useRef(null);
     const [last, setLast] = useState("");
@@ -138,7 +170,10 @@ function ChatItem(props) {
                         </div>
                         <div style={{ marginLeft: "8px" }}>
                             {item.ActionName === "msg" ? (
-                                <span className="messageText" >{item.Extra}</span>
+                                <span
+                                    className="messageText"
+                                    dangerouslySetInnerHTML={{ __html: parseMessage(item.Extra, item.Emoji) }}
+                                ></span>
                             ) : (
                                 <GiftPart name={item.GiftName} img={item.GiftPicture} price={item.GiftPrice.Float64} amount={item.GiftAmount.Int16}/>
                             )}

@@ -468,6 +468,7 @@ func main() {
 	c := cron.New()
 
 	if config.Mode == "Master" {
+		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
 		RecoverLive()
 		go func() {
@@ -509,18 +510,12 @@ func main() {
 
 		SortTracing()
 		for i := range config.Tracing {
-			var roomId = config.Tracing[i]
-			lives[roomId] = &Status{RemainTrying: 40}
-			lives[roomId].Danmuku = make([]FrontLiveAction, 0)
-			lives[roomId].OnlineWatcher = make([]Watcher, 0)
-			lives[roomId].GuardList = make([]Watcher, 0)
-			//go RecordStream(roomId)
-			go TraceLive(config.Tracing[i])
+			man.AddTask(config.Tracing[i])
 			time.Sleep(30 * time.Second)
 		}
 	}
 	if config.Mode == "Slaver" {
-
+		log.Printf("Slave Mode")
 	}
 
 	select {}
