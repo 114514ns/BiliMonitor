@@ -35,7 +35,7 @@ func (man *SlaverManager) AddTask(task string) {
 
 	var aliveNodes []*SlaverNode
 	for i := range man.Nodes {
-		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 25 && Has(config.Tracing, task) /*特别关注列表内无视限制*/ {
+		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 25 || Has(config.Tracing, task) /*特别关注列表内无视限制*/ {
 			aliveNodes = append(aliveNodes, &man.Nodes[i])
 		}
 	}

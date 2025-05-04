@@ -1,14 +1,18 @@
 import React, {useEffect, useRef, useState} from 'react';
 import classes from "../pages/ChatPage.module.css";
-import {Avatar, Card, CardBody, CardFooter, Chip} from "@heroui/react";
+import {Avatar, Card, CardBody, CardFooter, Chip, Tooltip} from "@heroui/react";
 import {CheckIcon} from "../pages/ChatPage";
 import axios from "axios";
 import {Listbox, ListboxItem} from "@heroui/react";
+import { motion } from 'framer-motion';
+
+
 function GiftPart(props) {
     return (
         <div className={classes.giftArea}>
-            <p>{props.name}*{props.amount}：CNY {props.price}</p>
-            <img src={props.img} alt="" style={{objectFit: "cover",width:"70px"}} />
+            <Tooltip content={props.name}>
+                <img src={props.img} alt="" style={{objectFit: "cover",width:"60px"}} />
+            </Tooltip> * {props.amount}  CNY {props.amount*props.price}
         </div>
     );
 }
@@ -18,16 +22,15 @@ function calcHeight() {
     const result = vh - 4 * rem;
     return result*0.9; // 返回的是 px 数值
 }
-function parseMessage(message,emojiMap) {
+function parseMessage(message, emojiMap) {
     const regex = /\[([^\[\]]+)\]/g;
     const parts = [];
-    let lastIndex = 0
-    let match
+    let lastIndex = 0;
+    let match;
 
     while ((match = regex.exec(message)) !== null) {
-        const matchText = match[0]
-        const emojiKey = match[0]
-        const matchIndex = match.index
+        const emojiKey = match[0]; // 包括中括号的键
+        const matchIndex = match.index;
 
         if (matchIndex > lastIndex) {
             parts.push(message.slice(lastIndex, matchIndex));
@@ -35,21 +38,21 @@ function parseMessage(message,emojiMap) {
 
         if (emojiMap[emojiKey]) {
             parts.push(
-                `<img src="${emojiMap[emojiKey]}" alt="${emojiKey}" style="width: 30px; height: 30px; vertical-align: middle;">`
+                `<img src="${emojiMap[emojiKey]}" alt="${emojiKey}" style="width: 20px; height: 20px; vertical-align: text-bottom; display: inline-block;">`
             );
         } else {
-            parts.push(matchText)
+            parts.push(emojiKey);
         }
 
-        lastIndex = regex.lastIndex
+        lastIndex = regex.lastIndex;
     }
+
     if (lastIndex < message.length) {
-        parts.push(message.slice(lastIndex))
+        parts.push(message.slice(lastIndex));
     }
 
-    return parts.join('')
+    return parts.join('');
 }
-
 function ChatArea(props) {
     const chatRef = useRef(null);
     const [last, setLast] = useState("");
@@ -124,9 +127,14 @@ function ChatArea(props) {
                         >
                             {message.map((item, index) => (
                                 <ListboxItem key={index} value={item.value} textValue={'1'} >
-                                    <div style={{width:'100%'}}>
+                                    <motion.div style={{width:'100%',display:'flex',justifyContent:'center'}}
+                                                initial={{ opacity: 0, y: 30 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: 30 }}
+                                                transition={{ duration: 0.4 }}
+                                    >
                                         <ChatItem item={item} />
-                                    </div>
+                                    </motion.div>
                                 </ListboxItem>
                             ))}
                         </Listbox>

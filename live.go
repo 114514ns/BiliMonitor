@@ -654,7 +654,6 @@ func isLive(roomId string) bool {
 }
 
 func setLive(roomId string, live bool) {
-	log.Printf("[%s] setLive %b", lives[roomId].UName, live)
 	lives[roomId].Lock()
 	defer lives[roomId].Unlock()
 	if s, ok := lives[roomId]; ok {
@@ -854,6 +853,13 @@ func TraceLive(roomId string) {
 					action.HonorLevel = int8(text.Info[16].([]interface{})[0].(float64))
 					front.Emoji = make(map[string]string)
 					value, ok := text.Info[0].([]interface{})[15].(map[string]interface{})
+					e1, ok := text.Info[0].([]interface{})[13].(map[string]interface{})
+					if ok {
+						e2, ok := e1["emoticon_unique"].(string)
+						if ok {
+							front.Emoji[strings.Replace(e2, "upower_", "", 1)] = e1["url"].(string)
+						}
+					}
 					var o interface{}
 					sonic.Unmarshal([]byte(text.Info[0].([]interface{})[15].(map[string]interface{})["extra"].(string)), &o)
 					e, ok := o.(map[string]interface{})["emots"]

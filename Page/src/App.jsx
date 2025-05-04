@@ -22,7 +22,12 @@ import ListPage from "./pages/ListPage";
 import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
 
-
+const calcHeight = () => {
+    const vh = window.innerHeight;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const result = vh - 4 * rem;
+    return result;
+}
 function BasicLayout() {
 
 
@@ -83,7 +88,7 @@ function BasicLayout() {
                     </Dropdown>
                 </NavbarContent>
             </Navbar>
-            <div className="site-layout-background" style={{padding: 24, width: '100%', height: '100vh'}}>
+            <div className="site-layout-background" style={{padding: 24, width: '100%', height: `${calcHeight()}px`}}>
                 <Routes>
                     <Route path="/" element={<Monitor/>}>
 
