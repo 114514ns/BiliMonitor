@@ -16,7 +16,7 @@ import (
 func UploadFile(path string, alistPath string) error {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Printf("打开文件失败: %w", err)
+		log.Printf("打开文件失败: %v", err)
 	}
 	defer file.Close()
 

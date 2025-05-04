@@ -37,7 +37,7 @@ function ChatPage(props) {
     const sendMessage = () => {
 
         var url = `${protocol}://${host}:${port}/api/sendMsg?room=${room}&msg=${msg}`
-        console.log(url);
+        axios.get(url)
     }
     const [room, setRoom] = useState("");
 
@@ -221,7 +221,7 @@ function ChatPage(props) {
 
 
                 {room && <ChatArea room={room} />}
-                <Input label="Email"  endContent={
+                <Input label="Send Message..."  endContent={
                     <Button
                         size="sm"
                         color="primary"

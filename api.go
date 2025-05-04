@@ -602,11 +602,11 @@ func InitHTTP() {
 			"list": dist,
 		})
 
-		r.GET("/money", func(c *gin.Context) {
-			array := make([]LiveAction, 0)
-			uid := c.Query("uid")
-			db.Model(&LiveAction{}).Where("from_id = ? and gift_price != 0", uid).Find(&array)
-		})
+	})
+	r.GET("/money", func(c *gin.Context) {
+		array := make([]LiveAction, 0)
+		uid := c.Query("uid")
+		db.Model(&LiveAction{}).Where("from_id = ? and gift_price != 0", uid).Find(&array)
 	})
 	r.GET("/debug", func(c *gin.Context) {
 		var room = c.Query("room")

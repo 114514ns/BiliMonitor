@@ -5,7 +5,7 @@ import {
     Avatar,
     Card,
     CardBody,
-    Chip,
+    Chip, Input,
     Listbox,
     ListboxItem,
     Spacer
@@ -38,6 +38,8 @@ const sort = [
 function ListPage(props) {
     const [list, setList] = React.useState([]);
     const host = location.hostname;
+    
+    const [filted, setFiltered] = React.useState([]);
 
 
     const port = location.port
@@ -47,6 +49,7 @@ function ListPage(props) {
         var url = `${protocol}://${host}:${port}/api/areaLivers`
         axios.get(url).then((response) => {
             setList(response.data.list);
+            setFiltered(response.data.list);
         })
     },[])
     return (
@@ -76,10 +79,11 @@ function ListPage(props) {
                 hideSelectedIcon
                 variant={'light'}
                 isVirtualized>
-                {list.map((item, index) => (
+                {filted.map((item, index) => (
                     <ListboxItem key={index} value={item.value} css={{width:'100%'}} aria-label={item.label}>
                         <LiverCard
-                            Avatar={`${protocol}://${host}:${port}/api/face?mid=${item.UID}`}
+                            Rank={index}
+                            Avatar={`${protocol}://${host}:${port}${import.meta.env.PROD?'':'/api'}/face?mid=${item.UID}`}
                             UName={item.UName}
                             Guard={item.Guard}
                             DailyDiff={item.DailyDiff}
@@ -90,6 +94,19 @@ function ListPage(props) {
                         />
                     </ListboxItem>))}
             </Listbox>
+
+            <div style={{
+                position: 'fixed',
+                right:'20px',
+                bottom:'20px',
+                width:'180px',
+                height:'60px',
+            }}>
+                <Input label="Search"  onValueChange={(e) => {
+                    var o = list.filter(i => { return i.UName.indexOf(e) !== -1 })
+                    setFiltered(o)
+                }}/>
+            </div>
         </div>
     );
 
@@ -97,7 +114,7 @@ function ListPage(props) {
 
 function LiverCard(props) {
     return (
-        <Card isHoverable  style={{ width: "100%", marginTop: "16px" }}  isPressable>
+        <Card isHoverable  style={{ width: "100%", marginTop: "16px" }} >
             <CardBody style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "16px" }}>
 
 
@@ -121,6 +138,7 @@ function LiverCard(props) {
                     <p style={{ margin: 0 }}>日增：{props.DailyDiff}</p>
                     <p style={{ margin: 0 }}>大航海：{props.Guard}</p>
                     <p style={{ margin: 0, color: "#888" }}>上次直播：{formatTime(props.LastActive)}</p>
+                    <p>Rank:{props.Rank+1}</p>
                 </div>
 
             </CardBody>
