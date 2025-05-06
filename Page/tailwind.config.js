@@ -10,12 +10,36 @@ module.exports = {
         "./src/components/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
-        color:{
-            white: "#F2F2F8",
+        light: {
+            color:{
+                white: "#F2F2F8",
+            }
         }
+
     },
     darkMode: "class",
     plugins: [heroui({
-        addCommonColors: true,
+        /*
+        "themes": {
+            "light": {
+                "colors": {
+                    "default": {
+                        "foreground": "#f2f2f8",
+                        "DEFAULT": "#f2f2f8"
+                    },
+                    "primary": {
+                        "foreground": "#f2f2f8",
+                        "DEFAULT": "#66cc8a"
+                    },
+                    "background": "#f2f2f8",
+                    "foreground": {
+                        "foreground": "#f2f2f8",
+                        "DEFAULT": "#000"
+                    },
+                }
+            }
+        }
+        
+         */
     })],
 };
