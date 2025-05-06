@@ -162,7 +162,7 @@ function LivePage(props) {
             key: 'Action',
         }
     ])
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(window.page);
 
     const [pageSize, setPageSize] = useState(10);
 
@@ -172,6 +172,7 @@ function LivePage(props) {
         refreshData(page, pageSize, name)
         setCurrentPage(page)
         setPageSize(pageSize)
+        window.page = page;
 
     }
 
