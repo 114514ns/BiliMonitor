@@ -5,7 +5,7 @@ import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
 import axios from "axios";
-import {ThemeProvider as NextThemesProvider} from "next-themes";
+import {ThemeProvider as NextThemesProvider,} from "next-themes";
 window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
@@ -41,6 +41,10 @@ window.host = location.hostname;
 window.port = location.port;
 
 window.protocol = location.protocol.replace(":","")
+document.addEventListener("DOMContentLoaded", (event) => {
+    window.page = 1
+});
+
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <NextThemesProvider defaultTheme={'light'}>

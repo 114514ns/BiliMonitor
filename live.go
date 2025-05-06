@@ -165,12 +165,11 @@ func GetLiveStream(room string) string {
 	return ""
 
 }
-func GetOnline(room string, liver string) []Watcher {
+func GetOnline(room string, liver string) ([]Watcher, int) {
 	var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/queryContributionRank?ruid=%s&room_id=%s", liver, room)
 	res, _ := client.R().Get(url)
 	var o = OnlineWatcherResponse{}
 	sonic.Unmarshal(res.Body(), &o)
-	lives[room].OnlineCount = o.Data.Count
 	var arr = make([]Watcher, 0)
 	for _, s := range o.Data.Item {
 		var watcher = Watcher{}
@@ -184,7 +183,7 @@ func GetOnline(room string, liver string) []Watcher {
 		watcher.Medal.Level = s.UInfo.Medal.Level
 		arr = append(arr, watcher)
 	}
-	return arr
+	return arr, o.Data.Count
 
 }
 func GetGuardCount(room string, liver string) string {
@@ -298,17 +297,16 @@ func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []L
 	addLog(logChain, fmt.Sprintf("got fansClub,len=%d", len(list)))
 	return list
 }
-func GetGuard(room string, liver string, ignoreCache bool) []Watcher {
+func GetGuardList(room string, ignoreCache bool) []Watcher {
+	livesMutex.Lock()
 	if !ignoreCache && time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
 		return lives[room].GuardList
 	}
-	if !ignoreCache {
-		lives[room].GuardCacheKey = time.Now().Unix()
-	}
+	livesMutex.Unlock()
 	var arr = make([]Watcher, 0)
 	var page = 1
 	for true {
-		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), liver)
+		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), room)
 		res, _ := client.R().Get(url)
 		var r = GuardListResponse{}
 		sonic.Unmarshal(res.Body(), &r)
@@ -345,9 +343,6 @@ func GetGuard(room string, liver string, ignoreCache bool) []Watcher {
 			break
 		}
 		time.Sleep(time.Millisecond * 500)
-	}
-	if !ignoreCache {
-		lives[room].GuardCount = len(arr)
 	}
 	return arr
 }
@@ -539,7 +534,7 @@ func TraceArea(parent int) {
 				var l2 = 0
 				var l3 = 0
 				addLog(logChain, "getting guardList")
-				for _, watcher := range GetGuard(strconv.Itoa(i.Room), strconv.FormatInt(i.UID, 10), true) {
+				for _, watcher := range GetGuardList(strconv.Itoa(i.Room), true) {
 					ins := DBGuard{}
 					ins.Type = watcher.Guard
 					ins.UID = watcher.UID
@@ -596,9 +591,7 @@ func TraceArea(parent int) {
 						//logStr = logStr + "current recording:" + strconv.Itoa(recording)
 
 						var roomId = strconv.Itoa(i.Room)
-						worker.AddTask(func() {
-							man.AddTask(roomId)
-						})
+						man.AddTask(roomId)
 					}
 
 				}
@@ -761,7 +754,7 @@ func TraceLive(roomId string) {
 		c, _, err = dialer.Dial(u.String(), nil)
 	}
 	if err != nil {
-		log.Fatal("["+liver+"]  "+"Dial:", err)
+		log.Println("["+liver+"]  "+"Dial:", err)
 	}
 	ticker := time.NewTicker(45 * time.Second)
 
@@ -1035,7 +1028,11 @@ func TraceLive(roomId string) {
 				front.LiveAction = action
 				if action.ActionName != "" {
 					front.UUID = uuid.New().String()
-					lives[roomId].Danmuku = AppendElement(lives[roomId].Danmuku, 500, front)
+					_, ok := lives[roomId]
+					if ok {
+						lives[roomId].Danmuku = AppendElement(lives[roomId].Danmuku, 500, front)
+					}
+
 				}
 				if buffer.Len() < 16 {
 					break
@@ -1128,13 +1125,16 @@ func TraceLive(roomId string) {
 				}
 
 			}
-			var online = GetOnline(roomId, liverId)
-			var guard = GetGuard(roomId, liverId, false)
 
 			go func() {
 				if lives[roomId] != nil {
+					var online, count = GetOnline(roomId, liverId)
+					var guard = GetGuardList(roomId, false)
+					lives[roomId].GuardCacheKey = time.Now().Unix()
+					lives[roomId].OnlineCount = count
 					lives[roomId].OnlineWatcher = online
 					lives[roomId].GuardList = guard
+					lives[roomId].GuardCount = len(guard)
 				}
 			}()
 		}
@@ -1381,4 +1381,11 @@ type Watched struct {
 		TextSmall string `json:"text_small"`
 		TextLarge string `json:"text_large"`
 	} `json:"data"`
+}
+
+func UpdateGuardList(room string, arr []Watcher) {
+	livesMutex.Lock()
+	defer livesMutex.Unlock()
+	lives[room].GuardCount = len(arr)
+	lives[room].GuardList = arr
 }

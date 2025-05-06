@@ -73,6 +73,7 @@ type Config struct {
 	Mode                    string
 	Slaves                  []string
 	TraceArea               bool
+	BlackTracing            []string
 }
 
 type User struct {
@@ -345,8 +346,9 @@ var db *gorm.DB
 
 // var db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{})
 
+var livesMutex sync.Mutex
 var lives = map[string]*Status{} //[]string{}
-var file = time.Now().Format(time.DateTime) + ".log"
+var file = time.Now().Format("2006-01-02_15-04-05") + ".log"
 var logFile, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 var wbi = NewDefaultWbi()
 var httpBytes int64 = 0
@@ -470,6 +472,9 @@ func main() {
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
+		man.OnErr = func(tasks []string) {
+			log.Println("onError")
+		}
 		RecoverLive()
 		go func() {
 			RefreshFollowings()

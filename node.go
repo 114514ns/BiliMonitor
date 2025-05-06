@@ -28,9 +28,14 @@ func (man *SlaverManager) AddTask(task string) {
 	for _, node := range man.Nodes {
 		for _, t := range node.Tasks {
 			if t == task {
+				log.Printf("[%s] task is running already", task)
 				return
 			}
 		}
+	}
+	if Has(config.BlackTracing, task) {
+		log.Printf("[%s] skip because task is in black list", task)
+		return
 	}
 
 	var aliveNodes []*SlaverNode
@@ -40,6 +45,7 @@ func (man *SlaverManager) AddTask(task string) {
 		}
 	}
 	if len(aliveNodes) == 0 {
+		log.Printf("[%s] cannot add because queue is full", task)
 		if man.OnErr != nil {
 			man.OnErr([]string{task})
 		}
@@ -50,8 +56,10 @@ func (man *SlaverManager) AddTask(task string) {
 	target.Tasks = append(target.Tasks, task)
 
 	go func(addr string) {
-		_, err := client.R().
+		res, err := client.R().
 			Get(addr + "/trace?room=" + task)
+
+		log.Printf("[%s]  responsed with  %d", task, res.StatusCode())
 		if err != nil && man.OnErr != nil {
 			man.OnErr([]string{task})
 		}

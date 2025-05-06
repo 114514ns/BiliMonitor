@@ -518,6 +518,7 @@ func InitHTTP() {
 			"MessageDaily":  m1440,
 			"HTTPBytes":     httpBytes,
 			"WSBytes":       websocketBytes,
+			"Nodes":         man.Nodes,
 		})
 	})
 
@@ -628,11 +629,13 @@ func InitHTTP() {
 
 	r.GET("/trace", func(c *gin.Context) {
 		var room = c.Query("room")
+		livesMutex.Lock()
 		lives[room] = &Status{RemainTrying: 40}
 		lives[room].LiveRoom = room
 		lives[room].Danmuku = make([]FrontLiveAction, 0)
 		lives[room].OnlineWatcher = make([]Watcher, 0)
 		lives[room].GuardList = make([]Watcher, 0)
+		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
 			time.Sleep(30 * time.Second)
