@@ -516,7 +516,6 @@ func main() {
 		SortTracing()
 		for i := range config.Tracing {
 			man.AddTask(config.Tracing[i])
-			time.Sleep(30 * time.Second)
 		}
 	}
 	if config.Mode == "Slaver" {
