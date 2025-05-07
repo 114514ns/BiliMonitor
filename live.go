@@ -263,6 +263,7 @@ func GetFreeClubCounts(liver string, delay int) int {
 	return 30*(found-1) + items
 }
 func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []Log) []DBGuard {
+	log.Printf("[%s] begin fetch fansClub", liver)
 	var page = 1
 	var list = make([]DBGuard, 0)
 	t := "0"
@@ -294,19 +295,21 @@ func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []L
 		}
 
 	}
-	addLog(logChain, fmt.Sprintf("got fansClub,len=%d", len(list)))
+	log.Printf("[%s] end fetch fansClub", liver)
 	return list
 }
-func GetGuardList(room string, ignoreCache bool) []Watcher {
-	livesMutex.Lock()
-	if !ignoreCache && time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
-		return lives[room].GuardList
+func GetGuardList(room string, liver string) []Watcher {
+	_, ok := lives[room]
+	if ok {
+		if time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
+			return lives[room].GuardList
+		}
 	}
-	livesMutex.Unlock()
+
 	var arr = make([]Watcher, 0)
 	var page = 1
 	for true {
-		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), room)
+		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), liver)
 		res, _ := client.R().Get(url)
 		var r = GuardListResponse{}
 		sonic.Unmarshal(res.Body(), &r)
@@ -421,7 +424,7 @@ func SendMessage(msg string, room int, onResponse func(string)) {
 	//signed, _ := client.WBI.SignQuery(url3.Query(), time.Now())
 	st := `{"appId":100,"platform":5}`
 	body := fmt.Sprintf("bubble=0&msg=%s&color=16777215&mode=1&room_type=0&jumpfrom=71001&reply_mid=0&reply_attr=0&replay_dmid=&statistics=%s&fontsize=25&rnd=%d&roomid=%d&csrf=%s&csrf_token=%s", msg, st, time.Now().Unix()/1000, room, CSRF(), CSRF())
-	res, _ := client.R().SetHeader("Content-Type", "application/x-www-form-urlencoded").SetBody(body).Post("https://api.live.bilibili.com/msg/send?" /*+ signed.Encode()*/)
+	res, _ := client.R().SetHeader("Content-Type", "application/x-www-form-urlencoded").SetHeader("Cookie", config.Cookie).SetBody(body).Post("https://api.live.bilibili.com/msg/send?" /*+ signed.Encode()*/)
 	fmt.Println(res.String())
 	if onResponse != nil {
 		onResponse(res.String())
@@ -434,6 +437,10 @@ func TraceArea(parent int) {
 		return //确保不会重叠执行
 	}
 	var page = 1
+	defer func() {
+		log.Println("set work false")
+		working = false
+	}()
 	var arr = make([]AreaLiver, 0)
 	for {
 		working = true
@@ -442,10 +449,10 @@ func TraceArea(parent int) {
 		s, _ := wbi.SignQuery(u.Query(), now)
 		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
+		log.Printf("page=%d,len=%d", page, len(obj.Data.List))
 		sonic.Unmarshal(res.Body(), &obj)
 		for _, s2 := range obj.Data.List {
 			logChain := make([]Log, 0)
-			var start = time.Now().Unix()
 			var fansMap = make(map[int64]DBGuard)
 			i := AreaLiver{}
 			i.UName = s2.UName
@@ -479,6 +486,7 @@ func TraceArea(parent int) {
 				live.Watch = s2.Watch.Num
 				db.Save(&live)
 			}
+			log.Printf("current Liver %s", s2.UName)
 
 			db.Model(&AreaLiver{}).
 				Where("uid = ?", s2.UID).
@@ -524,17 +532,14 @@ func TraceArea(parent int) {
 					}, logChain)
 				}
 
-				var user = FetchUser(strconv.FormatInt(s2.UID, 10), func() {
-					time.Sleep(300 * time.Second)
-					return
-				})
+				log.Printf("[%s] begin fetch guardList", s2.UName)
+				var user = FetchUser(strconv.FormatInt(s2.UID, 10), nil)
 				user.Face = ""
 				var guards = make([]DBGuard, 0)
 				var l1 = 0
 				var l2 = 0
 				var l3 = 0
-				addLog(logChain, "getting guardList")
-				for _, watcher := range GetGuardList(strconv.Itoa(i.Room), true) {
+				for _, watcher := range GetGuardList(strconv.Itoa(i.Room), strconv.FormatInt(s2.UID, 10)) {
 					ins := DBGuard{}
 					ins.Type = watcher.Guard
 					ins.UID = watcher.UID
@@ -557,26 +562,21 @@ func TraceArea(parent int) {
 
 					guards = append(guards, ins)
 				}
+				log.Printf("[%s] finish fetch guardList", s2.UName)
 				i.Guard = fmt.Sprintf("%d,%d,%d", l1, l2, l3)
-				addLog(logChain, fmt.Sprintf("got Guard info %s", i.Guard))
 				b, _ := sonic.Marshal(guards)
 				i.GuardList = string(b)
 				db.Save(&user)
 				i.Fans = user.Fans
 				time.Sleep(time.Second * 2)
 				db.Save(&i)
-				addLog(logChain, fmt.Sprintf("Chain END, took %d s", time.Now().Unix()-start))
-			} else {
-				addLog(logChain, "Update recently,skip")
 			}
-			//var logStr = "" + i.UName
+			log.Printf("finish update %s", s2.UName)
 			o := AreaLiver{}
 			db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&o)
 			if o.Fans > 10000 {
-				//logStr = logStr + "fans > 10000"
 				_, ok := lives[strconv.Itoa(i.Room)]
 				if !ok {
-					//logStr = logStr + "haven't recorded"
 					var has = false
 					recording := 0
 					for _, s := range lives {
@@ -588,19 +588,17 @@ func TraceArea(parent int) {
 						}
 					}
 					if recording < 20 && !has {
-						//logStr = logStr + "current recording:" + strconv.Itoa(recording)
-
 						var roomId = strconv.Itoa(i.Room)
+						log.Printf("before addTask")
 						man.AddTask(roomId)
+						log.Printf("after addTask")
 					}
 
 				}
-			} else {
-				//logStr = logStr + "fans < 10000"
 			}
-			//log.Printf(logStr)
-
+			log.Printf("end %s", s2.UName)
 		}
+		log.Printf("page=%d,More=%d", page, obj.Data.More)
 		if obj.Data.More == 0 {
 			break
 		}
@@ -1129,7 +1127,7 @@ func TraceLive(roomId string) {
 			go func() {
 				if lives[roomId] != nil {
 					var online, count = GetOnline(roomId, liverId)
-					var guard = GetGuardList(roomId, false)
+					var guard = GetGuardList(roomId, liverId)
 					lives[roomId].GuardCacheKey = time.Now().Unix()
 					lives[roomId].OnlineCount = count
 					lives[roomId].OnlineWatcher = online
