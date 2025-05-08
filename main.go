@@ -379,8 +379,10 @@ func CSRF() string {
 }
 
 var man *SlaverManager
+var consoleLogger = log.New(os.Stdout, "", log.LstdFlags)
 
 func main() {
+	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		totalRequests++
 		httpBytes += response.RawResponse.ContentLength

@@ -432,6 +432,7 @@ func SendMessage(msg string, room int, onResponse func(string)) {
 }
 
 func TraceArea(parent int) {
+	log.Println("begin TraceArea")
 	if working {
 		log.Println("TraceArea is still executing,break")
 		return //确保不会重叠执行
@@ -740,7 +741,8 @@ func TraceLive(roomId string) {
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
 	if len(liveInfo.Data.HostList) == 0 {
-		log.Println(res.String())
+		log.Println("error,break" + res.String())
+		return
 	}
 	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
 	var dialer = &websocket.Dialer{
@@ -895,7 +897,7 @@ func TraceLive(roomId string) {
 						}
 					}
 					db.Create(&action)
-					log.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
+					consoleLogger.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
 					var info = GiftInfo{}
@@ -923,7 +925,7 @@ func TraceLive(roomId string) {
 					front.Face = info.Data.Face
 					front.GiftPicture = GiftPic[info.Data.GiftName]
 					db.Create(&action)
-					log.Printf("[%s] %s 投喂了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
+					consoleLogger.Printf("[%s] %s 投喂了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
 
 					var enter = EnterLive{}

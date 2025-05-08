@@ -145,7 +145,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 		}
 	}()
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(90 * time.Second)
 		defer ticker.Stop()
 
 		for range ticker.C {
@@ -154,7 +154,10 @@ func NewSlaverManager(node []string) *SlaverManager {
 
 			for _, s := range all {
 				var u = "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?req_biz=web_room_componet&room_ids=" + s
-				r, _ := client.R().Get(u)
+				r, err := client.R().Get(u)
+				if err != nil {
+					log.Printf("[%s] Error get room info %v", s, err)
+				}
 				var o map[string]interface{}
 				sonic.Unmarshal(r.Body(), &o)
 				for _, i := range o["data"].(map[string]interface{})["by_room_ids"].(map[string]interface{}) {
