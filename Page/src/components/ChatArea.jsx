@@ -85,11 +85,18 @@ function ChatArea(props) {
                 }
             });
     };
-
+    const isAtBottom = (element) => {
+        const threshold = 50;
+        return (
+            element.scrollTop + element.clientHeight >= element.scrollHeight - threshold
+        );
+    };
     useEffect(() => {
         if (chatRef.current) {
-            chatRef.current.children[0].children[0].children[0].scrollTop=99999999;
-            console.log("scroll");
+            const element = chatRef.current.children[0].children[0].children[0]
+            element.scrollTop=99999999;
+            console.log("top ",element.scrollTop,"height ",element.height);
+
 
         }
     }, [last]);

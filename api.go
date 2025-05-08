@@ -648,6 +648,17 @@ func InitHTTP() {
 	r.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
+	r.GET("/fansRank", func(context *gin.Context) {
+		var page = context.DefaultQuery("page", "1")
+		var size = context.DefaultQuery("size", "20")
+		pageInt, _ := strconv.Atoi(page)
+		sizeInt, _ := strconv.Atoi(size)
+		var result []FansClub
+		db.Model(&FansClub{}).Offset(sizeInt * (pageInt - 1)).Limit(sizeInt).Find(&result)
+		context.JSON(http.StatusOK, gin.H{
+			"list": result,
+		})
+	})
 
 	r.Run(":" + strconv.Itoa(int(config.Port))) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
