@@ -65,6 +65,8 @@ function LivePage(props) {
 
     const [searchText, setSearchText] = useState("");
 
+    const [order, setOrder] = useState("id");
+
     const host = location.hostname;
 
 
@@ -84,6 +86,7 @@ function LivePage(props) {
         }else if (liver !== "" && liver !== null) {
             url = url + `&name=${liver}`
         }
+        url = url + "&order=" + order
         axios.get(url).then(res => {
 
             res.data.lives.forEach((item, index) => {
@@ -178,7 +181,7 @@ function LivePage(props) {
 
     useEffect(() => {
         refreshData(currentPage, 10)
-    },[liver])
+    },[liver,order])
     useEffect(() => {
         if (chartId !== null && chartId !== 0) {
             setChart(true);
@@ -229,12 +232,12 @@ function LivePage(props) {
                         value: "Time"
                     },
                         {
-                            key: 'Money',
+                            key: 'money',
                             value: "Money"
 
                         },
                         {
-                            key: 'Message',
+                            key: 'message',
                             value: "Message"
                         }
                     ]}
