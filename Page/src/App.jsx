@@ -21,6 +21,7 @@ import ChatPage from "./pages/ChatPage";
 import ListPage from "./pages/ListPage";
 import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
+import RankDialog from "./components/RankDialog";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -50,6 +51,8 @@ function BasicLayout() {
 
     const [showDownload, setShowDownload] = React.useState(false);
 
+    const [showRank, setShowRank] = React.useState(false);
+
     PubSub.subscribe('DownloadDialog', (msg, data) => {
         console.log(msg, data);
         setShowDownload(false);
@@ -58,8 +61,9 @@ function BasicLayout() {
 
         <div>
             <DownloadDialog isOpen={showDownload}/>
+            <RankDialog open={showRank} onClose={() => {setShowRank(false)}} />
             <Navbar style={{}}>
-                <NavbarContent style={{display: "flex", justifyContent: "center"}}>
+                <NavbarContent style={{display: "flex", justifyContent: "center","overflow":"scroll"}}>
                     {
                         menu.map((item, index) => (
                             <NavbarItem isActive={index === ind} key={index}>
@@ -84,6 +88,9 @@ function BasicLayout() {
                             <DropdownItem key="view" onClick={() => {
                                 setShowDownload(true);
                             }}>Bili Downloader</DropdownItem>
+                            <DropdownItem key="rank" onClick={() => {
+                                setShowRank(true);
+                            }}>Rank</DropdownItem>
                         </DropdownMenu>
                     </Dropdown>
                 </NavbarContent>
