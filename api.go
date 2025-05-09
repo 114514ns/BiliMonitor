@@ -69,6 +69,9 @@ func InitHTTP() {
 		var lock sync.Mutex
 
 		if config.Mode == "Master" {
+			if man == nil {
+				return
+			}
 			for _, node := range man.Nodes {
 				if !node.Alive {
 					continue
@@ -142,6 +145,21 @@ func InitHTTP() {
 		c.JSON(http.StatusOK, gin.H{
 			"result": result,
 		})
+	})
+	r.GET("/searchAreaLiver", func(c *gin.Context) {
+		key := c.DefaultQuery("key", "1")
+		var result []AreaLiver
+		query := db.Model(&AreaLiver{}).Select("u_name,uid,fans").Group("uid")
+
+		if key != "1" {
+			query.Where("u_name like '%" + key + "%'")
+		}
+		query.Limit(50).Order("fans desc").Find(&result)
+
+		c.JSON(http.StatusOK, gin.H{
+			"result": result,
+		})
+
 	})
 	r.GET("/sendMsg", func(c *gin.Context) {
 		room := c.DefaultQuery("room", "-1")
@@ -651,16 +669,26 @@ func InitHTTP() {
 	r.GET("/fansRank", func(context *gin.Context) {
 		var page = context.DefaultQuery("page", "1")
 		var size = context.DefaultQuery("size", "20")
+		var liver = context.DefaultQuery("liver", "0")
 		pageInt, _ := strconv.Atoi(page)
 		sizeInt, _ := strconv.Atoi(size)
 		var result []FansClub
-		db.Model(&FansClub{}).Offset(sizeInt * (pageInt - 1)).Limit(sizeInt).Find(&result)
+		query := db.Model(&FansClub{})
+		var countQuery = db.Model(&FansClub{})
+		if liver != "0" {
+			query.Where("liver_id = ?", liver)
+			countQuery.Where("liver_id = ?", liver)
+		}
+		var count int64
+		query.Count(&count)
+		query.Offset(sizeInt * (pageInt - 1)).Limit(sizeInt).Order("level desc").Find(&result)
 		context.JSON(http.StatusOK, gin.H{
-			"list": result,
+			"list":  result,
+			"total": count,
 		})
 	})
 
-	r.Run(":" + strconv.Itoa(int(config.Port))) // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 
 func CORSMiddleware() gin.HandlerFunc {
