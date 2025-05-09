@@ -160,13 +160,16 @@ func NewSlaverManager(node []string) *SlaverManager {
 				}
 				var o map[string]interface{}
 				sonic.Unmarshal(r.Body(), &o)
-				for _, i := range o["data"].(map[string]interface{})["by_room_ids"].(map[string]interface{}) {
-					if i.(map[string]interface{})["live_status"].(float64) != 1 {
-						if !Has(config.Tracing, s) {
-							man.RemoveTasks([]string{s})
+				if err != nil {
+					for _, i := range o["data"].(map[string]interface{})["by_room_ids"].(map[string]interface{}) {
+						if i.(map[string]interface{})["live_status"].(float64) != 1 {
+							if !Has(config.Tracing, s) {
+								man.RemoveTasks([]string{s})
+							}
 						}
 					}
 				}
+
 				time.Sleep(500 * time.Millisecond)
 			}
 

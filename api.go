@@ -669,16 +669,22 @@ func InitHTTP() {
 	r.GET("/fansRank", func(context *gin.Context) {
 		var page = context.DefaultQuery("page", "1")
 		var size = context.DefaultQuery("size", "20")
-		var liver = context.DefaultQuery("liver", "0")
+		var liver = context.DefaultQuery("liver", "")
+		var active = context.DefaultQuery("active", "false")
 		pageInt, _ := strconv.Atoi(page)
 		sizeInt, _ := strconv.Atoi(size)
 		var result []FansClub
 		query := db.Model(&FansClub{})
 		var countQuery = db.Model(&FansClub{})
-		if liver != "0" {
-			query.Where("liver_id = ?", liver)
-			countQuery.Where("liver_id = ?", liver)
+		var s = ""
+		if active == "true" {
+			s = "and TO_DAYS(NOW()) -TO_DAYS(updated_at) <7"
 		}
+		if liver != "" {
+			query.Where("liver_id = ? "+s, liver)
+			countQuery.Where("liver_id = ? "+s, liver)
+		}
+
 		var count int64
 		query.Count(&count)
 		query.Offset(sizeInt * (pageInt - 1)).Limit(sizeInt).Order("level desc").Find(&result)
