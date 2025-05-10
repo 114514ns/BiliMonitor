@@ -1,14 +1,14 @@
 import {Avatar, Badge, Card, CardBody, CardFooter, CardHeader, Image} from "@heroui/react";
+import {memo} from "react";
 
 
-function LiveCard({liveData}) {
-
+const LiveCard = memo(function LiveCard(props) {
     const host = location.hostname;
 
     const port =location.port;
 
     const protocol = location.protocol.replace(":", "")
-    const {Live, UName, UID, Area, Title, Face, Cover} = liveData;
+    const {Live, UName, UID, Area, Title, Face, Cover} = props.liveData;
     const cover = Cover//`${protocol}://${host}:${port}/proxy?url=${Cover}`
 
 
@@ -49,6 +49,7 @@ function LiveCard({liveData}) {
             </Card>
         </div>
     )
-}
+
+})
 
 export default LiveCard;

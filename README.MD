@@ -17,9 +17,10 @@
 - 自动下载收藏夹内的视频（使用场景：想要下载一个视频，或者感觉这个视频会被下架掉，只要点收藏就可以备份/快速获得视频链接）
 - 爬虫：
   - 爬取分区内主播粉丝量，大航海成员，粉丝团成员
-  - 
+  - 支持分布式
+  - 支持设置代理
     
-
+scripts目录下有一些数据整理的python脚本
 
 # Communication
 
@@ -43,8 +44,7 @@ https://github.com/114514ns/BiliMonitor/actions
 ![](https://example.com/undefined20250302233924636.png)
 
 # Known issues
-- 偶有直播开始或结束事件无法正确检测
-- 暂时不支持mips64
+- 暂不支持mips64架构
 # Configuration
 
 ```json5
@@ -82,21 +82,26 @@ https://github.com/114514ns/BiliMonitor/actions
   "SQLPass": "CERtxrAH2zaik7b2", //密码
   "SQLServer": "127.0.0.1:3306", //数据库地址
   "CodeToMP4": true, //将录播姬的flv格式转为mp4格式
-  "SplitAudio": true //上传录播时另外上传一份直播的声音
+  "SplitAudio": true, //上传录播时另外上传一份直播的声音
+  "EnableCollectionMonitor": true, //启用收藏夹监控
+  "Mode": "Master", //分布式的模式 取值为 Master/Slaver
+  "Slaves": [""] ,//子节点列表
+  "TraceArea": true, //是否启用分区监控
+  "BlackTracing": ["21013884"] //房间黑名单
 }
 ```
 大部分功能都需要Cookie，所以请先填写好Cookie。
-建议使用小号，虽然不一定会有啥问题，但是还是不要用大号。
 <br>
-不是所有功能都需要数据库.
 ## 粉丝量监控
 ```json5
 {
-  "User": "2", //你的uid，列表内的所有up主会被定时记录粉丝量，需要设置关注列表允许公开访问
+  "User": "2",
 }
 ```
 这里改成你的uid，然后允许公开访问你的关注列表即可。
-<br/>
+
+程序会每隔指定时间记录关注列表内up主粉丝数
+
 目前没有前端界面显示粉丝量的趋势，只存储在数据库里，后面会加。
 
 ## 收藏夹监控
@@ -107,6 +112,7 @@ https://github.com/114514ns/BiliMonitor/actions
 }
 ~~~
 被监控的用户就是上面设置的那个User。
+
 新建一个名字为Monitor的收藏夹，并设为可公开访问，当收藏夹内出现新的视频时可自动下载并发出推送。
 ## 动态监控
 ```json5
@@ -120,12 +126,13 @@ https://github.com/114514ns/BiliMonitor/actions
 ## 直播间监控
 ```json5
 {
-  "Tracing": [], //要监控的直播间，类型为string[]
+  "Tracing": ["544853"], //要监控的直播间，类型为string[]
 }
 
 ```
 主播开播后会发送推送,同时记录直播间内弹幕和礼物。
-可以在web端查看，端口8080
+
+
 ![](https://example.com/undefined20250307003957739.png)
 ![](https://example.com/undefined20250310000627967.png)
 <details>
@@ -133,6 +140,7 @@ https://github.com/114514ns/BiliMonitor/actions
 <img src="https://example.com/undefined20250307004410454.png">
 <img src="https://example.com/undefined20250307004703580.png"> 
 <img src="https://example.com/undefined20250307005721329.png">
+<img src="https://example.com/undefined20250510135208967.png">
 </details>
 
 ## 视频下载
@@ -144,20 +152,35 @@ https://github.com/114514ns/BiliMonitor/actions
 ## 分区监控
 
 每隔一定时间监控分区内所有主播，并记录大航海和粉丝数据，可在前端页面查看趋势。
-<br/>
+
 主播在分区内直播时：数据在两天内更新过则不更新。
-<br/>
+
 程序最多同时连接20个直播间ws服务器，如果当前不到20个，会选择从分区内选择直播间连接。
-<br/>
-**最后做出来大概是类似vtbs.moe，这块代码日后可能会迁移到新的仓库内**
+
+支持设置http代理服务器。
+
+支持分布式
+
+~~~jsonc
+{
+  "Mode": "Master",
+  "Slaves": ["http://127.0.0.1:30001","http://127.0.0.1:30002","http://127.0.0.1:30003"],
+ }
+~~~
+设置后会自动从分区获取正在直播的直播间并将任务下发到子节点（包括主节点自身
+
+
+主节点只负责下发任务（可以下发给自己），所以需要确保子节点也能访问到数据库。
+
+若不需要分布式爬虫，Slaves留空即可
+
 
 # TODO
 - [ ] 自动刷新Cookie
 - [ ] 完善文档
 - [ ] 程序启动时检查配置文件正确性
-- [ ] 分布式爬虫
 # Referer
 接口文档：[bilibili-API-collect](https://github.com/SocialSisterYi/bilibili-API-collect)
-<br/>
+
 wbi算法：[CuteReimu/bilibili/](https://github.com/CuteReimu/bilibili/)
 
