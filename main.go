@@ -74,6 +74,7 @@ type Config struct {
 	Slaves                  []string
 	TraceArea               bool
 	BlackTracing            []string
+	HTTPProxy               string
 }
 
 type User struct {
@@ -168,6 +169,14 @@ func CheckConfig() {
 	}
 	if config.EnableLiveBackup && !config.EnableAlist {
 		log.Fatal("直播备份需要配合Alist使用")
+	}
+	if config.HTTPProxy != "" {
+		t := resty.New()
+		t.SetProxy(config.HTTPProxy)
+		r, _ := t.R().Get("https://bilibili.com")
+		if r.StatusCode() != 200 {
+			log.Fatal("HTTP代理配置错误")
+		}
 	}
 }
 
@@ -358,12 +367,14 @@ const ENV = "DEV"
 
 var totalRequests = 0
 var launchTime = time.Now()
-var USER_AGENTS = []string{
+var UserAgents = []string{
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.3",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36 Edg/117.0.2045.6",
 	"Mozilla/5.0 (Linux; Android 13; SM-S908U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/111.0.0.0 Mobile Safari/537.36",
 	"Mozilla/5.0 (iPhone14,3; U; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) Version/10.0 Mobile/19A346 Safari/602.1",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0",
 }
 
 func CSRF() string {
@@ -390,7 +401,7 @@ func main() {
 	})
 	rand.Seed(time.Now().UnixNano())
 	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
-		request.Header.Set("User-Agent", USER_AGENTS[rand.Uint32()%uint32(len(USER_AGENTS))])
+		request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
 		return nil
 	})
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
@@ -398,6 +409,7 @@ func main() {
 	content, err := os.ReadFile("config.json")
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
+
 	if err != nil {
 		content = []byte("")
 
@@ -421,6 +433,7 @@ func main() {
 		config.Port = 8081
 		config.Mode = "Master"
 		config.TraceArea = false
+		config.HTTPProxy = ""
 		Cookie = config.Cookie
 		content, _ = sonic.Marshal(&config)
 		os.Create("config.json")
@@ -470,7 +483,11 @@ func main() {
 	go InitHTTP()
 
 	c := cron.New()
-
+	if config.HTTPProxy != "" {
+		client.SetProxy(config.HTTPProxy)
+		res, _ := client.R().Get("https://4.ipw.cn/")
+		log.Printf("当前ip：" + res.String())
+	}
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
