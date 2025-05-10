@@ -160,7 +160,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 				}
 				var o map[string]interface{}
 				sonic.Unmarshal(r.Body(), &o)
-				if err != nil {
+				if err == nil {
 					for _, i := range o["data"].(map[string]interface{})["by_room_ids"].(map[string]interface{}) {
 						if i.(map[string]interface{})["live_status"].(float64) != 1 {
 							if !Has(config.Tracing, s) {

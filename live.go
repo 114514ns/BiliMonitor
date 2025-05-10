@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -748,6 +749,10 @@ func TraceLive(roomId string) {
 	var dialer = &websocket.Dialer{
 		Proxy:            nil,
 		HandshakeTimeout: 45 * time.Second,
+	}
+	if config.HTTPProxy != "" {
+		u, _ := url.Parse(config.HTTPProxy)
+		dialer.Proxy = http.ProxyURL(u)
 	}
 	var c *websocket.Conn
 	if lives[roomId].Live {
