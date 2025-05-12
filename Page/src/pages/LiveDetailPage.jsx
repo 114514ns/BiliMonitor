@@ -160,7 +160,7 @@ function LiveDetailPage(props) {
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600">主播</span>
                             <div className='flex flex-row items-center' onClick={() => {toSpace(liveInfo.UserID)}}>
-                                <img src={`${protocol}://${host}:${port}/api/face?mid=${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
+                                <img src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
                                 <br/>
                                 {liveInfo.UserName}
                             </div>
@@ -188,7 +188,7 @@ function LiveDetailPage(props) {
                         <div
                             className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">时长<br/>
                             <span
-                                className="font-semibold">{formatTimeDiff(liveInfo.StartAt * 1000, liveInfo.EndAt * 1000)}</span>
+                                className="font-semibold">{formatTimeDiff(liveInfo.StartAt * 1000-8*3600*1000, liveInfo.EndAt * 1000)}</span>
                         </div>
                     </div>
 

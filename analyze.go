@@ -53,7 +53,6 @@ func TotalLiver() int {
 	return count
 }
 func RefreshLivers() {
-	cachedLivers = []FrontAreaLiver{}
 	var result []AreaLiver
 	db.Model(&AreaLiver{}).Omit("guard_list").Find(&result)
 	var m = make(map[int64]AreaLiver)
@@ -88,7 +87,7 @@ func RefreshLivers() {
 		fansDiff := float64(o1.Fans - o0.Fans)
 		f.DailyDiff = int(fansDiff / days)
 		var lastLive = AreaLive{}
-		db.Model(&AreaLive{}).Where("uid = ?", liver.UID).Find(&lastLive)
+		db.Model(&AreaLive{}).Where("uid = ?", liver.UID).Order("id desc").Find(&lastLive)
 		f.LastActive = lastLive.Time
 		temp = append(temp, f)
 	}
