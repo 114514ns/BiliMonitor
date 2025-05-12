@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	url2 "net/url"
 	"os"
 	"os/exec"
@@ -390,7 +391,14 @@ func CSRF() string {
 }
 
 var man *SlaverManager
-var consoleLogger = log.New(os.Stdout, "", log.LstdFlags)
+var consoleLogger = log.New(os.Stdout, "", log.LstdFlags) //用于在控制台输出弹幕信息，不会输出到日志文件里
+
+var tempCount = 0 //临时的弹幕计数。每五分钟从数据库读取弹幕数量，在加上内存里临时的弹幕数量，显示给前端。大大减少数据库压力。
+var tempMutex sync.Mutex
+var msg1 int64 = 0
+var msg5 int64 = 0
+var msg60 int64 = 0
+var msg1440 int64 = 0
 
 func main() {
 	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
@@ -487,12 +495,27 @@ func main() {
 		client.SetProxy(config.HTTPProxy)
 		res, _ := client.R().Get("https://4.ipw.cn/")
 		log.Printf("当前ip：" + res.String())
+	} else {
+		client.SetTransport(&http.Transport{
+			Proxy: nil, // 不使用任何代理
+		})
 	}
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
 		man.OnErr = func(tasks []string) {
 			log.Println("onError")
+		}
+		for _, slave := range man.Nodes {
+			res, err := client.R().Get(slave.Address + "/monitor")
+			if err == nil {
+				var obj map[string]interface{}
+				sonic.Unmarshal(res.Body(), &obj)
+				for _, i2 := range obj["lives"].([]interface{}) {
+					var room = i2.(map[string]interface{})["LiveRoom"].(string)
+					slave.Tasks = append(slave.Tasks, room)
+				}
+			}
 		}
 		RecoverLive()
 		go func() {
@@ -523,6 +546,20 @@ func main() {
 				TraceArea(9)
 			}
 		})
+		c.AddFunc("@every 1s", func() {
+			var now = time.Now()
+			if now.Minute()%1 == 0 {
+				go func() {
+					msg1 = MinuteMessageCount(1)
+					msg5 = MinuteMessageCount(5)
+					msg60 = MinuteMessageCount(60)
+					msg1440 = MinuteMessageCount(1440)
+				}()
+				tempMutex.Lock()
+				tempCount = 0
+				tempMutex.Unlock()
+			}
+		})
 		c.AddFunc("@every 1m", FixMoney)
 		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
@@ -540,6 +577,5 @@ func main() {
 	if config.Mode == "Slaver" {
 		log.Printf("Slave Mode")
 	}
-
 	select {}
 }

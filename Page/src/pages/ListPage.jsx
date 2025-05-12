@@ -67,6 +67,7 @@ function ListPage(props) {
                     var url = `${protocol}://${host}:${port}/api/areaLivers?sort=${sort.key}`
                     axios.get(url).then((response) => {
                         setList(response.data.list);
+                        setFiltered(response.data.list);
                     })
                     console.log(sort.key);
                 }}>{sort.description}</AutocompleteItem>}
