@@ -495,33 +495,36 @@ func InitHTTP() {
 		})
 	})
 	r.GET("/status", func(context *gin.Context) {
-		//cache.CacheByRequestURI(memoryStore, 2*time.Second)
-		var (
-			m1, m5, m60, m1440 int64
-			wg                 sync.WaitGroup
-		)
+		var wg sync.WaitGroup
+		var total int64 = 0
+		var l sync.Mutex
+		for _, node := range man.Nodes {
+			if !node.Alive {
+				continue
+			}
+			if node.Address == "http://127.0.0.1:"+strconv.Itoa(int(config.Port)) {
+				continue
+			}
 
-		wg.Add(4)
+			wg.Add(1)
+			go func(n SlaverNode) {
+				defer wg.Done()
+				var result map[string][]Status
 
-		go func() {
-			defer wg.Done()
-			m1 = MinuteMessageCount(1)
-		}()
+				res, err := client.R().
+					SetResult(&result).
+					Get(n.Address + "/count")
 
-		go func() {
-			defer wg.Done()
-			m5 = MinuteMessageCount(5)
-		}()
-
-		go func() {
-			defer wg.Done()
-			m60 = MinuteMessageCount(60)
-		}()
-
-		go func() {
-			defer wg.Done()
-			m1440 = MinuteMessageCount(60 * 24)
-		}()
+				if err != nil {
+					log.Printf("请求子节点 %s 失败: %v", n.Address, err)
+					return
+				}
+				var num, _ = strconv.Atoi(res.String())
+				l.Lock()
+				total = total + int64(num)
+				l.Unlock()
+			}(node)
+		}
 
 		wg.Wait()
 
@@ -530,10 +533,10 @@ func InitHTTP() {
 			"LaunchedAt":    launchTime.Format(time.DateTime),
 			"Livers":        TotalLiver(),
 			"TotalMessages": TotalMessage(),
-			"Message1":      m1,
-			"Message5":      m5,
-			"MessageHour":   m60,
-			"MessageDaily":  m1440,
+			"Message1":      total + msg1,
+			"Message5":      total + msg5,
+			"MessageHour":   total + msg60,
+			"MessageDaily":  total + msg1440,
 			"HTTPBytes":     httpBytes,
 			"WSBytes":       websocketBytes,
 			"Nodes":         man.Nodes,
@@ -692,6 +695,10 @@ func InitHTTP() {
 			"list":  result,
 			"total": count,
 		})
+	})
+
+	r.GET("/count", func(context *gin.Context) {
+		context.String(http.StatusOK, strconv.FormatInt(int64(tempCount), 10))
 	})
 
 	r.Run(":" + strconv.Itoa(int(config.Port)))

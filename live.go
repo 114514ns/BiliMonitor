@@ -39,17 +39,14 @@ func SelfUID(cookie string) int {
 }
 func FixMoney() {
 	var lives0 []Live
-	db.Find(&lives0)
+	db.Where("end_at = 0").Find(&lives0)
 
 	for _, v := range lives0 {
-		if v.EndAt != 0 {
-			continue //已经结束的直播不需要刷新
-		}
 		if time.Now().Unix()-v.StartAt > 3600*24*5 {
 			continue //如果连续播了5天以上，大概率是直播结束的时候没有检测到，实际已经结束
 		}
 		var sum float64
-		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? ", v.ID).Scan(&sum)
+		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? and action_name != 'msg' ", v.ID).Scan(&sum)
 		result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sum), 64)
 		var msgCount int64
 		db.Model(&LiveAction{}).Where("live = ? and action_name = 'msg'", v.ID).Count(&msgCount)
@@ -844,6 +841,9 @@ func TraceLive(roomId string) {
 				sonic.Unmarshal(msgData, &text)
 				var front = FrontLiveAction{}
 				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
+					tempMutex.Lock()
+					tempCount++
+					tempMutex.Unlock()
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
@@ -905,6 +905,9 @@ func TraceLive(roomId string) {
 					consoleLogger.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
+					tempMutex.Lock()
+					tempCount++
+					tempMutex.Unlock()
 					var info = GiftInfo{}
 					sonic.Unmarshal(msgData, &info)
 					action.ActionName = "gift"

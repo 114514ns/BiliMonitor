@@ -42,6 +42,7 @@ https://github.com/114514ns/BiliMonitor/actions
 ![](https://example.com/undefined20250220222834082.png)
 ![](https://example.com/undefined20250302233902605.png)
 ![](https://example.com/undefined20250302233924636.png)
+![](https://example.com/undefined20250511002801489.png)
 
 # Known issues
 - 暂不支持mips64架构
