@@ -7,7 +7,8 @@ type Dash struct {
 				Link string `json:"base_url"`
 			} `json:"video"`
 			Audio []struct {
-				Link string `json:"base_url"`
+				Link   string   `json:"base_url"`
+				Backup []string `json:"backupUrl"`
 			} `json:"audio"`
 		} `json:"dash"`
 	} `json:"data"`
@@ -159,8 +160,12 @@ type UserResponse struct {
 	TTL     int    `json:"ttl"`
 	Data    struct {
 		Card struct {
-			Name string `json:"name"`
-			Face string `json:"face"`
+			Name   string `json:"name"`
+			Face   string `json:"face"`
+			Bio    string `json:"sign"`
+			Verify struct {
+				Content string `json:"desc"`
+			} `json:"official_verify"`
 		}
 		Followers int `json:"follower"`
 	} `json:"data"`
