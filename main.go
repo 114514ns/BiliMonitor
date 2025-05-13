@@ -84,6 +84,8 @@ type User struct {
 	UserID int64
 	Fans   int
 	Face   string
+	Bio    string
+	Verify string
 }
 type Video struct {
 	Title       string
@@ -511,10 +513,14 @@ func main() {
 			if err == nil {
 				var obj map[string]interface{}
 				sonic.Unmarshal(res.Body(), &obj)
-				for _, i2 := range obj["lives"].([]interface{}) {
-					var room = i2.(map[string]interface{})["LiveRoom"].(string)
-					slave.Tasks = append(slave.Tasks, room)
-				}
+				/*
+					for _, i2 := range obj["lives"].([]interface{}) {
+						var room = i2.(map[string]interface{})["LiveRoom"].(string)
+						slave.Tasks = append(slave.Tasks, room)
+					}
+					man.Nodes[i].Tasks = slave.Tasks
+
+				*/
 			}
 		}
 		RecoverLive()

@@ -7,7 +7,7 @@ import {
     CardBody,
     Chip, Input,
     Listbox,
-    ListboxItem,
+    ListboxItem, Select, SelectItem,
     Spacer
 } from "@heroui/react";
 import axios from "axios";
@@ -41,6 +41,8 @@ function ListPage(props) {
     
     const [filted, setFiltered] = React.useState([]);
 
+    const [verify,setVerify] = React.useState([]);
+
 
     const port = location.port
 
@@ -50,6 +52,25 @@ function ListPage(props) {
         axios.get(url).then((response) => {
             setList(response.data.list);
             setFiltered(response.data.list);
+            var map = new Map();
+
+            response.data.list.forEach(item => {
+                item.Verify.split("、").forEach(e => {
+                    if (map.has(e)) {
+                        map.set(e, map.get(e)+1);
+                    } else {
+                        map.set(e,1)
+                    }
+
+                })
+            })
+            var temp = []
+            map.forEach((item, i) => {
+                temp.push(i);
+            })
+            setVerify(temp.sort((a,b) => {
+                return a>b
+            }))
         })
     },[])
     return (
@@ -72,10 +93,15 @@ function ListPage(props) {
                     console.log(sort.key);
                 }}>{sort.description}</AutocompleteItem>}
             </Autocomplete>
+            <Select className="max-w-xs" label="Favorite Animal" placeholder="Select an animal">
+                {verify.map((item) => (
+                    <SelectItem key={item}>{item}</SelectItem>
+                ))}
+            </Select>
             <Listbox
                 virtualization={{
                     maxListboxHeight: window.innerHeight,
-                    itemHeight: 240,
+                    itemHeight: 300,
                 }}
                 hideSelectedIcon
                 variant={'light'}
@@ -91,6 +117,8 @@ function ListPage(props) {
                             Fans={item.Fans}
                             LastActive={(item.LastActive)}
                             UID={item.UID}
+                            Bio={item.Bio}
+                            Verify={item.Verify}
 
                         />
                     </ListboxItem>))}
@@ -114,6 +142,7 @@ function ListPage(props) {
 }
 
 function LiverCard(props) {
+    const up = props.DailyDiff>=0
     return (
         <Card isHoverable  style={{ width: "100%", marginTop: "16px" }} >
             <CardBody style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "16px" }}>
@@ -134,11 +163,13 @@ function LiverCard(props) {
                 <Chip style={{margin:'4px'}} onClick={() => {toSpace(props.UID)}}>{props.UID}</Chip>
 
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.6 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.6 }}>
                     <p style={{ margin: 0 }}>关注：{formatNumber(props.Fans)}</p>
-                    <p style={{ margin: 0 }}>日增：{props.DailyDiff}</p>
+                    <p style={{ margin: 0 }}>日增：{<span style={{color:up?'#00cc00':'#ff0000'}}>{up?'▲':'▼'}</span>}{props.DailyDiff}</p>
                     <p style={{ margin: 0 }}>大航海：{props.Guard}</p>
                     <p style={{ margin: 0, color: "#888" }}>上次直播：{formatTime(props.LastActive)}</p>
+                    <p>{props.Bio}</p>
+                    {props.Verify===''?<></>:<p style={{color:'rgba(190,151,48,1)'}}>{props.Verify}</p>}
                     <p>Rank:{props.Rank+1}</p>
                 </div>
 

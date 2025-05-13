@@ -26,6 +26,8 @@ func FetchUser(mid string, onError func()) User {
 	user.Name = userResponse.Data.Card.Name
 	user.Face = userResponse.Data.Card.Face
 	user.Fans = userResponse.Data.Followers
+	user.Bio = userResponse.Data.Card.Bio
+	user.Verify = userResponse.Data.Card.Verify.Content
 
 	user.UserID, _ = strconv.ParseInt(mid, 10, 64)
 	if user.Fans == 0 {
@@ -278,6 +280,8 @@ func UploadArchive(video Video) string {
 	root, _ := html.Parse(reader)
 	find := goquery.NewDocumentFromNode(root).Find("script")
 	var final = ""
+	var err = false
+	var msg = ""
 	find.Each(func(i int, s *goquery.Selection) {
 		if strings.Contains(s.Text(), "m4s") && strings.Contains(s.Text(), "backup_url") {
 			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
@@ -285,12 +289,21 @@ func UploadArchive(video Video) string {
 			sonic.Unmarshal([]byte(json), &v)
 			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(v.Data.Dash0.Audio[0].Link)
 			//defer audio.RawBody().Close()
+			if audio.StatusCode() == 403 {
+				audio, _ = client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(v.Data.Dash0.Audio[0].Backup[0])
+				if audio.StatusCode() == 403 {
+					err = true
+					msg = json
+					return
+				}
+			}
 			os.WriteFile("cache/"+video.BV+".mp3", audio.Body(), 066)
 			audioFile, _ := os.Create("cache/" + video.BV + ".mp3")
 			//defer audioFile.Close()
 			io.Copy(audioFile, audio.RawBody())
 
 			videoLink, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Video[0].Link)
+
 			//defer video.RawBody().Close()
 			videoFile, _ := os.Create("cache/" + bv + ".m4s")
 			//defer videoFile.Close()
@@ -316,6 +329,9 @@ func UploadArchive(video Video) string {
 			os.Remove("cache/" + bv + ".m4s")
 		}
 	})
+	if err {
+		return msg
+	}
 	return config.AlistServer + final
 
 }

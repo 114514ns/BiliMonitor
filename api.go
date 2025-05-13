@@ -43,6 +43,8 @@ type FrontAreaLiver struct {
 	AreaLiver
 	LastActive time.Time
 	DailyDiff  int
+	Verify     string
+	Bio        string
 }
 
 //go:embed Page/dist
