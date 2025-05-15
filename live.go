@@ -842,7 +842,9 @@ func TraceLive(roomId string) {
 				var front = FrontLiveAction{}
 				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
 					tempMutex.Lock()
-					tempCount++
+					msg1++
+					msg5++
+					msg60++
 					tempMutex.Unlock()
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
@@ -906,7 +908,9 @@ func TraceLive(roomId string) {
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
 					tempMutex.Lock()
-					tempCount++
+					msg1++
+					msg5++
+					msg60++
 					tempMutex.Unlock()
 					var info = GiftInfo{}
 					sonic.Unmarshal(msgData, &info)
