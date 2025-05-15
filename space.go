@@ -139,6 +139,9 @@ func UpdateSpecial() {
 					RecordedDynamic = append(RecordedDynamic, item.IDStr)
 					d, _ := ParseDynamic(item, true)
 					if d.BiliID != "" {
+						if d.Type == "v" {
+							d.Download = true
+						}
 						db.Save(&d)
 					}
 
@@ -270,6 +273,13 @@ func RefreshCollection(id string) {
 
 // 上传稿件到Alist
 func UploadArchive(video Video) string {
+
+	var archive = Archive{}
+	db.Model(&Archive{}).Where("bili_id").Find(&archive)
+	if archive.Download {
+		return ""
+	}
+
 	log.Printf("[%s] 开始下载", video.Title)
 	os.Mkdir("cache", 066)
 	var videolink = "https://bilibili.com/video/" + video.BV + "?p=" + strconv.Itoa(video.Part)
@@ -287,11 +297,11 @@ func UploadArchive(video Video) string {
 			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
 			var v = Dash{}
 			sonic.Unmarshal([]byte(json), &v)
-			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(v.Data.Dash0.Audio[0].Link)
+			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Link)
 			//defer audio.RawBody().Close()
-			if audio.StatusCode() == 403 {
-				audio, _ = client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").SetHeader("Cookie", config.Cookie).Get(v.Data.Dash0.Audio[0].Backup[0])
-				if audio.StatusCode() == 403 {
+			if len(audio.Body()) == 0 {
+				audio, _ = client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Backup[0])
+				if len(audio.Body()) == 0 {
 					err = true
 					msg = json
 					return
@@ -327,6 +337,7 @@ func UploadArchive(video Video) string {
 			os.Remove("cache/" + bv + ".mp4")
 			os.Remove("cache/" + bv + ".mp3")
 			os.Remove("cache/" + bv + ".m4s")
+
 		}
 	})
 	if err {
