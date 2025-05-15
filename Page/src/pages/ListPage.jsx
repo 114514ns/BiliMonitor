@@ -1,4 +1,4 @@
-import React, {useEffect, useLayoutEffect} from 'react';
+import React, {memo, useEffect, useLayoutEffect} from 'react';
 import {
     Autocomplete,
     AutocompleteItem,
@@ -43,6 +43,10 @@ function ListPage(props) {
 
     const [verify,setVerify] = React.useState([]);
 
+    const [verifyFilter, setVerifyFilter] = React.useState('');
+    const [nameFilter, setNameFilter] = React.useState('');
+    const [bioFilter,setBioFilter] = React.useState('');
+
 
     const port = location.port
 
@@ -56,10 +60,12 @@ function ListPage(props) {
 
             response.data.list.forEach(item => {
                 item.Verify.split("、").forEach(e => {
-                    if (map.has(e)) {
-                        map.set(e, map.get(e)+1);
-                    } else {
-                        map.set(e,1)
+                    if (e!=="") {
+                        if (map.has(e)) {
+                            map.set(e, map.get(e)+1);
+                        } else {
+                            map.set(e,1)
+                        }
                     }
 
                 })
@@ -68,17 +74,37 @@ function ListPage(props) {
             map.forEach((item, i) => {
                 temp.push(i);
             })
-            setVerify(temp.sort((a,b) => {
-                return a>b
-            }))
+            var array =Array.from(map);
+            temp = ['Any']
+            array.sort((a,b)=>{
+                return b[1]-a[1];
+            }).forEach(e => {
+                temp.push(e[0]);
+            })
+            setVerify(temp)
         })
     },[])
+
+    useEffect(() => {
+        var o = list
+        if (nameFilter != '') {
+            o = o.filter(i => { return i.UName.indexOf(nameFilter) !== -1 })
+        }
+
+        if(verifyFilter!==''&&verifyFilter!=='Any'){
+            o = o.filter(i => { return i.Verify.indexOf(verifyFilter) !== -1 })
+        }
+        if (bioFilter != '') {
+            o = o.filter(i => { return i.Bio.indexOf(bioFilter) !== -1 })
+        }
+        setFiltered(o)
+    },[verifyFilter,nameFilter,bioFilter])
     return (
         <div>
             <Autocomplete
                 className="max-w-xs"
                 defaultItems={sort}
-                label="排序方式"
+                label="Sort by"
                 placeholder="粉丝"
                 style={{
                     marginLeft:'4px'
@@ -93,11 +119,12 @@ function ListPage(props) {
                     console.log(sort.key);
                 }}>{sort.description}</AutocompleteItem>}
             </Autocomplete>
-            <Select className="max-w-xs" label="Favorite Animal" placeholder="Select an animal">
+            <Select className="max-w-xs" label="Verify filter" placeholder="">
                 {verify.map((item) => (
-                    <SelectItem key={item}>{item}</SelectItem>
+                    <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
                 ))}
             </Select>
+            <Input className='max-w-xs' onChange={event => setBioFilter(event.target.value)}></Input>
             <Listbox
                 virtualization={{
                     maxListboxHeight: window.innerHeight,
@@ -107,7 +134,7 @@ function ListPage(props) {
                 variant={'light'}
                 isVirtualized>
                 {filted.map((item, index) => (
-                    <ListboxItem key={index} value={item.value} css={{width:'100%'}} aria-label={item.label}>
+                    <ListboxItem key={index} value={item.value} css={{width:'100%'}} aria-label={item.label} textValue={''}>
                         <LiverCard
                             Rank={index}
                             Avatar={`${protocol}://${host}:${port}${import.meta.env.PROD?'':'/api'}/face?mid=${item.UID}`}
@@ -132,8 +159,8 @@ function ListPage(props) {
                 height:'60px',
             }}>
                 <Input label="Search"  onValueChange={(e) => {
-                    var o = list.filter(i => { return i.UName.indexOf(e) !== -1 })
-                    setFiltered(o)
+                    setNameFilter(e)
+
                 }}/>
             </div>
         </div>
@@ -141,7 +168,7 @@ function ListPage(props) {
 
 }
 
-function LiverCard(props) {
+const LiverCard = memo(function LiverCard(props) {
     const up = props.DailyDiff>=0
     return (
         <Card isHoverable  style={{ width: "100%", marginTop: "16px" }} >
@@ -176,5 +203,5 @@ function LiverCard(props) {
             </CardBody>
         </Card>
     )
-}
+})
 export default ListPage;

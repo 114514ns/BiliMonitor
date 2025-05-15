@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
@@ -383,10 +384,13 @@ func InitHTTP() {
 				})
 				return
 			}
-		}
 
+		}
+		worker.AddTask(func() {
+			UploadArchive(ParseSingleVideo(bv)[0])
+		})
 		context.JSON(http.StatusOK, gin.H{
-			"message": "可能出bug了",
+			"message": "success",
 		})
 
 	})
@@ -498,7 +502,9 @@ func InitHTTP() {
 	})
 	r.GET("/status", func(context *gin.Context) {
 		var wg sync.WaitGroup
-		var total int64 = 0
+		var t1 = msg1
+		var t2 = msg5
+		var t3 = msg60
 		var l sync.Mutex
 		for _, node := range man.Nodes {
 			if !node.Alive {
@@ -521,10 +527,20 @@ func InitHTTP() {
 					log.Printf("请求子节点 %s 失败: %v", n.Address, err)
 					return
 				}
-				var num, _ = strconv.Atoi(res.String())
-				l.Lock()
-				total = total + int64(num)
-				l.Unlock()
+				for i, s := range strings.Split(res.String(), ",") {
+					l.Lock()
+					if i == 0 {
+						t1 = t1 + toInt64(s)
+					}
+					if i == 1 {
+						t2 = t2 + toInt64(s)
+					}
+					if i == 2 {
+						t3 = t3 + toInt64(s)
+					}
+					l.Unlock()
+				}
+
 			}(node)
 		}
 
@@ -535,10 +551,10 @@ func InitHTTP() {
 			"LaunchedAt":    launchTime.Format(time.DateTime),
 			"Livers":        TotalLiver(),
 			"TotalMessages": TotalMessage(),
-			"Message1":      total + msg1,
-			"Message5":      total + msg5,
-			"MessageHour":   total + msg60,
-			"MessageDaily":  total + msg1440,
+			"Message1":      t1,
+			"Message5":      t2,
+			"MessageHour":   t3,
+			"MessageDaily":  MinuteMessageCount(1440),
 			"HTTPBytes":     httpBytes,
 			"WSBytes":       websocketBytes,
 			"Nodes":         man.Nodes,
@@ -700,7 +716,7 @@ func InitHTTP() {
 	})
 
 	r.GET("/count", func(context *gin.Context) {
-		context.String(http.StatusOK, strconv.FormatInt(int64(tempCount), 10))
+		context.String(http.StatusOK, fmt.Sprintf("%d,%d,%d", msg1, msg5, msg60))
 	})
 
 	r.Run(":" + strconv.Itoa(int(config.Port)))

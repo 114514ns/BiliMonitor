@@ -135,6 +135,7 @@ type Archive struct {
 	Title     string
 	Text      string
 	BiliID    string
+	Download  bool
 }
 type FaceCache struct {
 	UID      int64
@@ -281,6 +282,19 @@ func ParseSingleVideo(bv string) (result []Video) {
 		video.UID = resObj.Data.Owner.Mid
 		video.AuthorFace = resObj.Data.Owner.Face
 		array = append(array, video)
+		var archive = Archive{}
+		db.Find(&archive, "bili_id = ?", bv)
+		if archive.BiliID == "" {
+			archive.BiliID = bv
+			archive.UID = video.UID
+			archive.UName = video.Author
+			archive.CreatedAt = time.Unix(resObj.Data.PublishAt, 0)
+			archive.Title = video.Title
+			archive.Text = video.Desc
+			archive.Type = "v"
+			archive.Download = false
+			db.Save(&archive)
+		}
 	}
 
 	return array
@@ -313,6 +327,19 @@ func ParsePlayList(mid string, session string) []Video {
 			video.PublishAt = time.Unix(int64(archive.CreateAt), 0).Format(time.DateTime)
 			video.Desc = ""
 			array = append(array, video)
+			var a = Archive{}
+			db.Find(&a, "bili_id = ?", video.BV)
+			if a.BiliID == "" {
+				a.BiliID = video.BV
+				a.UID = video.UID
+				a.UName = video.Author
+				a.CreatedAt = time.Unix(int64(archive.CreateAt), 0)
+				a.Title = video.Title
+				a.Text = video.Desc
+				a.Type = "v"
+				a.Download = false
+				db.Save(&archive)
+			}
 		}
 		page++
 	}
@@ -378,6 +405,9 @@ var UserAgents = []string{
 	"Mozilla/5.0 (iPhone14,3; U; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/602.1.50 (KHTML, like Gecko) Version/10.0 Mobile/19A346 Safari/602.1",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36 Edg/136.0.0.0",
 	"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0",
+	"Mozilla/5.0 (Windows 7 Enterprise; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.6099.71 Safari/537.36",
+	"Mozilla/5.0 (Windows Server 2012 R2 Standard; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5975.80 Safari/537.36",
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.5672 Safari/537.36",
 }
 
 func CSRF() string {
@@ -400,7 +430,6 @@ var tempMutex sync.Mutex
 var msg1 int64 = 0
 var msg5 int64 = 0
 var msg60 int64 = 0
-var msg1440 int64 = 0
 
 func main() {
 	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
@@ -502,6 +531,15 @@ func main() {
 			Proxy: nil, // 不使用任何代理
 		})
 	}
+	c.AddFunc("@every 1m", func() {
+		msg1 = 0
+	})
+	c.AddFunc("@every 5m", func() {
+		msg5 = 0
+	})
+	c.AddFunc("@every 60m", func() {
+		msg60 = 0
+	})
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
@@ -552,20 +590,7 @@ func main() {
 				TraceArea(9)
 			}
 		})
-		c.AddFunc("@every 1s", func() {
-			var now = time.Now()
-			if now.Minute()%1 == 0 {
-				go func() {
-					msg1 = MinuteMessageCount(1)
-					msg5 = MinuteMessageCount(5)
-					msg60 = MinuteMessageCount(60)
-					msg1440 = MinuteMessageCount(1440)
-				}()
-				tempMutex.Lock()
-				tempCount = 0
-				tempMutex.Unlock()
-			}
-		})
+
 		c.AddFunc("@every 1m", FixMoney)
 		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
