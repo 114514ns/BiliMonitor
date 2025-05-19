@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	_ "runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -260,7 +261,7 @@ func GetFreeClubCounts(liver string, delay int) int {
 
 	return 30*(found-1) + items
 }
-func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []Log) []DBGuard {
+func GetFansClub(liver string, callback func(g DBGuard)) []DBGuard {
 	log.Printf("[%s] begin fetch fansClub", liver)
 	var page = 1
 	var list = make([]DBGuard, 0)
@@ -269,7 +270,7 @@ func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []L
 	//type=2是所有没上过舰长的粉丝团用户
 	for {
 		u := fmt.Sprintf("https://api.live.bilibili.com/xlive/general-interface/v1/rank/getFansMembersRank?ruid=%s&page=%s&page_size=30&rank_type=%s&ts=%s", liver, strconv.Itoa(page), t, strconv.FormatInt(time.Now().Unix(), 10))
-		res, _ := client.R().Get(u)
+		res, _ := queryClient.R().Get(u)
 		obj := FansClubResponse{}
 		sonic.Unmarshal(res.Body(), &obj)
 		if len(obj.Data.Item) == 0 && !strings.Contains(obj.Message, "服务调用超时") {
@@ -278,7 +279,7 @@ func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []L
 		if !strings.Contains(obj.Message, "服务调用超时") {
 			page++
 		}
-		time.Sleep(time.Duration(delay) * time.Millisecond)
+		time.Sleep(time.Duration(config.RequestDelay) * time.Millisecond)
 		//addLog(logChain, fmt.Sprintf("getting   fans msg=%s,page=%d,len=%d  url = %s", obj.Message, page, len(obj.Data.Item), u))
 		for _, s := range obj.Data.Item {
 			var d = DBGuard{}
@@ -289,9 +290,10 @@ func GetFansClub(liver string, delay int, callback func(g DBGuard), logChain []L
 			d.UName = s.UName
 			d.MedalName = s.Medal.Name
 			list = append(list, d)
-			callback(d)
+			if callback != nil {
+				callback(d)
+			}
 		}
-
 	}
 	log.Printf("[%s] end fetch fansClub", liver)
 	return list
@@ -308,7 +310,7 @@ func GetGuardList(room string, liver string) []Watcher {
 	var page = 1
 	for true {
 		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), liver)
-		res, _ := client.R().Get(url)
+		res, _ := queryClient.R().Get(url)
 		var r = GuardListResponse{}
 		sonic.Unmarshal(res.Body(), &r)
 		if page == 1 {
@@ -343,7 +345,7 @@ func GetGuardList(room string, liver string) []Watcher {
 		if len(r.Data.List) == 0 {
 			break
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * time.Duration(config.RequestDelay))
 	}
 	return arr
 }
@@ -442,6 +444,10 @@ func TraceArea(parent int) {
 	}()
 	var arr = make([]AreaLiver, 0)
 	for {
+		type SortInfo struct {
+			Room string
+			Time int64
+		}
 		working = true
 		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?platform=web&parent_area_id=%d&area_id=0&sort_type=&page=%d&vajra_business_key=&web_location=444.43", parent, page))
 		var now = time.Now()
@@ -449,8 +455,10 @@ func TraceArea(parent int) {
 		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
 		log.Printf("page=%d,len=%d", page, len(obj.Data.List))
+		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
 		for _, s2 := range obj.Data.List {
+
 			logChain := make([]Log, 0)
 			var fansMap = make(map[int64]DBGuard)
 			i := AreaLiver{}
@@ -497,19 +505,19 @@ func TraceArea(parent int) {
 					addLog(logChain, fmt.Sprintf("New Liver"))
 					addLog(logChain, fmt.Sprintf("getting fansClub"))
 					//如果这个主播在数据库里没有，就获取活跃的粉丝团用户列表，和免费的粉丝团用户是数量
-					GetFansClub(strconv.FormatInt(s2.UID, 10), 500, func(g DBGuard) {
+					GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
 						club := FansClub{}
 						fansMap[g.UID] = g
 						club.DBGuard = g
 						club.Liver = s2.UName
 						club.LiverID = s2.UID
 						db.Save(&club)
-					}, logChain)
+					})
 
 					i.FreeClubs = GetFreeClubCounts(strconv.FormatInt(s2.UID, 10), 500)
 				} else {
 					//数据库里已经有这个主播的情况下只要更新活跃的用户就可以了
-					GetFansClub(strconv.FormatInt(s2.UID, 10), 5, func(g DBGuard) {
+					GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
 						club := FansClub{}
 						fansMap[g.UID] = g
 						db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
@@ -528,7 +536,7 @@ func TraceArea(parent int) {
 							db.Save(&club)
 						}
 
-					}, logChain)
+					})
 				}
 
 				log.Printf("[%s] begin fetch guardList", s2.UName)
@@ -574,28 +582,15 @@ func TraceArea(parent int) {
 			o := AreaLiver{}
 			db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&o)
 			if o.Fans > 10000 {
-				_, ok := lives[strconv.Itoa(i.Room)]
-				if !ok {
-					var has = false
-					recording := 0
-					for _, s := range lives {
-						if s.Live {
-							recording++
-						}
-						if s.LiveRoom == strconv.Itoa(i.Room) {
-							has = true
-						}
-					}
-					if recording < 20 && !has {
-						var roomId = strconv.Itoa(i.Room)
-						log.Printf("before addTask")
-						man.AddTask(roomId)
-						log.Printf("after addTask")
-					}
-
-				}
+				m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
 			}
 			log.Printf("end %s", s2.UName)
+		}
+		sort.Slice(m, func(i, j int) bool {
+			return m[i].Time > m[j].Time
+		})
+		for _, info := range m {
+			man.AddTask(info.Room)
 		}
 		log.Printf("page=%d,More=%d", page, obj.Data.More)
 		if obj.Data.More == 0 {
