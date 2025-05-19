@@ -15,6 +15,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	url2 "net/url"
 	"os"
@@ -76,6 +77,10 @@ type Config struct {
 	TraceArea               bool
 	BlackTracing            []string
 	HTTPProxy               string
+	RefreshToken            string
+	QueryProxy              string
+	QueryAlive              int
+	RequestDelay            int
 }
 
 type User struct {
@@ -187,7 +192,7 @@ func CheckConfig() {
 func UpdateGuard() {
 
 }
-func RefreshCookie() {
+func ie() {
 	//var url = "https://www.bilibili.com/correspond/1/" + getCorrespondPath(time.Now().UnixMilli())
 	//_, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", USER_AGENT).Get(url)
 
@@ -430,25 +435,11 @@ var tempMutex sync.Mutex
 var msg1 int64 = 0
 var msg5 int64 = 0
 var msg60 int64 = 0
+var queryClient0 = resty.New()
+var queryClient = resty.New()
 
-func main() {
-	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
-	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
-		totalRequests++
-		httpBytes += response.RawResponse.ContentLength
-		return nil
-	})
-	rand.Seed(time.Now().UnixNano())
-	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
-		request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
-		return nil
-	})
-	multiWriter := io.MultiWriter(os.Stdout, logFile)
-	log.SetOutput(multiWriter)
+func loadConfig() {
 	content, err := os.ReadFile("config.json")
-
-	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
-
 	if err != nil {
 		content = []byte("")
 
@@ -479,6 +470,52 @@ func main() {
 		os.WriteFile("config.json", content, 666)
 	}
 	err = sonic.Unmarshal(content, &config)
+}
+func setupHTTPClient() {
+	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
+		totalRequests++
+		httpBytes += response.RawResponse.ContentLength
+		return nil
+	})
+	if config.QueryProxy != "" {
+		queryClient0.SetTransport(&http.Transport{
+			DialContext: (&net.Dialer{
+				KeepAlive: 30 * time.Second, // 保持连接的生存期
+			}).DialContext,
+		})
+		queryClient0.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+			if rand.Int()%100 > config.QueryAlive {
+				r.Header.Set("Connection", "close")
+			}
+			return nil
+		})
+		queryClient0.SetProxy(config.QueryProxy)
+	}
+	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
+		request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
+		return nil
+	})
+	if config.QueryProxy == "" {
+		queryClient = client
+	} else {
+		queryClient = queryClient0
+		queryClient.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
+			request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
+			return nil
+		})
+	}
+}
+func main() {
+	loadConfig()
+	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
+
+	rand.Seed(time.Now().UnixNano())
+
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(multiWriter)
+
+	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
+
 	mailClient = resend.NewClient(config.ResendToken)
 	if config.EnableSQLite {
 		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{
@@ -594,6 +631,7 @@ func main() {
 		c.AddFunc("@every 1m", FixMoney)
 		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
+		c.AddFunc("@every 240m", RefreshCookie)
 		if err != nil {
 			return
 		}
@@ -609,4 +647,31 @@ func main() {
 		log.Printf("Slave Mode")
 	}
 	select {}
+}
+
+func RefreshCookie() {
+	/*
+		res, _ := client.R().SetHeader("Cookie", config.Cookie).Get("https://passport.bilibili.com/x/passport-login/web/cookie/info")
+		type RefreshResponse struct {
+			Data struct {
+				Refresh   bool  `json:"refresh"`
+				Timestamp int64 `json:"timestamp"`
+			}
+		}
+		var obj RefreshResponse
+		sonic.Unmarshal(res.Body(), &obj)
+		if obj.Data.Refresh == true {
+			path := getCorrespondPath(obj.Data.Timestamp)
+			res, _ = client.R().SetHeader("Cookie", config.Cookie).Get("https://www.bilibili.com/correspond/1/" + path)
+			htmlContent := res.Body()
+			reader := bytes.NewReader(htmlContent)
+			root, _ := html.Parse(reader)
+			find := goquery.NewDocumentFromNode(root).Find("#1-name")
+			csrf := find.Text()
+
+			body := fmt.Sprintf("csrf=%s&refresh_csrf=%s&source=main_web&refresh_token=%s", CSRF(), csrf, config.RefreshToken)
+			res, _ := client.R().SetBody(body).Post("https://passport.bilibili.com/x/passport-login/web/cookie/refresh?")
+		}
+
+	*/
 }
