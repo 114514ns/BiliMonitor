@@ -383,3 +383,10 @@ func GetFace(uid string) string {
 		return obj.Face
 	}
 }
+
+func GetFansLocal(mid int64) int {
+	var found User
+	db.Model(&User{}).Where("user_id = ?", mid).Last(&found)
+
+	return found.Fans
+}

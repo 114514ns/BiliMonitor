@@ -401,6 +401,8 @@ type Log struct {
 
 var working = false
 
+var liveWorker = NewWorker()
+
 func addLog(chain []Log, content string) {
 	/*
 		chain = append(chain, Log{Time: time.Now(), Content: content})
@@ -454,12 +456,27 @@ func TraceArea(parent int) {
 		s, _ := wbi.SignQuery(u.Query(), now)
 		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
-		log.Printf("page=%d,len=%d", page, len(obj.Data.List))
 		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
+		log.Printf("page=%d,len=%d", page, len(obj.Data.List))
+		for _, s2 := range obj.Data.List {
+			var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
+			r, _ := client.R().Get(u0)
+			var info = LiveStreamResponse{}
+			sonic.Unmarshal(r.Body(), &info)
+			if GetFansLocal(s2.UID) > 10000 || (GetFansLocal(s2.UID) == 0 && s2.Watch.Num > 1000) {
+				m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+			}
+			time.Sleep(800 * time.Millisecond)
+		}
+		sort.Slice(m, func(i, j int) bool {
+			return m[i].Time > m[j].Time
+		})
+		for _, info := range m {
+			man.AddTask(info.Room)
+		}
 		for _, s2 := range obj.Data.List {
 
-			logChain := make([]Log, 0)
 			var fansMap = make(map[int64]DBGuard)
 			i := AreaLiver{}
 			i.UName = s2.UName
@@ -474,11 +491,9 @@ func TraceArea(parent int) {
 			r, _ := client.R().Get(u0)
 			var info = LiveStreamResponse{}
 			sonic.Unmarshal(r.Body(), &info)
-			addLog(logChain, fmt.Sprintf("Chain start"))
-			addLog(logChain, fmt.Sprintf("Liver:%s  Title=%s", s2.UName, s2.Title))
 			db.Model(&AreaLive{}).Where("uid = ?", s2.UID).Last(&live)
 			if live.Time.Unix() != time.Unix(info.Data.Time, 0).Unix() {
-				addLog(logChain, fmt.Sprintf("New Live"))
+
 				var l = AreaLive{}
 				l.UName = s2.UName
 				l.UID = s2.UID
@@ -489,12 +504,10 @@ func TraceArea(parent int) {
 				l.Time = time.Unix(info.Data.Time, 0)
 				db.Save(&l)
 			} else {
-				addLog(logChain, fmt.Sprintf("Exist live,update watchNum %d->%d", live.Watch, s2.Watch.Num))
 				live.Watch = s2.Watch.Num
 				db.Save(&live)
 			}
 			log.Printf("current Liver %s", s2.UName)
-
 			db.Model(&AreaLiver{}).
 				Where("uid = ?", s2.UID).
 				Order("id DESC").
@@ -502,41 +515,44 @@ func TraceArea(parent int) {
 			//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
 			if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*48 {
 				if found.UID == 0 {
-					addLog(logChain, fmt.Sprintf("New Liver"))
-					addLog(logChain, fmt.Sprintf("getting fansClub"))
 					//如果这个主播在数据库里没有，就获取活跃的粉丝团用户列表，和免费的粉丝团用户是数量
-					GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
-						club := FansClub{}
-						fansMap[g.UID] = g
-						club.DBGuard = g
-						club.Liver = s2.UName
-						club.LiverID = s2.UID
-						db.Save(&club)
-					})
-
-					i.FreeClubs = GetFreeClubCounts(strconv.FormatInt(s2.UID, 10), 500)
-				} else {
-					//数据库里已经有这个主播的情况下只要更新活跃的用户就可以了
-					GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
-						club := FansClub{}
-						fansMap[g.UID] = g
-						db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
-						if club.Score != g.Score {
-							addLog(logChain, fmt.Sprintf("Update Medal %d->%d ", club.Score, g.Score))
-						}
-						if club.Score != 0 {
-							club.Score = g.Score
-							club.Liver = g.Liver
-							db.Save(&club)
-						} else {
+					liveWorker.AddTask(func() {
+						GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
+							club := FansClub{}
 							fansMap[g.UID] = g
 							club.DBGuard = g
 							club.Liver = s2.UName
 							club.LiverID = s2.UID
 							db.Save(&club)
-						}
+						})
 
+						i.FreeClubs = GetFreeClubCounts(strconv.FormatInt(s2.UID, 10), 500)
 					})
+
+				} else {
+					//数据库里已经有这个主播的情况下只要更新活跃的用户就可以了
+					liveWorker.AddTask(func() {
+						GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
+							club := FansClub{}
+							fansMap[g.UID] = g
+							db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
+							if club.Score != g.Score {
+							}
+							if club.Score != 0 {
+								club.Score = g.Score
+								club.Liver = g.Liver
+								db.Save(&club)
+							} else {
+								fansMap[g.UID] = g
+								club.DBGuard = g
+								club.Liver = s2.UName
+								club.LiverID = s2.UID
+								db.Save(&club)
+							}
+
+						})
+					})
+
 				}
 
 				log.Printf("[%s] begin fetch guardList", s2.UName)
@@ -586,12 +602,7 @@ func TraceArea(parent int) {
 			}
 			log.Printf("end %s", s2.UName)
 		}
-		sort.Slice(m, func(i, j int) bool {
-			return m[i].Time > m[j].Time
-		})
-		for _, info := range m {
-			man.AddTask(info.Room)
-		}
+
 		log.Printf("page=%d,More=%d", page, obj.Data.More)
 		if obj.Data.More == 0 {
 			break
