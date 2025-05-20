@@ -484,7 +484,7 @@ func setupHTTPClient() {
 			}).DialContext,
 		})
 		queryClient0.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
-			if rand.Int()%100 > config.QueryAlive {
+			if rand.Int()%100 < config.QueryAlive {
 				r.Header.Set("Connection", "close")
 			}
 			return nil
@@ -505,8 +505,12 @@ func setupHTTPClient() {
 		})
 	}
 }
+
+var localClient = resty.New()
+
 func main() {
 	loadConfig()
+	setupHTTPClient()
 	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 
 	rand.Seed(time.Now().UnixNano())

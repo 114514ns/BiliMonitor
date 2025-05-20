@@ -38,7 +38,7 @@ func (man *SlaverManager) AddTask(task string) {
 		return
 	}
 
-	if len(man.GetAllTasks()) > len(man.Nodes)*25 {
+	if len(man.GetAllTasks(false)) > len(man.Nodes)*25 {
 		log.Printf("Reach max limit")
 		return
 	}
@@ -61,7 +61,7 @@ func (man *SlaverManager) AddTask(task string) {
 	target.Tasks = append(target.Tasks, task)
 
 	go func(addr string) {
-		res, err := client.R().
+		res, err := localClient.R().
 			Get(addr + "/trace?room=" + task)
 
 		log.Printf("[%s]  responsed with  %d", task, res.StatusCode())
@@ -92,9 +92,11 @@ func (man *SlaverManager) RemoveTasks(tasks []string) {
 		man.Nodes[i].Tasks = newTasks
 	}
 }
-func (man *SlaverManager) GetAllTasks() []string {
-	man.Lock.Lock()
-	defer man.Lock.Unlock()
+func (man *SlaverManager) GetAllTasks(lock bool) []string {
+	if lock {
+		man.Lock.Lock()
+		defer man.Lock.Unlock()
+	}
 
 	var result []string
 	seen := make(map[string]struct{})
@@ -112,7 +114,7 @@ func (man *SlaverManager) GetAllTasks() []string {
 func NewSlaverManager(node []string) *SlaverManager {
 	var man = &SlaverManager{}
 	for _, s := range node {
-		res, err := client.R().Get(s + "/ping")
+		res, err := localClient.R().Get(s + "/ping")
 		if err == nil && res.String() == "pong" {
 			man.Nodes = append(man.Nodes, SlaverNode{
 				Address: s,
@@ -130,7 +132,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 			man.Lock.Lock()
 			var recoveredTasks []string
 			for i := range man.Nodes {
-				res, err := client.R().Get(man.Nodes[i].Address + "/ping")
+				res, err := localClient.R().Get(man.Nodes[i].Address + "/ping")
 				if err != nil || res.String() != "pong" {
 					if man.Nodes[i].Alive {
 						log.Printf("[%s] Node down. Reassigning %d tasks", man.Nodes[i].Address, len(man.Nodes[i].Tasks))
@@ -155,11 +157,11 @@ func NewSlaverManager(node []string) *SlaverManager {
 
 		for range ticker.C {
 
-			all := man.GetAllTasks()
+			all := man.GetAllTasks(true)
 
 			for _, s := range all {
 				var u = "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?req_biz=web_room_componet&room_ids=" + s
-				r, err := client.R().Get(u)
+				r, err := localClient.R().Get(u)
 				if err != nil {
 					log.Printf("[%s] Error get room info %v", s, err)
 				}
