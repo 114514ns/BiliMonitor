@@ -27,11 +27,11 @@ import (
 
 type SelfInfo struct {
 	Data struct {
-		Mid int `json:"mid"`
+		Mid int64 `json:"mid"`
 	} `json:"data"`
 }
 
-func SelfUID(cookie string) int {
+func SelfUID(cookie string) int64 {
 	res, _ := client.R().SetHeader("Cookie", cookie).Get("https://api.bilibili.com/x/web-interface/nav")
 
 	var self = SelfInfo{}
@@ -435,6 +435,7 @@ func SendMessage(msg string, room int, onResponse func(string)) {
 
 func TraceArea(parent int) {
 	log.Println("begin TraceArea")
+	var lock sync.Mutex
 	if working {
 		log.Println("TraceArea is still executing,break")
 		return //确保不会重叠执行
@@ -519,7 +520,9 @@ func TraceArea(parent int) {
 					liveWorker.AddTask(func() {
 						GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
 							club := FansClub{}
+							lock.Lock()
 							fansMap[g.UID] = g
+							lock.Unlock()
 							club.DBGuard = g
 							club.Liver = s2.UName
 							club.LiverID = s2.UID
@@ -534,7 +537,9 @@ func TraceArea(parent int) {
 					liveWorker.AddTask(func() {
 						GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
 							club := FansClub{}
+							lock.Lock()
 							fansMap[g.UID] = g
+							lock.Unlock()
 							db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
 							if club.Score != g.Score {
 							}
@@ -543,7 +548,9 @@ func TraceArea(parent int) {
 								club.Liver = g.Liver
 								db.Save(&club)
 							} else {
+								lock.Lock()
 								fansMap[g.UID] = g
+								lock.Unlock()
 								club.DBGuard = g
 								club.Liver = s2.UName
 								club.LiverID = s2.UID
@@ -571,7 +578,14 @@ func TraceArea(parent int) {
 					ins.Liver = s2.UName
 					ins.LiverID = s2.UID
 					ins.MedalName = watcher.Medal.Name
+					lock.Lock()
 					ins.Score = fansMap[watcher.UID].Score
+					lock.Unlock()
+					if ins.Score == 0 {
+						var found FansClub
+						db.Model(&FansClub{}).Where("uid = ? and liver_id = ? ", ins.UID, ins.LiverID).Order("id desc").Limit(1).First(&found)
+						ins.Score = found.Score
+					}
 
 					if ins.Type == 1 {
 						l1++
@@ -1124,22 +1138,24 @@ func TraceLive(roomId string) {
 			}
 			e, ok := lives[roomId]
 			if status.Data.LiveStatus != 1 && (isLive(roomId) || (ok && e.Live)) {
-				setLive(roomId, false)
-				var sum float64
-				db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
+				if status.Message != "" {
+					setLive(roomId, false)
+					var sum float64
+					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
-				db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
-				living = false
-				i, _ := strconv.Atoi(roomId)
-				if config.EnableLiveBackup {
-					go UploadLive(Live{RoomId: i, UserName: liver})
-				}
-				log.Printf("[%s] 直播结束，断开连接", liver)
-				c.Close()
-				if !Has(config.Tracing, roomId) {
-					log.Println("不在关注列表，结束")
-					delete(lives, roomId)
-					return
+					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+					living = false
+					i, _ := strconv.Atoi(roomId)
+					if config.EnableLiveBackup {
+						go UploadLive(Live{RoomId: i, UserName: liver})
+					}
+					log.Printf("[%s] 直播结束，断开连接", liver)
+					c.Close()
+					if !Has(config.Tracing, roomId) {
+						log.Println("不在关注列表，结束")
+						delete(lives, roomId)
+						return
+					}
 				}
 
 			}
@@ -1217,7 +1233,7 @@ func FillGiftPrice(room string, area int, parent int) {
 }
 
 type Certificate struct {
-	Uid      int    `json:"uid"`
+	Uid      int64  `json:"uid"`
 	RoomId   int    `json:"roomid"`
 	Key      string `json:"key"`
 	Protover int    `json:"protover"`
