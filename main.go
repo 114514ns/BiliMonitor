@@ -37,6 +37,7 @@ var mailClient = resend.NewClient("")
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
 
 type Config struct {
+	UID                     int64
 	Port                    int32
 	SpecialDelay            string
 	CommonDelay             string
@@ -511,6 +512,12 @@ var localClient = resty.New()
 func main() {
 	loadConfig()
 	setupHTTPClient()
+	RefreshCookie()
+	if config.UID == 0 {
+		config.UID = SelfUID(config.Cookie)
+		SaveConfig()
+		os.Exit(0)
+	}
 	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
 
 	rand.Seed(time.Now().UnixNano())
@@ -539,7 +546,7 @@ func main() {
 		dsl = strings.Replace(dsl, "#server", config.SQLServer, 1)
 		dsl = strings.Replace(dsl, "#name", config.SQLName, 1)
 
-		db, _ = gorm.Open(mysql.New(mysql.Config{
+		db, err = gorm.Open(mysql.New(mysql.Config{
 			DSN: dsl, // DSN data source name
 		}), &gorm.Config{Logger: logger.New(
 			log.New(os.Stdout, "", log.LstdFlags),
@@ -547,6 +554,12 @@ func main() {
 				IgnoreRecordNotFoundError: true,
 			},
 		)})
+	}
+	if db == nil || err != nil {
+		log.Println("Fail to connect to database")
+		log.Fatal(err.Error())
+	} else {
+		log.Println("Success to connect to database")
 	}
 	TotalGuards()
 	wbi.WithRawCookies(config.Cookie)
@@ -565,21 +578,32 @@ func main() {
 	c := cron.New()
 	if config.HTTPProxy != "" {
 		client.SetProxy(config.HTTPProxy)
-		res, _ := client.R().Get("https://4.ipw.cn/")
-		log.Printf("当前ip：" + res.String())
+		log.Println(config.HTTPProxy)
 	} else {
 		client.SetTransport(&http.Transport{
-			Proxy: nil, // 不使用任何代理
+			Proxy: nil,
 		})
 	}
+	time.Sleep(1 * time.Second)
+	res, _ := client.R().Get("https://test.ipw.cn/")
+	log.Printf("当前ip：" + res.String())
+	res, _ = client.R().Get("https://api.bilibili.com/x/web-interface/zone")
+	log.Printf("当前ip：" + res.String())
+
 	c.AddFunc("@every 1m", func() {
+		tempMutex.Lock()
 		msg1 = 0
+		tempMutex.Unlock()
 	})
 	c.AddFunc("@every 5m", func() {
+		tempMutex.Lock()
 		msg5 = 0
+		tempMutex.Unlock()
 	})
 	c.AddFunc("@every 60m", func() {
+		tempMutex.Lock()
 		msg60 = 0
+		tempMutex.Unlock()
 	})
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
@@ -678,4 +702,5 @@ func RefreshCookie() {
 		}
 
 	*/
+
 }

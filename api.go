@@ -677,7 +677,7 @@ func InitHTTP() {
 		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
-			time.Sleep(30 * time.Second)
+			time.Sleep(60 * time.Second)
 		})
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
