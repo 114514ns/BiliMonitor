@@ -237,8 +237,9 @@ type Watcher struct {
 	} `json:"medal_info"`
 }
 type LiveStatusResponse struct {
-	Cmd  string `json:"cmd"`
-	Data struct {
+	Cmd     string `json:"cmd"`
+	Message string `json:"message"`
+	Data    struct {
 		LiveStatus int   `json:"live_status"`
 		LiveTime   int64 `json:"live_time"`
 	} `json:"data"`
