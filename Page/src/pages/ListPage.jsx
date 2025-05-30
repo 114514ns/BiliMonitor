@@ -102,12 +102,13 @@ function ListPage(props) {
     return (
         <div>
             <Autocomplete
-                className="max-w-xs"
+                className="max-w-xs mb-4"
                 defaultItems={sort}
                 label="Sort by"
                 placeholder="粉丝"
                 style={{
                     marginLeft:'4px'
+
                 }}
             >
                 {(sort) => <AutocompleteItem key={sort.key} onPress={(e) => {
@@ -119,12 +120,12 @@ function ListPage(props) {
                     console.log(sort.key);
                 }}>{sort.description}</AutocompleteItem>}
             </Autocomplete>
-            <Select className="max-w-xs" label="Verify filter" placeholder="">
+            <Select className="max-w-xs mb-4" label="Verify filter" placeholder="">
                 {verify.map((item) => (
                     <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
                 ))}
             </Select>
-            <Input className='max-w-xs' onChange={event => setBioFilter(event.target.value)}></Input>
+            <Input className='max-w-xs mb-4' onChange={event => setBioFilter(event.target.value)} label={'Sign filter'}></Input>
             <Listbox
                 virtualization={{
                     maxListboxHeight: window.innerHeight,
