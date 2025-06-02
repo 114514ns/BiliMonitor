@@ -38,14 +38,14 @@ func (man *SlaverManager) AddTask(task string) {
 		return
 	}
 
-	if len(man.GetAllTasks(false)) > len(man.Nodes)*25 {
+	if len(man.GetAllTasks(false)) > len(man.Nodes)*40 {
 		log.Printf("Reach max limit")
 		return
 	}
 
 	var aliveNodes []*SlaverNode
 	for i := range man.Nodes {
-		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 25 || Has(config.Tracing, task) /*特别关注列表内无视限制*/ {
+		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 40 || Has(config.Tracing, task) /*特别关注列表内无视限制*/ {
 			aliveNodes = append(aliveNodes, &man.Nodes[i])
 		}
 	}
