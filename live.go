@@ -32,8 +32,11 @@ type SelfInfo struct {
 }
 
 func SelfUID(cookie string) int64 {
-	res, _ := client.R().SetHeader("Cookie", cookie).Get("https://api.bilibili.com/x/web-interface/nav")
+	res, err := client.R().SetHeader("Cookie", cookie).Get("https://api.bilibili.com/x/web-interface/nav")
 
+	if err != nil {
+		fmt.Println(err)
+	}
 	var self = SelfInfo{}
 	sonic.Unmarshal(res.Body(), &self)
 	return self.Data.Mid
@@ -508,7 +511,7 @@ func TraceArea(parent int) {
 				live.Watch = s2.Watch.Num
 				db.Save(&live)
 			}
-			log.Printf("current Liver %s", s2.UName)
+			//log.Printf("current Liver %s", s2.UName)
 			db.Model(&AreaLiver{}).
 				Where("uid = ?", s2.UID).
 				Order("id DESC").
@@ -608,7 +611,7 @@ func TraceArea(parent int) {
 				time.Sleep(time.Second * 2)
 				db.Save(&i)
 			}
-			log.Printf("finish update %s", s2.UName)
+			//log.Printf("finish update %s", s2.UName)
 			o := AreaLiver{}
 			db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&o)
 			if o.Fans > 10000 {
@@ -627,7 +630,10 @@ func TraceArea(parent int) {
 	working = false
 }
 func BuildAuthMessage(room string) string {
-	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room)
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8"
+	query, _ := url.Parse(url0)
+	signed, _ := wbi.SignQuery(query.Query(), time.Now())
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
 	if len(liveInfo.Data.HostList) == 0 {
@@ -669,6 +675,12 @@ func setLive(roomId string, live bool) {
 	if s, ok := lives[roomId]; ok {
 		s.Live = live
 	}
+}
+func RandomHost() string {
+	var HOST = []string{"zj-cn-live-comet.chat.bilibili.com", "bd-bj-live-comet-06.chat.bilibili.com", "bd-sz-live-comet-10.chat.bilibili.com", "broadcastlv.chat.bilibili.com"}
+
+	return HOST[rand.Intn(len(HOST))]
+
 }
 func TraceLive(roomId string) {
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
@@ -753,16 +765,17 @@ func TraceLive(roomId string) {
 		}
 	}
 
-	var url0 = "https://api.bilibili.com/x/web-interface/nav"
-	url0 = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId
-	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get(url0)
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId + "&web_location=444.8"
+	query, _ := url.Parse(url0)
+	signed, _ := wbi.SignQuery(query.Query(), time.Now())
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
 	if len(liveInfo.Data.HostList) == 0 {
 		log.Println("error,break" + res.String())
 		return
 	}
-	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
+	u := url.URL{Scheme: "wss", Host: RandomHost() + ":2245", Path: "/sub"}
 	var dialer = &websocket.Dialer{
 		Proxy:            nil,
 		HandshakeTimeout: 45 * time.Second,
@@ -773,7 +786,9 @@ func TraceLive(roomId string) {
 	}
 	var c *websocket.Conn
 	if lives[roomId].Live {
-		c, _, err = dialer.Dial(u.String(), nil)
+		var header = http.Header{}
+		header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+		c, _, err = dialer.Dial(u.String(), header)
 	}
 	if err != nil {
 		log.Println("["+liver+"]  "+"Dial:", err)
@@ -868,7 +883,7 @@ func TraceLive(roomId string) {
 					tempMutex.Unlock()
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
-					action.FromId = strconv.Itoa(int(text.Info[2].([]interface{})[0].(float64)))
+					action.FromId = int64(text.Info[2].([]interface{})[0].(float64))
 					action.Extra = text.Info[1].(string)
 					action.HonorLevel = int8(text.Info[16].([]interface{})[0].(float64))
 					front.Emoji = make(map[string]string)
@@ -940,7 +955,7 @@ func TraceLive(roomId string) {
 					action.MedalLevel = int8(info.Data.Medal.Level)
 					action.HonorLevel = info.Data.HonorLevel
 					action.MedalName = info.Data.Medal.Name
-					action.FromId = strconv.Itoa(info.Data.SenderUinfo.UID)
+					action.FromId = info.Data.SenderUinfo.UID
 					front.MedalColor = fmt.Sprintf("#%06X", info.Data.Medal.Color)
 					mu.RLock()
 					price := float64(GiftPrice[info.Data.GiftName]) * float64(info.Data.Num)
@@ -962,7 +977,7 @@ func TraceLive(roomId string) {
 
 					var enter = EnterLive{}
 					sonic.Unmarshal(msgData, &enter)
-					action.FromId = strconv.Itoa(enter.Data.UID)
+					action.FromId = enter.Data.UID
 					action.FromName = enter.Data.Uname
 					action.ActionName = "enter"
 					//db.Create(&action)
@@ -1024,19 +1039,19 @@ func TraceLive(roomId string) {
 
 					action.ActionName = "sc"
 					action.FromName = sc.Data.UserInfo.Uname
-					action.FromId = strconv.Itoa(sc.Data.Uid)
+					action.FromId = sc.Data.Uid
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sc.Data.Price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
 
 					action.GiftAmount = sql.NullInt16{Valid: true, Int16: 1}
 					action.Extra = sc.Data.Message
-					if action.FromId != "0" {
+					if action.FromId != 0 {
 						db.Create(&action)
 					}
 				} else if strings.Contains(obj, "GUARD_BUY") { //上舰
 					var guard = GuardInfo{}
 					sonic.Unmarshal(msgData, &guard)
-					action.FromId = strconv.Itoa(guard.Data.Uid)
+					action.FromId = guard.Data.Uid
 					action.ActionName = "guard"
 					action.FromName = guard.Data.Username
 					action.GiftName = guard.Data.GiftName
@@ -1292,7 +1307,7 @@ type GiftInfo struct {
 			Base struct {
 				Name string `json:"name"`
 			} `json:"base"`
-			UID int `json:"uid"`
+			UID int64 `json:"uid"`
 		} `json:"sender_uinfo"`
 		UID   int `json:"uid"`
 		Medal struct {
@@ -1324,7 +1339,7 @@ type LiveAction struct {
 	CreatedAt  time.Time
 	Live       uint
 	FromName   string
-	FromId     string
+	FromId     int64
 	LiveRoom   string
 	ActionName string
 	GiftName   string
@@ -1372,7 +1387,7 @@ type Live struct {
 type EnterLive struct {
 	Cmd  string `json:"cmd"`
 	Data struct {
-		UID       int    `json:"uid"`
+		UID       int64  `json:"uid"`
 		Uname     string `json:"uname"`
 		FansMedal struct {
 			MedalName string `json:"medal_name"`
@@ -1393,7 +1408,7 @@ type SuperChatInfo struct {
 	Data struct {
 		Message  string  `json:"message"`
 		Price    float64 `json:"price"`
-		Uid      int     `json:"uid"`
+		Uid      int64   `json:"uid"`
 		UserInfo struct {
 			Uname string `json:"uname"`
 		} `json:"user_info"`
@@ -1402,7 +1417,7 @@ type SuperChatInfo struct {
 
 type GuardInfo struct {
 	Data struct {
-		Uid        int    `json:"uid"`
+		Uid        int64  `json:"uid"`
 		Username   string `json:"username"`
 		GuardLevel int    `json:"guard_level"`
 		Num        int    `json:"num"`
