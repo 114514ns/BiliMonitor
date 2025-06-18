@@ -505,11 +505,51 @@ func setupHTTPClient() {
 			return nil
 		})
 	}
+	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
+		if strings.Contains(response.Request.URL, "bilibili.com") && strings.Contains(response.Request.URL, "api") {
+			var obj map[string]interface{}
+			sonic.Unmarshal(response.Body(), &obj)
+			_, ok := obj["code"]
+			if !ok {
+				log.Println(response.String())
+			}
+			if ok && obj["code"].(float64) != 0 {
+				if strings.Contains(response.Request.URL, "getRoomPlayInfo") {
+					if obj["message"].(string) == "参数错误" {
+						return nil
+					}
+				}
+				log.Println(response.Request.URL)
+				log.Println(response.String())
+			}
+			if response.IsError() {
+				log.Println(response.Request.URL)
+				log.Println(response.Error())
+			}
+		}
+
+		return nil
+	})
 }
 
 var localClient = resty.New()
 
 func main() {
+	for {
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Println("Panic  restarting", r)
+					time.Sleep(time.Second * 10)
+				}
+			}()
+
+			main0()
+		}()
+	}
+}
+
+func main0() {
 	loadConfig()
 	setupHTTPClient()
 	RefreshCookie()
@@ -518,20 +558,21 @@ func main() {
 		SaveConfig()
 		os.Exit(0)
 	}
-	consoleLogger.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
+	var loggerFlag = log.Ldate | log.Ltime | log.Llongfile
+	consoleLogger.SetFlags(loggerFlag)
 
 	rand.Seed(time.Now().UnixNano())
 
 	multiWriter := io.MultiWriter(os.Stdout, logFile)
 	log.SetOutput(multiWriter)
 
-	log.SetFlags(log.Ldate | log.Ltime | log.Llongfile)
+	log.SetFlags(loggerFlag)
 
 	mailClient = resend.NewClient(config.ResendToken)
 	if config.EnableSQLite {
 		db, _ = gorm.Open(sqlite.Open("database.db"), &gorm.Config{
 			Logger: logger.New(
-				log.New(os.Stdout, "", log.LstdFlags),
+				log.New(multiWriter, "", loggerFlag),
 				logger.Config{
 					IgnoreRecordNotFoundError: true,
 				},
@@ -550,9 +591,7 @@ func main() {
 			DSN: dsl, // DSN data source name
 		}), &gorm.Config{Logger: logger.New(
 			log.New(os.Stdout, "", log.LstdFlags),
-			logger.Config{
-				IgnoreRecordNotFoundError: true,
-			},
+			logger.Config{},
 		)})
 	}
 	if db == nil || err != nil {

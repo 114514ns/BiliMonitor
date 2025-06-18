@@ -64,13 +64,6 @@ func FixMoney() {
 		db.Save(&v)
 	}
 }
-func ServerLiveStatus(roomId string) bool {
-	url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
-	res, _ := client.R().Get(url)
-	status := LiveStatusResponse{}
-	sonic.Unmarshal(res.Body(), &status)
-	return status.Data.LiveStatus == 1
-}
 func UploadLive(live Live) {
 
 	var debug = true
@@ -436,6 +429,8 @@ func SendMessage(msg string, room int, onResponse func(string)) {
 	}
 }
 
+var nameMap sync.Map
+
 func TraceArea(parent int) {
 	log.Println("begin TraceArea")
 	var lock sync.Mutex
@@ -455,10 +450,10 @@ func TraceArea(parent int) {
 			Time int64
 		}
 		working = true
-		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?platform=web&parent_area_id=%d&area_id=0&sort_type=&page=%d&vajra_business_key=&web_location=444.43", parent, page))
+		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?area_id=0&build=1001016004&device=win&page=%d&parent_area_id=%d&platform=web&web_location=bilibili-electron", page, parent))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
-		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/web-interface/v1/second/getList?" + s.Encode())
+		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
 		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
@@ -482,6 +477,7 @@ func TraceArea(parent int) {
 		for _, s2 := range obj.Data.List {
 
 			var fansMap = make(map[int64]DBGuard)
+
 			i := AreaLiver{}
 			i.UName = s2.UName
 			i.UID = s2.UID
@@ -610,6 +606,7 @@ func TraceArea(parent int) {
 				i.Fans = user.Fans
 				time.Sleep(time.Second * 2)
 				db.Save(&i)
+				log.Printf("end %s", s2.UName)
 			}
 			//log.Printf("finish update %s", s2.UName)
 			o := AreaLiver{}
@@ -617,7 +614,7 @@ func TraceArea(parent int) {
 			if o.Fans > 10000 {
 				m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
 			}
-			log.Printf("end %s", s2.UName)
+
 		}
 
 		log.Printf("page=%d,More=%d", page, obj.Data.More)
@@ -633,7 +630,10 @@ func BuildAuthMessage(room string) string {
 	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8"
 	query, _ := url.Parse(url0)
 	signed, _ := wbi.SignQuery(query.Query(), time.Now())
-	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
+	res, e := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
+	if e != nil {
+		fmt.Println(e)
+	}
 	var liveInfo = LiveInfo{}
 	sonic.Unmarshal(res.Body(), &liveInfo)
 	if len(liveInfo.Data.HostList) == 0 {
@@ -683,6 +683,8 @@ func RandomHost() string {
 
 }
 func TraceLive(roomId string) {
+	var WS_HEADER = http.Header{}
+	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
 	var liver string
@@ -786,9 +788,8 @@ func TraceLive(roomId string) {
 	}
 	var c *websocket.Conn
 	if lives[roomId].Live {
-		var header = http.Header{}
-		header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
-		c, _, err = dialer.Dial(u.String(), header)
+
+		c, _, err = dialer.Dial(u.String(), WS_HEADER)
 	}
 	if err != nil {
 		log.Println("["+liver+"]  "+"Dial:", err)
@@ -798,11 +799,12 @@ func TraceLive(roomId string) {
 	go func() {
 
 		if lives[roomId].Live {
-			log.Printf("[%s] 成功连接到弹幕服务器", liver)
+
 			err := c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
 			if err != nil {
 				return
 			}
+			log.Printf("[%s] 成功连接到弹幕服务器", liver)
 		}
 		for {
 
@@ -815,12 +817,14 @@ func TraceLive(roomId string) {
 					for {
 						if lives[roomId].RemainTrying > 0 {
 							time.Sleep(time.Duration(rand.Int()%10000) * time.Millisecond)
-							c, _, err := dialer.Dial(u.String(), nil)
+							c, _, err := dialer.Dial(u.String(), WS_HEADER)
 							lives[roomId].RemainTrying--
 							err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
 							if err == nil {
 								log.Printf("[%s] 重连成功", liver)
 								break
+							} else {
+								log.Printf("[%s] %v", liver, err)
 							}
 						}
 					}
@@ -1102,7 +1106,7 @@ func TraceLive(roomId string) {
 				//lives[roomId].LastActive = time.Now().Unix() + 3600*8
 				if err != nil {
 					log.Printf("[%s] write:  %v", liver, err)
-					c, _, err = dialer.Dial(u.String(), nil)
+					c, _, err = dialer.Dial(u.String(), WS_HEADER)
 					err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
 					if err == nil {
 						log.Printf("[%s] 重新连接成功", liver)
@@ -1116,7 +1120,7 @@ func TraceLive(roomId string) {
 			sonic.Unmarshal(res.Body(), &status)
 
 			if status.Data.LiveStatus == 1 && !isLive(roomId) {
-
+				log.Printf("[%s] 直播开始，连接ws服务器", liver)
 				//var sum float64
 				//db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
@@ -1132,18 +1136,25 @@ func TraceLive(roomId string) {
 				new.UserName = liver
 				new.UserID = liverId
 				new.Cover = roomInfo.Data.Face
+				livesMutex.Lock()
+				_, ok := lives[roomId]
+				if !ok {
+					log.Println(roomId)
+					log.Println(lives)
+				}
 				lives[roomId].StartAt = time.Now().Format(time.DateTime)
+				lives[roomId].Title = roomInfo.Data.Title
+				livesMutex.Unlock()
 				liver = strings.TrimSpace(liver)
 				db.Create(&new)
 				dbLiveId = int(new.ID) //似乎直播间的ws服务器有概率不发送开播消息，导致漏数据，这里做个兜底。
 				var msg = "你关注的主播： " + liver + " 开始直播"
-				lives[roomId].Title = roomInfo.Data.Title
 
 				if Has(config.Tracing, roomId) {
 					PushDynamic(msg, roomInfo.Data.Title)
 				}
-				log.Printf("[%s] 直播开始，连接ws服务器", liver)
-				c, _, err = dialer.Dial(u.String(), nil)
+
+				c, _, err = dialer.Dial(u.String(), WS_HEADER)
 				err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
 				if err == nil {
 					log.Printf("[%s] 连接成功", liver)
@@ -1158,7 +1169,12 @@ func TraceLive(roomId string) {
 					var sum float64
 					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
-					db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+					tx := db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+					if tx.Error != nil {
+						log.Println(tx.Error)
+
+					}
+					log.Println(tx.Statement.SQL.String())
 					living = false
 					i, _ := strconv.Atoi(roomId)
 					if config.EnableLiveBackup {
@@ -1168,7 +1184,9 @@ func TraceLive(roomId string) {
 					c.Close()
 					if !Has(config.Tracing, roomId) {
 						log.Println("不在关注列表，结束")
+						livesMutex.Lock()
 						delete(lives, roomId)
+						livesMutex.Unlock()
 						return
 					}
 				}
@@ -1379,7 +1397,7 @@ type Live struct {
 	UserID   string
 	Area     string
 	RoomId   int
-	Money    float64 `gorm:"type:decimal(7,2)"`
+	Money    float64 //`gorm:"type:decimal(7,2)"`
 	Message  int
 	Watch    int
 	Cover    string

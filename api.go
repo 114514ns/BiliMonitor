@@ -151,13 +151,21 @@ func InitHTTP() {
 	})
 	r.GET("/searchAreaLiver", func(c *gin.Context) {
 		key := c.DefaultQuery("key", "1")
-		var result []AreaLiver
-		query := db.Model(&AreaLiver{}).Select("u_name,uid,fans").Group("uid")
+		var result = make([]AreaLiver, 0)
 
-		if key != "1" {
-			query.Where("u_name like '%" + key + "%'")
+		for _, liver := range cachedLivers {
+			if strings.Contains(liver.UName, key) {
+				result = append(result, liver.AreaLiver)
+			}
 		}
-		query.Limit(50).Order("fans desc").Find(&result)
+
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].Fans > result[j].Fans
+		})
+
+		if len(result) > 10 {
+			result = result[:10]
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"result": result,
@@ -677,7 +685,7 @@ func InitHTTP() {
 		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
-			time.Sleep(120 * time.Second)
+			time.Sleep(45 * time.Second)
 		})
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",

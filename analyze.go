@@ -124,20 +124,22 @@ SELECT * FROM (
 ) AS OldRecord;
 `, liver.UID, liver.UID, liver.UID).Find(&arr)
 
-			o0 = arr[0]
-			if len(arr) == 2 {
-				o0 = arr[1]
+			if len(arr) > 0 {
+				o0 = arr[0]
+				if len(arr) == 2 {
+					o0 = arr[1]
+				}
+				o1 = arr[0]
+				var f = liver
+				secondsDiff := float64(o1.CreatedAt.Unix() - o0.CreatedAt.Unix())
+				days := secondsDiff / 86400.0
+				fansDiff := float64(o1.Fans - o0.Fans)
+				f.DailyDiff = int(fansDiff / days)
+				var lastLive = AreaLive{}
+				db.Model(&AreaLive{}).Where("uid = ?", liver.UID).Order("id desc").Find(&lastLive)
+				f.LastActive = lastLive.Time
+				temp = append(temp, f)
 			}
-			o1 = arr[0]
-			var f = liver
-			secondsDiff := float64(o1.CreatedAt.Unix() - o0.CreatedAt.Unix())
-			days := secondsDiff / 86400.0
-			fansDiff := float64(o1.Fans - o0.Fans)
-			f.DailyDiff = int(fansDiff / days)
-			var lastLive = AreaLive{}
-			db.Model(&AreaLive{}).Where("uid = ?", liver.UID).Order("id desc").Find(&lastLive)
-			f.LastActive = lastLive.Time
-			temp = append(temp, f)
 			<-ch
 		}(i)
 
