@@ -31,7 +31,7 @@ function DownloadDialog(props) {
     var type = "video"
     return (
         <>
-            <ToastProvider placement={'top-center'} toastOffset={60}/>
+            <ToastProvider placement={'top-right'} toastOffset={60}/>
             <Modal isOpen={props.isOpen} onClose={() => {
                 PubSub.publish('DownloadDialog', 'Close')
             }} size="lg" style={{

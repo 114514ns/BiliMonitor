@@ -19,6 +19,7 @@
   - 爬取分区内主播粉丝量，大航海成员，粉丝团成员
   - 支持分布式
   - 支持设置代理
+- 一个简易的直播间页面，可以观看直播和发送弹幕
     
 scripts目录下有一些数据整理的python脚本
 
@@ -37,12 +38,13 @@ https://github.com/114514ns/BiliMonitor/actions
 ![](https://example.com/undefined20250305001138294.png)
 ![](https://example.com/undefined20250302233820130.png)
 ![](https://example.com//img/20250502170730.png)
-![](https://example.com//img/20250502170853.png)
+![](https://example.com/undefined20250625001439153.png)
 ![](https://example.com//img/20250212235435.png)
 ![](https://example.com/undefined20250220222834082.png)
 ![](https://example.com/undefined20250302233902605.png)
 ![](https://example.com/undefined20250302233924636.png)
 ![](https://example.com/undefined20250511002801489.png)
+![](https://example.com/undefined20250625001246302.png)
 
 # Known issues
 - 暂不支持mips64架构

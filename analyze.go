@@ -2,8 +2,7 @@ package main
 
 import (
 	"github.com/jinzhu/copier"
-	"log"
-	"sort"
+	"github.com/sourcegraph/conc/pool"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,101 +55,49 @@ func TotalLiver() int {
 }
 func RefreshLivers() {
 	var result []FrontAreaLiver
-	var start = time.Now().Unix()
-	var stage1 int64 = 0
-	var stage2 int64 = 0
-	db.Raw(`
-    WITH LastVerify AS (
-        SELECT user_id, verify, bio,
-               ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY id DESC) AS rn
-        FROM users
-    )
-    SELECT MAX(A.u_name) AS u_name, 
-           A.uid,
-           MAX(A.room) AS room,
-           MAX(A.area) AS area,
-           MAX(A.fans) AS fans,
-           MAX(A.guard) AS guard,
-           MAX(B.verify) AS verify,
-           MAX(B.bio) AS bio
-    FROM area_livers A
-    INNER JOIN LastVerify B ON A.uid = B.user_id
-    WHERE B.rn = 1
-    GROUP BY A.uid
-    ORDER BY A.fans DESC
-`).Scan(&result)
-	var m = make(map[int64]FrontAreaLiver)
-	for _, v := range result {
-		m[v.UID] = v
+	var ids []int64
+	var idMap = make(map[int64][]FrontAreaLiver)
+	db.Raw(`SELECT uid FROM area_livers GROUP BY uid`).Find(&ids)
+	var wg = pool.New().WithMaxGoroutines(6)
+	var mutex sync.Mutex
+	for _, id := range ids {
+		id := id // 👈 创建局部副本，避免闭包捕获同一个变量
+		wg.Go(func() {
+			var dst []FrontAreaLiver
+
+			db.Raw(`select uid,fans,updated_at,guard,u_name from area_livers where uid=?`, id).Find(&dst)
+			mutex.Lock()
+			if len(dst) == 0 {
+				time.Sleep(time.Millisecond * 100)
+			}
+			idMap[id] = dst
+
+			mutex.Unlock()
+		})
 	}
-	result = []FrontAreaLiver{}
-	for _, liver := range m {
-		result = append(result, liver)
+	wg.Wait()
+	for _, livers := range idMap {
+		result = append(result, livers[len(livers)-1])
 	}
-	stage1 = time.Now().Unix() - start
-	temp := make([]FrontAreaLiver, 0)
-	var wg sync.WaitGroup
-	ch := make(chan struct{}, 4)
 
 	for i, liver := range result {
-		ch <- struct{}{}
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			var o0 = User{}
-			var o1 = User{}
-			var arr []User
-
-			db.Raw(`
-SELECT * FROM (
-    SELECT *
-    FROM users
-    WHERE user_id = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-) AS LatestRecord
-
-UNION ALL
-
-SELECT * FROM (
-    SELECT *
-    FROM users
-    WHERE user_id = ?
-      AND created_at <= (
-          SELECT MAX(created_at) FROM users WHERE user_id = ?
-      ) - INTERVAL 1 DAY
-    ORDER BY created_at DESC
-    LIMIT 1
-) AS OldRecord;
-`, liver.UID, liver.UID, liver.UID).Find(&arr)
-
-			if len(arr) > 0 {
-				o0 = arr[0]
-				if len(arr) == 2 {
-					o0 = arr[1]
-				}
-				o1 = arr[0]
-				var f = liver
-				secondsDiff := float64(o1.CreatedAt.Unix() - o0.CreatedAt.Unix())
-				days := secondsDiff / 86400.0
-				fansDiff := float64(o1.Fans - o0.Fans)
-				f.DailyDiff = int(fansDiff / days)
-				var lastLive = AreaLive{}
-				db.Model(&AreaLive{}).Where("uid = ?", liver.UID).Order("id desc").Find(&lastLive)
-				f.LastActive = lastLive.Time
-				temp = append(temp, f)
+		var dst User
+		db.Raw("select * from users where user_id=? order by id desc limit 1", liver.UID).Scan(&dst)
+		if dst.ID != 0 {
+			result[i].Bio = dst.Bio
+			result[i].Verify = dst.Verify
+			var live AreaLive
+			db.Raw("select time from area_lives where uid=? order by time desc limit 1", liver.UID).Scan(&live)
+			result[i].LastActive = live.Time
+			var dst1 User
+			db.Raw("select * from users where user_id=? and created_at < ? order by id desc limit 1", liver.UID, dst.CreatedAt.Add(time.Hour*-24)).Scan(&dst1)
+			if dst1.ID != 0 {
+				result[i].DailyDiff = int((float64(dst.Fans - dst1.Fans)) / (float64(dst.CreatedAt.Unix()-dst1.CreatedAt.Unix()) / 86400))
 			}
-			<-ch
-		}(i)
 
+		}
 	}
-	stage2 = time.Now().Unix() - stage1
-	wg.Wait()
-	sort.Slice(temp, func(i, j int) bool {
-		return temp[i].Fans > temp[j].Fans
-	})
-	log.Printf(strconv.FormatInt(stage2, 10))
-	copier.Copy(&cachedLivers, &temp)
+	copier.Copy(&cachedLivers, &result)
 }
 func MinuteMessageCount(minute int64) int64 {
 	var count int64

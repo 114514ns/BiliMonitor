@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {useParams} from "react-router-dom";
 import axios from "axios";
 import "./LivePage.css"
+
 import {
     Autocomplete,
     AutocompleteItem,
@@ -14,11 +15,14 @@ import {
     TableHeader,
     TableRow
 } from "@heroui/react";
+import UserChip from "../components/UserChip";
 
 function LiveDetailPage(props) {
     let {id} = useParams();
     const host = location.hostname;
     const [actions, setActions] = useState([])
+
+    const [mid,setMid] = useState(0);
     useEffect(() => {
         refreshData(currentPage, pageSize)
     }, [])
@@ -42,6 +46,9 @@ function LiveDetailPage(props) {
     const [columns, setColumn] = useState([])
 
     const [liveInfo, setLiveInfo] = useState({});
+
+
+    const [user, setUser] = useState([]);
     useEffect(() => {
         refreshData(currentPage, pageSize)
     }, [order])
@@ -95,7 +102,7 @@ function LiveDetailPage(props) {
         if (page === undefined) {
             return
         }
-        var url = `${protocol}://${host}:${port}/api/live/` + id + "/?" + "page=" + page + "&limit=" + size + "&order=" + order
+        var url = `${protocol}://${host}:${port}/api/live/` + id + "/?" + "page=" + page + "&limit=" + size + "&order=" + order + "&mid=" + mid
         if (name != null) {
             url = url + `&name=${name}`
         }
@@ -122,11 +129,14 @@ function LiveDetailPage(props) {
         axios.get(url).then(res => {
             setLiveInfo(res.data.live)
         })
+        axios.get(`${protocol}://${host}:${port}/api/liveUser?live=${id}`).then(res => {
+            setUser(res.data.list)
+        })
     }, []);
 
     useEffect(() => {
         refreshData(currentPage, pageSize)
-    },[filter])
+    },[filter,mid])
 
 
     const handlePageChange = (page, pageSize, sorter) => {
@@ -253,17 +263,21 @@ function LiveDetailPage(props) {
             </Autocomplete>
             <Autocomplete
                 className="max-w-xs mt-4 mb-4 ml-4"
-                defaultItems={[{
-                    key: 'Message',
-                    value: "Message"
-                }
-                ]}
+                items={user}
                 label="Search Watcher"
                 onSelectionChange={e => {
-                    setOrder(e)
+                    setMid(e)
+                }}
+                onInputChange={e => {
+                    var url = `${protocol}://${host}:${port}/api/liveUser?live=${id}&keyword=${e}`;
+                    axios.get(url).then((response) => {
+                        setUser(response.data.list)
+                    })
                 }}
             >
-                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
+                {(f) => <AutocompleteItem key={f.FromId} textValue={f.FromName}>
+                    <UserChip props={f}></UserChip>
+                </AutocompleteItem>}
             </Autocomplete>
             <Table bottomContent={
                 <div className="flex w-full justify-center">

@@ -8,6 +8,7 @@ import (
 	"golang.org/x/net/html"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 	"strconv"
@@ -42,11 +43,21 @@ func FetchUser(mid string, onError func()) User {
 
 // 刷新粉丝数
 func UpdateCommon() {
+	var full = false
+	if rand.Int()%3 == 2 {
+		full = true
+	}
 	for i := range Followings {
 		if i > len(Followings)-1 {
 			continue
 		}
 		var id = Followings[i].UserID
+		if !full {
+			if GetFansLocal(id) < 1000 {
+				continue //每三次中有一次是全量的，其他情况只会爬取粉丝量大于1000的主播
+			}
+		}
+
 		var user = FetchUser(strconv.FormatInt(id, 10), nil)
 		user.Face = ""
 		db.Save(&user)
