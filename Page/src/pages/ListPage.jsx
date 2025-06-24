@@ -1,6 +1,19 @@
 import React, {memo, useEffect} from 'react';
-import {Avatar, Card, CardBody, Chip, Input, Listbox, ListboxItem, Select, SelectItem} from "@heroui/react";
+import {
+    addToast,
+    Avatar,
+    Button,
+    Card,
+    CardBody, CardHeader,
+    Chip,
+    Input,
+    Listbox,
+    ListboxItem,
+    Select,
+    SelectItem, ToastProvider, Tooltip,Code
+} from "@heroui/react";
 import axios from "axios";
+import alasql from "alasql";
 
 function formatTime(isoString) {
     const date = new Date(isoString);
@@ -20,7 +33,12 @@ function formatNumber(num) {
         return String(num);
     }
 }
-
+const calcHeight = () => {
+    const vh = window.innerHeight;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const result = vh - 4 * rem;
+    return result;
+}
 const sort = [
     {label: "guard", key: "guard", description: "大航海"},
     {label: "l1-guard", key: "l1-guard", description: "总督"},
@@ -45,6 +63,11 @@ function ListPage(props) {
     const port = location.port
 
     const protocol = location.protocol.replace(":", "")
+
+
+    var rawSQLRef = React.createRef();
+
+
     useEffect(() => {
         var url = `${protocol}://${host}:${port}/api/areaLivers`
         axios.get(url).then((response) => {
@@ -99,10 +122,14 @@ function ListPage(props) {
         }
         setFiltered(o)
     }, [verifyFilter, nameFilter, bioFilter])
-    return (
-        <div>
 
-            <div style={{display: "flex"}} className='flex-col sm:flex-row sm:align-items-center'>
+    var inputRef = React.createRef();
+
+
+    return (
+
+        <div>
+            <div style={{display: "flex"}} className='flex-col sm:flex-row sm:align-items-center' ref={inputRef}>
                 <Select
                     className="max-w-xs mb-4 mr-4"
                     label="Sort by"
@@ -129,12 +156,73 @@ function ListPage(props) {
                         <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
                     ))}
                 </Select>
-                <Input className='max-w-xs mb-4 ' onChange={event => setBioFilter(event.target.value)}
+                <Input className='max-w-xs mb-4 mr-4' onChange={event => setBioFilter(event.target.value)}
                        label={'Sign filter'}></Input>
+                <Tooltip content={<Card>
+                    <CardHeader>使用方法</CardHeader>
+                    <CardBody>
+                        <div>
+                            <p className={'mb-4'}>
+                                查询所有粉丝量低于1000的主播
+                                <Code className='ml-2'>`{`select * from ? where Fans < 1000`}`</Code>
+                            </p>
+                            <p className={'mb-4'}>
+                                按粉丝/总督比 排序
+                                <Code className='ml-2'>`{`select * from ? order by SUBSTRING(Guard,1,1)/Fans desc`}`</Code>
+                            </p>
+                            <p className={'mb-4'}>
+                                查找签名包含妖精管理局的主播
+                                <Code className='ml-2'>`{`select * from ? where Bio like '%妖精管理局%'`}`</Code>
+                            </p>
+                            <p className={'mb-4'}>
+                                查找认证信息包含 [高能主播] 的主播，并按粉丝量升序排序
+                                <Code className='ml-2'>`{`select * from ? where Verify like '%高能主播%' order by Fans`}`</Code>
+                            </p>
+                            <p className={'mb-4'}>
+                                查找UID为1265680561的主播
+                                <Code className='ml-2'>`{`select * from ? where UID = 1265680561`}`</Code>
+                            </p>
+                            <p className={'mb-4'}>
+                                查找名字包含[兔]的主播
+                                <Code className='ml-2'>`{`select * from ? where UName like '%兔%'`}`</Code>
+                            </p>
+                        </div>
+                    </CardBody>
+                </Card>}>
+                    <Input className='max-w-xs mb-4 '
+                           label={'高级筛选'} ref={rawSQLRef} isClearable onKeyDown={event => {
+                        if (event.key === "Enter") {
+
+
+                            try {
+                                var start = new Date().getTime();
+                                var query = alasql(event.target.value,[list])
+                                addToast({
+                                    title: "查询成功",
+                                    description: `共找到${query.length}条记录，耗时${new Date().getTime()-start}ms`,
+                                    color: 'success'
+                                })
+                                setFiltered(query);
+                            } catch (e) {
+                                addToast({
+                                    title: "查询失败",
+                                    description: `没有符合条件或语法错误`,
+                                    color: 'danger'
+                                })
+                            }
+
+
+
+                        }
+                    }} onClear={() => {
+                        setFiltered(list)
+                    }}
+                    ></Input>
+                </Tooltip>
             </div>
             <Listbox
                 virtualization={{
-                    maxListboxHeight: window.innerHeight,
+                    maxListboxHeight: calcHeight()-120,
                     itemHeight: 300,
                 }}
                 hideSelectedIcon
@@ -171,6 +259,7 @@ function ListPage(props) {
 
                 }}/>
             </div>
+
         </div>
     );
 

@@ -21,6 +21,7 @@
     "@tanstack/react-virtual": "^3.13.4",
     "@vidstack/react": "^1.12.13",
     "@vitejs/plugin-react": "^4.3.4",
+    "alasql": "^4.6.6",
     "axios": "1.8.2",
     "framer-motion": "^12.4.7",
     "hls.js": "^1.5.20",
