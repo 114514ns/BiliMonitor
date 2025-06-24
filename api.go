@@ -153,9 +153,11 @@ func InitHTTP() {
 		key := c.DefaultQuery("key", "1")
 		var result = make([]AreaLiver, 0)
 
-		for _, liver := range cachedLivers {
-			if strings.Contains(liver.UName, key) {
-				result = append(result, liver.AreaLiver)
+		if key != "1" {
+			for _, liver := range cachedLivers {
+				if strings.Contains(liver.UName, key) {
+					result = append(result, liver.AreaLiver)
+				}
 			}
 		}
 
@@ -269,6 +271,8 @@ func InitHTTP() {
 		Type := c.DefaultQuery("type", "")
 		pageStr := c.DefaultQuery("page", "1")
 		page, err := strconv.Atoi(pageStr)
+		mid := c.DefaultQuery("mid", "1")
+		midInt := toInt64(mid)
 		if err != nil || page < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page number"})
 			return
@@ -286,12 +290,6 @@ func InitHTTP() {
 			query = query.Where("action_name = ?", Type)
 		}
 
-		var totalRecords int64
-		if err := query.Count(&totalRecords).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "database count error"})
-			return
-		}
-
 		orderQuery := ""
 		if orderStr == "ascend" {
 			orderQuery = "gift_price asc"
@@ -301,15 +299,21 @@ func InitHTTP() {
 			orderQuery = "id asc"
 		}
 
-		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
-
 		var records []LiveAction
-		query = db.Where("live = ? and action_name != 'enter'", id)
+		query = db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id)
 
 		if Type != "" {
 			query = query.Where("action_name = ?", Type)
 		}
-
+		if midInt != 0 {
+			query = query.Where("from_id = ?", midInt)
+		}
+		var totalRecords int64
+		if err := query.Count(&totalRecords).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "database count error"})
+			return
+		}
+		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
 		if err := query.Order(orderQuery).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database query error"})
 			return
@@ -442,6 +446,8 @@ func InitHTTP() {
 			"data":    results,
 		})
 	})
+
+	//直播间最近的弹幕，用于在前端的实时直播页面显示
 	r.GET("/history", func(context *gin.Context) {
 		last := context.DefaultQuery("last", "")
 		roomStr := context.DefaultQuery("room", "1")
@@ -486,6 +492,8 @@ func InitHTTP() {
 		})
 
 	})
+
+	//搜索主播，暂时废弃
 	r.GET("/searchLive", func(context *gin.Context) {
 		url := "https://api.bilibili.com/x/web-interface/wbi/search/type?page=1&page_size=42&order=online&keyword=" + context.Query("keyword") + "&search_type=live_user"
 		obj, _ := url2.Parse((url))
@@ -569,6 +577,8 @@ func InitHTTP() {
 		})
 	})
 
+	//获取头像，会302到b站的bfs
+
 	r.GET("/face", func(c *gin.Context) {
 		if c.Query("mid") == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -592,6 +602,8 @@ func InitHTTP() {
 			})
 		}
 	})
+
+	//所有在虚拟区开播过的主播
 
 	r.GET("/areaLivers", func(c *gin.Context) {
 		var dist = make([]FrontAreaLiver, 0)
@@ -667,12 +679,16 @@ func InitHTTP() {
 			"IsLive":      isLive(room),
 		})
 	})
+
+	//获取直播流
 	r.GET("/stream", func(c *gin.Context) {
 		var room = c.Query("room")
 		c.JSON(http.StatusOK, gin.H{
 			"Stream:": GetLiveStream(room),
 		})
 	})
+
+	//Trace直播间
 
 	r.GET("/trace", func(c *gin.Context) {
 		var room = c.Query("room")
@@ -695,6 +711,8 @@ func InitHTTP() {
 	r.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
+
+	//数据库内所有粉丝牌，每个用户在不同主播的粉丝牌分开计算
 	r.GET("/fansRank", func(context *gin.Context) {
 		var page = context.DefaultQuery("page", "1")
 		var size = context.DefaultQuery("size", "20")
@@ -725,6 +743,62 @@ func InitHTTP() {
 
 	r.GET("/count", func(context *gin.Context) {
 		context.String(http.StatusOK, fmt.Sprintf("%d,%d,%d", msg1, msg5, msg60))
+	})
+
+	//获取某场直播内发送弹幕或礼物的所有用户
+
+	r.GET("/liveUser", func(context *gin.Context) {
+		var live = context.DefaultQuery("live", "-1")
+		var keyword = context.DefaultQuery("keyword", "")
+		var liveInt = toInt64(live)
+		if live == "-1" || liveInt == 0 {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "missing or wrong params:live",
+			})
+			return
+		}
+
+		var dst []FrontLiveAction
+		db.Raw("SELECT from_id,from_name,medal_level,medal_name FROM live_actions where live = ?  GROUP BY from_id order by medal_level desc", liveInt).Scan(&dst)
+		if keyword != "" {
+			var tmp []FrontLiveAction
+			for _, watcher := range dst {
+				if strings.Contains(watcher.FromName, keyword) {
+					tmp = append(tmp, watcher)
+				}
+			}
+			dst = tmp
+		}
+		if len(dst) > 50 {
+			dst = dst[:50]
+		}
+		if dst == nil {
+			dst = []FrontLiveAction{}
+		}
+		context.JSON(http.StatusOK, gin.H{
+			"list": dst,
+		})
+
+	})
+
+	r.GET("/medals", func(context *gin.Context) {
+		var midStr = context.DefaultQuery("mid", "0")
+		mid := toInt64(midStr)
+		if mid == 0 {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid mid",
+			})
+		}
+
+		var dst []FansClub
+		db.Raw("select * FROM fans_clubs WHERE uid = ?", mid).Scan(&dst)
+		context.JSON(http.StatusOK, gin.H{
+			"list": dst,
+		})
+		if dst == nil {
+			dst = []FansClub{}
+		}
+
 	})
 
 	r.Run(":" + strconv.Itoa(int(config.Port)))

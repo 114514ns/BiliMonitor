@@ -682,6 +682,7 @@ func RandomHost() string {
 	return HOST[rand.Intn(len(HOST))]
 
 }
+
 func TraceLive(roomId string) {
 	var WS_HEADER = http.Header{}
 	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
@@ -819,6 +820,9 @@ func TraceLive(roomId string) {
 							time.Sleep(time.Duration(rand.Int()%10000) * time.Millisecond)
 							c, _, err := dialer.Dial(u.String(), WS_HEADER)
 							lives[roomId].RemainTrying--
+							if err != nil {
+								log.Println(err)
+							}
 							err = c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
 							if err == nil {
 								log.Printf("[%s] 重连成功", liver)
@@ -943,6 +947,15 @@ func TraceLive(roomId string) {
 						}
 					}
 					db.Create(&action)
+					go func() {
+						var dst FaceCache
+						db.Raw("SELECT * FROM face_caches where uid = ?", action.FromId)
+						if dst.UID == 0 {
+							db.Create(FaceCache{Face: front.Face, UID: action.FromId})
+						} else {
+							db.Model(&FaceCache{}).Where("uid = ?", action.FromId).UpdateColumns(FaceCache{Face: front.Face})
+						}
+					}()
 					consoleLogger.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
@@ -1194,15 +1207,17 @@ func TraceLive(roomId string) {
 			}
 
 			go func() {
+				var online, count = GetOnline(roomId, liverId)
+				var guard = GetGuardList(roomId, liverId)
+				livesMutex.Lock()
 				if lives[roomId] != nil {
-					var online, count = GetOnline(roomId, liverId)
-					var guard = GetGuardList(roomId, liverId)
 					lives[roomId].GuardCacheKey = time.Now().Unix()
 					lives[roomId].OnlineCount = count
 					lives[roomId].OnlineWatcher = online
 					lives[roomId].GuardList = guard
 					lives[roomId].GuardCount = len(guard)
 				}
+				livesMutex.Unlock()
 			}()
 		}
 	}

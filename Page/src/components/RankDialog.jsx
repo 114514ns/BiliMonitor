@@ -16,7 +16,7 @@ import {
 import axios from "axios";
 import {CheckIcon} from "../pages/ChatPage";
 
-const getColor = (level) => {
+window.getColor = (level) => {
     if (level <= 4) {
         return "#5762A799"
     }
