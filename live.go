@@ -111,7 +111,10 @@ func UploadLive(live Live) {
 }
 func GetServerState(room string) bool {
 	url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + room
-	res, _ := client.R().Get(url)
+	res, err := queryClient.R().Get(url)
+	if err != nil {
+		log.Println(err)
+	}
 	status := LiveStatusResponse{}
 	sonic.Unmarshal(res.Body(), &status)
 	return status.Data.LiveStatus == 1
@@ -525,6 +528,7 @@ func TraceArea(parent int) {
 							club.DBGuard = g
 							club.Liver = s2.UName
 							club.LiverID = s2.UID
+
 							db.Save(&club)
 						})
 
@@ -541,10 +545,12 @@ func TraceArea(parent int) {
 							lock.Unlock()
 							db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
 							if club.Score != g.Score {
+
 							}
 							if club.Score != 0 {
 								club.Score = g.Score
 								club.Liver = g.Liver
+								club.DBGuard = g
 								db.Save(&club)
 							} else {
 								lock.Lock()
@@ -618,7 +624,7 @@ func TraceArea(parent int) {
 		}
 
 		log.Printf("page=%d,More=%d", page, obj.Data.More)
-		if obj.Data.More == 0 {
+		if len(obj.Data.List) == 0 {
 			break
 		}
 		page++
@@ -942,6 +948,10 @@ func TraceLive(roomId string) {
 								if exists {
 									front.MedalColor = color.(string)
 								}
+								ruid, exists := medal["ruid"]
+								if exists {
+									action.MedalLiver = int64(ruid.(float64))
+								}
 
 							}
 						}
@@ -1133,7 +1143,7 @@ func TraceLive(roomId string) {
 			sonic.Unmarshal(res.Body(), &status)
 
 			if status.Data.LiveStatus == 1 && !isLive(roomId) {
-				log.Printf("[%s] 直播开始，连接ws服务器", liver)
+				log.Printf("[%s] 直播开始，连接ws服务器,id=%d", liver, dbLiveId)
 				//var sum float64
 				//db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
@@ -1193,7 +1203,7 @@ func TraceLive(roomId string) {
 					if config.EnableLiveBackup {
 						go UploadLive(Live{RoomId: i, UserName: liver})
 					}
-					log.Printf("[%s] 直播结束，断开连接", liver)
+					log.Printf("[%s] 直播结束，断开连接,live=%d", liver, dbLiveId)
 					c.Close()
 					if !Has(config.Tracing, roomId) {
 						log.Println("不在关注列表，结束")
@@ -1383,6 +1393,7 @@ type LiveAction struct {
 	MedalLevel int8
 	GuardLevel int8
 	HonorLevel int8
+	MedalLiver int64
 }
 type FrontLiveAction struct {
 	LiveAction

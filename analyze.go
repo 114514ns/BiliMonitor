@@ -93,6 +93,9 @@ func RefreshLivers() {
 			db.Raw("select * from users where user_id=? and created_at < ? order by id desc limit 1", liver.UID, dst.CreatedAt.Add(time.Hour*-24)).Scan(&dst1)
 			if dst1.ID != 0 {
 				result[i].DailyDiff = int((float64(dst.Fans - dst1.Fans)) / (float64(dst.CreatedAt.Unix()-dst1.CreatedAt.Unix()) / 86400))
+				if abs(result[i].DailyDiff) > 10000 {
+					time.Now()
+				}
 			}
 
 		}

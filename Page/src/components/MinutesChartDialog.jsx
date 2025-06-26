@@ -56,7 +56,7 @@ function MinutesChartDialog(props) {
                 props.onClose();
             }} size="2xl">
                 <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">下载视频</ModalHeader>
+                    <ModalHeader className="flex flex-col gap-1">弹幕分布</ModalHeader>
                     <ModalBody>
                         <BarChart
                             xAxis={[{ scaleType: 'band', data:getKeys(data) }]}

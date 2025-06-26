@@ -19,7 +19,10 @@ import (
 // 获取up主的粉丝数
 func FetchUser(mid string, onError func()) User {
 	var url = "https://api.bilibili.com/x/web-interface/card?mid=" + mid
-	res, _ := client.R().SetHeader("User-Agent", USER_AGENT).Get(url)
+	res, err := queryClient.R().SetHeader("User-Agent", USER_AGENT).Get(url)
+	if err != nil {
+		log.Println(err)
+	}
 	var userResponse = UserResponse{}
 	sonic.Unmarshal(res.Body(), &userResponse)
 
@@ -41,8 +44,15 @@ func FetchUser(mid string, onError func()) User {
 
 }
 
+var commonDone = true
+
 // 刷新粉丝数
 func UpdateCommon() {
+	if commonDone {
+		commonDone = false
+	} else {
+		log.Println("[UpdateCommon] last task is still running")
+	}
 	var full = false
 	if rand.Int()%3 == 2 {
 		full = true
@@ -54,7 +64,7 @@ func UpdateCommon() {
 		var id = Followings[i].UserID
 		if !full {
 			if GetFansLocal(id) < 1000 {
-				continue //每三次中有一次是全量的，其他情况只会爬取粉丝量大于1000的主播
+				continue //每三次中有一次的全量更新，剩下的情况只更新1000粉以上的
 			}
 		}
 
@@ -63,6 +73,7 @@ func UpdateCommon() {
 		db.Save(&user)
 		time.Sleep(3 * time.Second)
 	}
+	commonDone = true
 }
 
 // 解析服务端返回的动态的json结构

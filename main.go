@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
+	"golang.org/x/net/html"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -436,7 +439,6 @@ var tempMutex sync.Mutex
 var msg1 int64 = 0
 var msg5 int64 = 0
 var msg60 int64 = 0
-var queryClient0 = resty.New()
 var queryClient = resty.New()
 
 func loadConfig() {
@@ -478,33 +480,12 @@ func setupHTTPClient() {
 		httpBytes += response.RawResponse.ContentLength
 		return nil
 	})
-	if config.QueryProxy != "" {
-		queryClient0.SetTransport(&http.Transport{
-			DialContext: (&net.Dialer{
-				KeepAlive: 30 * time.Second, // 保持连接的生存期
-			}).DialContext,
-		})
-		queryClient0.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
-			if rand.Int()%100 < config.QueryAlive {
-				r.Header.Set("Connection", "close")
-			}
-			return nil
-		})
-		queryClient0.SetProxy(config.QueryProxy)
-	}
+
 	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
 		request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
 		return nil
 	})
-	if config.QueryProxy == "" {
-		queryClient = client
-	} else {
-		queryClient = queryClient0
-		queryClient.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
-			request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
-			return nil
-		})
-	}
+
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		if strings.Contains(response.Request.URL, "bilibili.com") && strings.Contains(response.Request.URL, "api") {
 			var obj map[string]interface{}
@@ -519,6 +500,11 @@ func setupHTTPClient() {
 						return nil
 					}
 				}
+				if strings.Contains(response.Request.URL, "ts_rpc_return") {
+					if strings.Contains(response.String(), "hdslb") {
+						return nil //偷点懒
+					}
+				}
 				log.Println(response.Request.URL)
 				log.Println(response.String())
 			}
@@ -528,6 +514,24 @@ func setupHTTPClient() {
 			}
 		}
 
+		return nil
+	})
+
+	queryClient.SetTransport(&http.Transport{
+		DialContext: (&net.Dialer{
+			KeepAlive: 30 * time.Second, // 保持连接的生存期
+		}).DialContext,
+	})
+	queryClient.OnBeforeRequest(func(c *resty.Client, r *resty.Request) error {
+		if rand.Int()%100 == 1 {
+			r.Header.Set("Connection", "close")
+		}
+		r.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
+		return nil
+	})
+	queryClient.SetProxy(config.QueryProxy)
+	queryClient.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
+		request.Header.Set("User-Agent", randomUserAgent())
 		return nil
 	})
 }
@@ -552,7 +556,7 @@ func main() {
 func main0() {
 	loadConfig()
 	setupHTTPClient()
-	RefreshCookie()
+
 	if config.UID == 0 {
 		config.UID = SelfUID(config.Cookie)
 		SaveConfig()
@@ -600,7 +604,6 @@ func main0() {
 	} else {
 		log.Println("Success to connect to database")
 	}
-	TotalGuards()
 	wbi.WithRawCookies(config.Cookie)
 	wbi.initWbi()
 	db.AutoMigrate(&Live{})
@@ -715,31 +718,77 @@ func main0() {
 	}
 	select {}
 }
+func randomBrowserVersion(browser string) string {
+	majorVersion := 117 + rand.Intn(3)
+	minorVersion := rand.Intn(1000)
+	return fmt.Sprintf("%s/%d.%d", browser, majorVersion, minorVersion)
+}
+func randomUserAgent() string {
+
+	var operatingSystems = []string{
+		"Windows NT 10.0; Win64; x64",
+		"Macintosh; Intel Mac OS X 12_6",
+		"Linux; Android 13; Pixel 6",
+		"Linux; U; Android 13; SM-G991U",
+		"X11; Linux x86_64",
+	}
+
+	var devices = []string{
+		"Mobile Safari/537.36",
+		"Safari/537.36",
+		"Mobile/15E148 Safari/604.1",
+		"Safari/604.1",
+	}
+	os := operatingSystems[rand.Intn(len(operatingSystems))]
+	device := devices[rand.Intn(len(devices))]
+
+	// 定义浏览器类型
+	browserTypes := []string{"Chrome", "Edge", "Firefox", "Safari"}
+	browser := browserTypes[rand.Intn(len(browserTypes))]
+
+	browserVersion := randomBrowserVersion(browser)
+
+	return fmt.Sprintf("Mozilla/5.0 (%s) AppleWebKit/537.36 (KHTML, like Gecko) %s %s", os, browserVersion, device)
+}
 
 func RefreshCookie() {
-	/*
-		res, _ := client.R().SetHeader("Cookie", config.Cookie).Get("https://passport.bilibili.com/x/passport-login/web/cookie/info")
-		type RefreshResponse struct {
+
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).Get("https://passport.bilibili.com/x/passport-login/web/cookie/info")
+	type RefreshResponse struct {
+		Data struct {
+			Refresh   bool  `json:"refresh"`
+			Timestamp int64 `json:"timestamp"`
+		}
+	}
+	var obj RefreshResponse
+	sonic.Unmarshal(res.Body(), &obj)
+	if obj.Data.Refresh == true {
+		path := getCorrespondPath(obj.Data.Timestamp)
+		res, _ = client.R().SetHeader("Cookie", config.Cookie).Get("https://www.bilibili.com/correspond/1/" + path)
+		htmlContent := res.Body()
+		reader := bytes.NewReader(htmlContent)
+		root, _ := html.Parse(reader)
+		find := goquery.NewDocumentFromNode(root).Find("#1-name")
+		csrf := find.Text()
+		var body = fmt.Sprintf("csrf=%s&refresh_csrf=%s&source=main_web&refresh_token=%s", CSRF(), csrf, config.RefreshToken)
+		res, _ := client.R().SetBody(body).SetHeader("Cookie", config.Cookie).Post("https://passport.bilibili.com/x/passport-login/web/cookie/refresh?" + body)
+		type RefreshResult struct {
 			Data struct {
-				Refresh   bool  `json:"refresh"`
-				Timestamp int64 `json:"timestamp"`
+				Refresh string `json:"refresh_token"`
 			}
 		}
-		var obj RefreshResponse
+		var obj RefreshResult
 		sonic.Unmarshal(res.Body(), &obj)
-		if obj.Data.Refresh == true {
-			path := getCorrespondPath(obj.Data.Timestamp)
-			res, _ = client.R().SetHeader("Cookie", config.Cookie).Get("https://www.bilibili.com/correspond/1/" + path)
-			htmlContent := res.Body()
-			reader := bytes.NewReader(htmlContent)
-			root, _ := html.Parse(reader)
-			find := goquery.NewDocumentFromNode(root).Find("#1-name")
-			csrf := find.Text()
-
-			body := fmt.Sprintf("csrf=%s&refresh_csrf=%s&source=main_web&refresh_token=%s", CSRF(), csrf, config.RefreshToken)
-			res, _ := client.R().SetBody(body).Post("https://passport.bilibili.com/x/passport-login/web/cookie/refresh?")
+		var newCookie = ""
+		for _, s := range res.RawResponse.Header.Values("Set-Cookie") {
+			newCookie = strings.Split(s, ";")[0] + newCookie
 		}
-
-	*/
+		config.RefreshToken = obj.Data.Refresh
+		config.Cookie = newCookie
+		log.Printf("[CookieRefresh] RefreshToken=%s", obj.Data.Refresh)
+		log.Printf("[CookieRefresh] Cookie=%s", newCookie)
+		SaveConfig()
+		time.Now()
+	}
 
 }

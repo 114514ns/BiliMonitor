@@ -6,16 +6,17 @@ import "./LivePage.css"
 import {
     Autocomplete,
     AutocompleteItem,
-    Avatar,
+    Avatar, Chip,
     Pagination,
     Table,
     TableBody,
     TableCell,
     TableColumn,
     TableHeader,
-    TableRow
+    TableRow, Tooltip
 } from "@heroui/react";
 import UserChip from "../components/UserChip";
+import {CheckIcon} from "./ChatPage";
 
 function LiveDetailPage(props) {
     let {id} = useParams();
@@ -303,9 +304,33 @@ function LiveDetailPage(props) {
 
                     {dataSource.map((item, index) => (
                         <TableRow key={index} onClick={() => {
-                            redirect(`/lives/${record.ID}`)
+
                         }}>
-                            <TableCell>{item.FromName}</TableCell>
+                            <TableCell>
+                                <Tooltip content={
+                                    <HoverMedals mid={item.FromId}/>
+                                } delay={400}>
+                                    <div className={'flex'} onClick={() => {
+                                        toSpace(item.FromId)
+                                    }}>
+                                        {item.FromName}
+                                        {item.MedalLevel != 0 ?                                     <Chip
+                                            className={'basis-64'}
+                                            startContent={<CheckIcon size={18}/>}
+                                            variant="faded"
+                                            onClick={() => {
+                                                toSpace(props.props.LiverID);
+                                            }}
+                                            style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
+                                        >
+                                            {item.MedalName}
+                                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
+                                                            {item.MedalLevel}
+                                                        </span>
+                                        </Chip>:<></>}
+                                    </div>
+                                </Tooltip>
+                            </TableCell>
                             <TableCell>{item.Liver}</TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>
                             <TableCell>{item.GiftPrice}</TableCell>
@@ -316,6 +341,60 @@ function LiveDetailPage(props) {
             </Table>
         </div>
     );
+}
+
+function HoverMedals(props) {
+    var mid = props.mid
+    var [data,setData] = useState([])
+    useEffect(() => {
+        axios.get(`${protocol}://${host}:${port}/api/medals?mid=${mid}`).then((response) => {
+            if (response.data.list == null) {
+                response.data.list = []
+            }
+            response.data.list.sort((a,b) => {
+                return a.Score < b.Score
+            })
+            setData(response.data.list)
+        })
+    },[])
+    return (
+
+        <div className={'flex flex-col scroll-auto'}>
+            {data.map((item, index) => (
+                <div key={index}>
+                    <p className={'font-medium'}>{item.Liver}</p>
+
+                    <div className={'flex flex-row align-middle mt-2'}>
+                        <Avatar
+                            src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.LiverID}`}
+                            onClick={() => {
+                                toSpace(item.LiverID);
+                            }}/>
+
+                        {item.Level ?              <Chip
+                            startContent={item.Type?<img  src={getGuardIcon(item.Type)} className={'w-6 h-6'}/>:<div/>}
+                            variant="faded"
+                            onClick={() => {
+                                toSpace(item.LiverID);
+                            }}
+                            style={{background: getColor(item.Level), color: 'white', marginLeft: '8px'}}
+                        >
+                            {item.MedalName}
+                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
+                                                            {item.Level}
+                                                        </span>
+                        </Chip>:<></>}
+                    </div>
+                </div>
+            ))}
+
+        </div>
+    )
+}
+
+function getGuardIcon(level) {
+    var array = ["","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-1.b718085..png","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-2.d43d078..png","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-3.6d2f428..png"]
+    return array[level]
 }
 
 export default LiveDetailPage;

@@ -792,12 +792,15 @@ func InitHTTP() {
 
 		var dst []FansClub
 		db.Raw("select * FROM fans_clubs WHERE uid = ?", mid).Scan(&dst)
-		context.JSON(http.StatusOK, gin.H{
-			"list": dst,
-		})
 		if dst == nil {
 			dst = []FansClub{}
 		}
+		sort.Slice(dst, func(i, j int) bool {
+			return dst[i].Score > dst[j].Score
+		})
+		context.JSON(http.StatusOK, gin.H{
+			"list": dst,
+		})
 
 	})
 

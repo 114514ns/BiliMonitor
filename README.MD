@@ -44,7 +44,10 @@ https://github.com/114514ns/BiliMonitor/actions
 ![](https://example.com/undefined20250302233902605.png)
 ![](https://example.com/undefined20250302233924636.png)
 ![](https://example.com/undefined20250511002801489.png)
+![](https://example.com/undefined20250627001835961.png)
 ![](https://example.com/undefined20250625001246302.png)
+![](https://example.com/undefined20250627001748657.png)
+
 
 # Known issues
 - 暂不支持mips64架构
@@ -58,6 +61,7 @@ https://github.com/114514ns/BiliMonitor/actions
   "SpecialList": [], //特别关注列表，列表内的up主发布的动态和稿件会被推送，类型为int
   "SpecialDelay": "2m", //刷新特别关注列表内up主动态的间隔
   "Cookie": "", //b站cookie，f12随便找个请求然后复制cookie粘贴过来
+  "RefreshToken": "", //RefreshToken，需要正确填写，否则无法刷新Cookie
   "EnableEmail": false, //启用邮件推送，目前使用resend api实现发送邮件
   "ResendToken": "re_TLeNcEDu_Ht8QFPBRPH6JyKZjfnxmztwB", //申请的token,一天免费100封邮件，你可以暂时用我的来测试。
   "FromMail": "bili@ikun.dev", //发件邮箱
@@ -69,7 +73,7 @@ https://github.com/114514ns/BiliMonitor/actions
   "BackServer": "http://127.0.0.1:3090", //OneBot后端
   "EnableServerPush": false, //启用Server酱推送，参考https://sc3.ft07.com/接入
   "ServerPushKey": "", //Server酱key
-  "Tracing": [], //要监控的直播间，类型为string[]
+  "Tracing": ["544853"], //要监控的直播间，类型为string[]，不能是短号
   "EnableAlist": false, //启用alist相关功能
   "AlistServer": "http://192.168.10.16:5244/", //alist服务器，注意url最后的斜杠
   "AlistUser": "admin", //alist用户名
@@ -90,7 +94,9 @@ https://github.com/114514ns/BiliMonitor/actions
   "Mode": "Master", //分布式的模式 取值为 Master/Slaver
   "Slaves": [""] ,//子节点列表
   "TraceArea": true, //是否启用分区监控
-  "BlackTracing": ["21013884"] //房间黑名单
+  "BlackTracing": ["21013884"], //房间黑名单，注意是房间号
+  "HTTPProxy": "http://fg27msTTyo:PZ8u9Pr2oz@[172.23.65.46]:8080", //HTTP代理
+  "QueryProxy": ""// 查询代理，不需要Cookie的查询接口会走这个代理
 }
 ```
 大部分功能都需要Cookie，所以请先填写好Cookie。
@@ -176,6 +182,12 @@ https://github.com/114514ns/BiliMonitor/actions
 主节点只负责下发任务（可以下发给自己），所以需要确保子节点也能访问到数据库。
 
 若不需要分布式爬虫，Slaves留空即可
+
+# Development
+
+- 运行main.test.go的TestHttp方法可以启动一个测试环境，不会爬取直播间，用于测试和调试接口
+- main.go的main方法，启动正常的环境
+- 前端页面在Page目录下，运行vite启动 
 
 
 # TODO
