@@ -2,15 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
+	pool2 "github.com/sourcegraph/conc/pool"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"log"
+	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func loadDB() {
@@ -30,6 +35,7 @@ func loadDB() {
 func TestHttp(test *testing.T) {
 
 	loadDB()
+	setupHTTPClient()
 	go func() {
 		RefreshLivers()
 	}()
@@ -89,12 +95,160 @@ func TestMerge(test *testing.T) {
 
 func TestFixLiver(test *testing.T) {
 	loadDB()
+	/*
+		var ids []string
+		db.Raw("SELECT medal_name FROM fans_clubs GROUP BY medal_name").Scan(&ids)
+		var m = make(map[string]int64)
+
+		for _, id := range ids {
+			var id0 int64
+			db.Raw("select liver_id from fans_clubs where medal_name = ? and liver_id != 0 limit 1", id).Scan(&id0)
+			m[id] = id0
+		}
+
+		for s, i := range m {
+			if s != "粉丝牌" {
+				if i != 0 {
+					db.Model(&FansClub{}).Where("medal_name = ?", s).Update("liver_id", i)
+				}
+			}
+		}
+
+	*/
 	var ids []int64
-	db.Raw("select liver_id from fans_clubs group by liver_id").Scan(&ids)
+	db.Raw("SELECT liver_id FROM fans_clubs GROUP BY liver_id").Scan(&ids)
+
 	for _, id := range ids {
-		var liverName = ""
-		db.Raw("select u_name from area_lives where uid = ? ORDER by id limit 1", id).Scan(&liverName)
-		db.Model(&FansClub{}).Where("liver_id = ?", id).UpdateColumn("liver", liverName)
+
+		var name = ""
+		db.Raw("select u_name from area_livers where uid = ?", id).Scan(&name)
+
+		if id == 0 || name == "" {
+			continue
+		}
+
+		db.Model(&FansClub{}).Where("liver_id = ?", id).Update("liver", name)
 	}
+
+	print()
+
+}
+
+func TestUpdateCommon(test *testing.T) {
+	loadConfig()
+	loadDB()
+	setupHTTPClient()
+	RefreshFollowings()
+	var m = make(map[*bili.BiliClient]string)
+	for j := 0; j < 64; j++ {
+
+		c := bili.NewAnonymousClient(bili.ClientOptions{
+			HttpProxy:       "207.2.122.68:8443",
+			ProxyUser:       "fg27msTTyo",
+			ProxyPass:       "PZ8u9Pr2oz",
+			RandomUserAgent: true,
+			NoCookie:        true,
+		})
+
+		ip := check(c)
+		var found = false
+		for _, s := range m {
+			if ip == s {
+				found = true
+				break
+			}
+		}
+		if !found {
+			fmt.Println(len(m))
+			m[c] = ip
+		} else {
+			transport, _ := c.Resty.Transport()
+			transport.CloseIdleConnections()
+			j--
+		}
+
+	}
+
+	var pool = pool2.New().WithMaxGoroutines(64)
+	for i := range Followings {
+
+		pool.Go(func() {
+			var id = strconv.FormatInt((Followings[i].UserID), 10)
+			var url = "https://api.bilibili.com/x/web-interface/card?mid=" + id
+			res, err := RandomKey(m).Resty.R().Get(url)
+			if err != nil {
+				log.Println(err)
+			}
+			var userResponse = UserResponse{}
+			sonic.Unmarshal(res.Body(), &userResponse)
+
+			var user = User{}
+			user.Name = userResponse.Data.Card.Name
+			user.Face = userResponse.Data.Card.Face
+			user.Fans = userResponse.Data.Followers
+			user.Bio = userResponse.Data.Card.Bio
+			user.Verify = userResponse.Data.Card.Verify.Content
+
+			user.UserID, _ = strconv.ParseInt(id, 10, 64)
+
+			user.Face = ""
+			if user.Fans != 0 {
+				db.Save(&user)
+			} else {
+				fmt.Println(res.String())
+			}
+
+			time.Sleep(1500 * time.Millisecond)
+		})
+	}
+}
+func check(client *bili.BiliClient) string {
+	res, _ := client.Resty.R().SetHeader("Connection", "close").Get("https://api.bilibili.com/x/web-interface/zone")
+	return res.String()
+}
+func RandomKey[K comparable, V any](m map[K]V) K {
+
+	if len(m) == 0 {
+		var zero K
+		return zero
+	}
+
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(keys))
+
+	return keys[randomIndex]
+}
+
+func TestDeleteDirty(test *testing.T) {
+
+	var ids []int64
+	loadConfig()
+	loadDB()
+	var remov []int64
+
+	db.Raw("select uid from area_livers group by uid").Scan(&ids)
+
+	for _, id := range ids {
+		var dst User
+		db.Raw("select fans from users where user_id=? order by id desc limit 1", id).Scan(&dst)
+
+		if dst.Fans < 100 && dst.Fans != 0 {
+			remov = append(remov, id)
+		}
+	}
+
+	for _, i := range remov {
+		tx := db.Raw("delete from area_livers where uid=?", i)
+		if tx.Error != nil {
+			fmt.Println(tx.Error)
+		}
+	}
+
+	fmt.Printf("ids: %v\n", remov)
 
 }

@@ -83,7 +83,7 @@ function RankDialog(props) {
     const SIZE = 100
 
     const fetchFans = () => {
-        axios.get("/api/fansRank?liver=" + liver.split("-")[0] + "&size=100&page=" + page).then((response) => {
+        axios.get("/api/fansRank?liver=" + liver.split("-")[0] + `&size=${SIZE}&page=` + page).then((response) => {
             setFans(response.data.list);
             if (response.data.total % SIZE === 0) {
                 setTotalPage(response.data.total / SIZE);
@@ -191,7 +191,7 @@ const FansList = memo(function Greeting({fans}) {
     >
         {fans.map((f) => (
             <ListboxItem
-                key={f.UID + '' + f.LiverID}
+                key={f.UID + '-' + f.LiverID}
             >
                 <div>
                     <p className={'font-medium'}>{f.UName}</p>
