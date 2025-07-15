@@ -153,7 +153,6 @@ function ChatArea(props) {
 function ChatItem(props) {
 
     var item = props.item;
-    var virtualRow = props.row
     return (
         <Card style={{width: "90%",marginTop:"10px"}}
               isHoverable

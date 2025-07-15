@@ -271,7 +271,7 @@ func InitHTTP() {
 		Type := c.DefaultQuery("type", "")
 		pageStr := c.DefaultQuery("page", "1")
 		page, err := strconv.Atoi(pageStr)
-		mid := c.DefaultQuery("mid", "1")
+		mid := c.DefaultQuery("mid", "0")
 		midInt := toInt64(mid)
 		if err != nil || page < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page number"})

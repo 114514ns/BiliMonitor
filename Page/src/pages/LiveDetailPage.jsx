@@ -359,9 +359,9 @@ function HoverMedals(props) {
     },[])
     return (
 
-        <div className={'flex flex-col scroll-auto'}>
+        <div className={'flex flex-col overflow-scroll fansMedal overflow-x-hidden'} style={{maxHeight:'600px'}}>
             {data.map((item, index) => (
-                <div key={index}>
+                <div key={index} className={'mt-2'}>
                     <p className={'font-medium'}>{item.Liver}</p>
 
                     <div className={'flex flex-row align-middle mt-2'}>

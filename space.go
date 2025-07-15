@@ -63,14 +63,18 @@ func UpdateCommon() {
 		}
 		var id = Followings[i].UserID
 		if !full {
-			if GetFansLocal(id) < 1000 {
+			var fans = GetFansLocal(id)
+			if fans < 1000 && fans != 0 {
 				continue //每三次中有一次的全量更新，剩下的情况只更新1000粉以上的
 			}
 		}
 
 		var user = FetchUser(strconv.FormatInt(id, 10), nil)
 		user.Face = ""
-		db.Save(&user)
+		if user.Fans != 0 {
+			db.Save(&user)
+		}
+
 		time.Sleep(3 * time.Second)
 	}
 	commonDone = true
@@ -142,7 +146,7 @@ func UpdateSpecial() {
 	}
 	for i := range config.SpecialList {
 		var id = config.SpecialList[i]
-		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.FormatInt(id, 10)) + "&timezone_offset=-480&features=itemOpusStyle")
+		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.FormatInt(id, 10)) + "&timezone_offset=-480&features=itemOpusStyle")
 		var result UserDynamic
 		sonic.Unmarshal(resp.Body(), &result)
 		for i2 := range result.Data.Items {
@@ -238,7 +242,7 @@ func RefreshFollowings() {
 		page++
 	}
 	var livers = make([]AreaLiver, 0)
-	db.Find(&livers)
+	db.Model(&AreaLiver{}).Group("uid").Find(&livers)
 	for _, liver := range livers {
 		var user = User{}
 		user.Name = liver.UName
