@@ -456,7 +456,7 @@ func TraceArea(parent int) {
 		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?area_id=0&build=1001016004&device=win&page=%d&parent_area_id=%d&platform=web&web_location=bilibili-electron", page, parent))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
-		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
+		res, _ := queryClient.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
 		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
@@ -472,7 +472,7 @@ func TraceArea(parent int) {
 			time.Sleep(800 * time.Millisecond)
 		}
 		sort.Slice(m, func(i, j int) bool {
-			return m[i].Time > m[j].Time
+			return m[i].Time < m[j].Time
 		})
 		for _, info := range m {
 			man.AddTask(info.Room)
@@ -633,7 +633,7 @@ func TraceArea(parent int) {
 	working = false
 }
 func BuildAuthMessage(room string) string {
-	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8"
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8&isGaiaAvoided=true"
 	query, _ := url.Parse(url0)
 	signed, _ := wbi.SignQuery(query.Query(), time.Now())
 	res, e := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
@@ -658,21 +658,18 @@ func BuildAuthMessage(room string) string {
 
 }
 
-var mu0 sync.RWMutex
-
 func isLive(roomId string) bool {
+	livesMutex.Lock() // Acquire read lock on the 'lives' map
+	s, ok := lives[roomId]
+	livesMutex.Unlock() // Release read lock on the 'lives' map
 
-	_, ok := lives[roomId]
-	if !ok {
+	if !ok || s == nil {
 		return false
 	}
 
-	lives[roomId].RLock()
-	defer lives[roomId].RUnlock()
-	if s, ok := lives[roomId]; ok {
-		return s.Live
-	}
-	return false
+	s.RLock() // Acquire read lock on the Status struct
+	defer s.RUnlock()
+	return s.Live
 }
 
 func setLive(roomId string, live bool) {
@@ -684,7 +681,6 @@ func setLive(roomId string, live bool) {
 }
 func RandomHost() string {
 	var HOST = []string{"zj-cn-live-comet.chat.bilibili.com", "bd-bj-live-comet-06.chat.bilibili.com", "bd-sz-live-comet-10.chat.bilibili.com", "broadcastlv.chat.bilibili.com"}
-
 	return HOST[rand.Intn(len(HOST))]
 
 }
@@ -702,7 +698,10 @@ func TraceLive(roomId string) {
 	var liverId = strconv.FormatInt(roomInfo.Data.UID, 10)
 	var startAt = roomInfo.Data.LiveTime
 
-	var living = false
+	livesMutex.Lock()
+	lives[roomId].Live = GetServerState(roomId)
+	var living = lives[roomId].Live
+	livesMutex.Unlock()
 	var liverInfoUrl = "https://api.live.bilibili.com/live_user/v1/Master/info?uid=" + liverId
 	liverRes, _ := client.R().Get(liverInfoUrl)
 	var liverObj = LiverInfo{}
@@ -733,12 +732,10 @@ func TraceLive(roomId string) {
 	lives[roomId].Title = roomInfo.Data.Title
 	lives[roomId].LiveRoom = roomId
 	if !strings.Contains(startAt, "0000-00-00 00:00:00") {
-		lives[roomId].Live = true
 
 		//当前是开播状态
 		var serverStartAt, _ = time.Parse(time.DateTime, startAt)
 		lives[roomId].StartAt = startAt
-		living = true
 
 		var foundLive = Live{}
 
@@ -774,7 +771,7 @@ func TraceLive(roomId string) {
 		}
 	}
 
-	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId + "&web_location=444.8"
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId + "&web_location=444.8&isGaiaAvoided"
 	query, _ := url.Parse(url0)
 	signed, _ := wbi.SignQuery(query.Query(), time.Now())
 	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
@@ -1164,6 +1161,7 @@ func TraceLive(roomId string) {
 				if !ok {
 					log.Println(roomId)
 					log.Println(lives)
+					return
 				}
 				lives[roomId].StartAt = time.Now().Format(time.DateTime)
 				lives[roomId].Title = roomInfo.Data.Title
@@ -1217,17 +1215,21 @@ func TraceLive(roomId string) {
 			}
 
 			go func() {
-				var online, count = GetOnline(roomId, liverId)
-				var guard = GetGuardList(roomId, liverId)
-				livesMutex.Lock()
-				if lives[roomId] != nil {
-					lives[roomId].GuardCacheKey = time.Now().Unix()
-					lives[roomId].OnlineCount = count
-					lives[roomId].OnlineWatcher = online
-					lives[roomId].GuardList = guard
-					lives[roomId].GuardCount = len(guard)
-				}
-				livesMutex.Unlock()
+				/*
+					online, count := GetOnline(roomId, liverId)
+					guard := GetGuardList(roomId, liverId)
+
+					livesMutex.Lock()
+					defer livesMutex.Unlock()
+					if status, ok := lives[roomId]; ok && status != nil {
+						status.GuardCacheKey = time.Now().Unix()
+						status.OnlineCount = count
+						status.OnlineWatcher = online
+						status.GuardList = guard
+						status.GuardCount = len(guard)
+					}
+
+				*/
 			}()
 		}
 	}

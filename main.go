@@ -8,6 +8,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
+	"github.com/jinzhu/copier"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
@@ -23,6 +24,7 @@ import (
 	url2 "net/url"
 	"os"
 	"os/exec"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -244,6 +246,7 @@ func PushDynamic(title, msg string) {
 		}
 		_, err := mailClient.Emails.Send(params)
 		if err != nil {
+
 			log.Println(err)
 		}
 	}
@@ -384,7 +387,15 @@ func SortTracing() {
 }
 
 func SaveConfig() {
-	content, _ := sonic.Marshal(&config)
+	var cpy Config
+	copier.Copy(&cpy, &config)
+	cpy.Slaves = []string{}
+	for _, slave := range config.Slaves {
+		if slave != "http://127.0.0.1:"+strconv.Itoa(int(cpy.Port)) {
+			cpy.Slaves = append(cpy.Slaves, slave)
+		}
+	}
+	content, _ := sonic.Marshal(&cpy)
 	os.WriteFile("config.json", content, 666)
 }
 
@@ -491,7 +502,7 @@ func setupHTTPClient() {
 			var obj map[string]interface{}
 			sonic.Unmarshal(response.Body(), &obj)
 			_, ok := obj["code"]
-			if !ok {
+			if !ok && !strings.Contains(response.String(), "ts_rpc") {
 				log.Println(response.String())
 			}
 			if ok && obj["code"].(float64) != 0 {
@@ -500,17 +511,19 @@ func setupHTTPClient() {
 						return nil
 					}
 				}
-				if strings.Contains(response.Request.URL, "ts_rpc_return") {
+				if strings.Contains(response.String(), "ts_rpc_return") {
 					if strings.Contains(response.String(), "hdslb") {
 						return nil //偷点懒
 					}
 				}
 				log.Println(response.Request.URL)
 				log.Println(response.String())
+				debug.PrintStack()
 			}
 			if response.IsError() {
 				log.Println(response.Request.URL)
 				log.Println(response.Error())
+				debug.PrintStack()
 			}
 		}
 
@@ -529,7 +542,9 @@ func setupHTTPClient() {
 		r.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
 		return nil
 	})
-	queryClient.SetProxy(config.QueryProxy)
+	if config.QueryProxy != "" {
+		queryClient.SetProxy(config.QueryProxy)
+	}
 	queryClient.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
 		request.Header.Set("User-Agent", randomUserAgent())
 		return nil
@@ -628,9 +643,9 @@ func main0() {
 	}
 	time.Sleep(1 * time.Second)
 	res, _ := client.R().Get("https://test.ipw.cn/")
-	log.Printf("当前ip：" + res.String())
+	log.Println("当前ip：" + res.String())
 	res, _ = client.R().Get("https://api.bilibili.com/x/web-interface/zone")
-	log.Printf("当前ip：" + res.String())
+	log.Println("当前ip：" + res.String())
 
 	c.AddFunc("@every 1m", func() {
 		tempMutex.Lock()
@@ -709,9 +724,11 @@ func main0() {
 		c.Start()
 
 		SortTracing()
+
 		for i := range config.Tracing {
 			man.AddTask(config.Tracing[i])
 		}
+
 	}
 	if config.Mode == "Slaver" {
 		log.Printf("Slave Mode")
@@ -763,6 +780,7 @@ func RefreshCookie() {
 	var obj RefreshResponse
 	sonic.Unmarshal(res.Body(), &obj)
 	if obj.Data.Refresh == true {
+		log.Println("[CookieRefresh] Begin")
 		path := getCorrespondPath(obj.Data.Timestamp)
 		res, _ = client.R().SetHeader("Cookie", config.Cookie).Get("https://www.bilibili.com/correspond/1/" + path)
 		htmlContent := res.Body()
@@ -781,7 +799,12 @@ func RefreshCookie() {
 		sonic.Unmarshal(res.Body(), &obj)
 		var newCookie = ""
 		for _, s := range res.RawResponse.Header.Values("Set-Cookie") {
-			newCookie = strings.Split(s, ";")[0] + newCookie
+			newCookie = newCookie + strings.Split(s, ";")[0] + ";"
+		}
+		if newCookie == "" || obj.Data.Refresh == "" {
+			log.Println("[CookieRefresh] Refresh Failed")
+			log.Println(res.String())
+			return
 		}
 		config.RefreshToken = obj.Data.Refresh
 		config.Cookie = newCookie
@@ -789,6 +812,8 @@ func RefreshCookie() {
 		log.Printf("[CookieRefresh] Cookie=%s", newCookie)
 		SaveConfig()
 		time.Now()
+	} else {
+		log.Println("[CookieRefresh] Skip")
 	}
 
 }
