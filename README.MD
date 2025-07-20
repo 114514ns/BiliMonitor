@@ -191,7 +191,6 @@ https://github.com/114514ns/BiliMonitor/actions
 
 
 # TODO
-- [ ] 自动刷新Cookie
 - [ ] 完善文档
 - [ ] 程序启动时检查配置文件正确性
 # Referer

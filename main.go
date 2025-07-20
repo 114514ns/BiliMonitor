@@ -807,7 +807,16 @@ func RefreshCookie() {
 			return
 		}
 		config.RefreshToken = obj.Data.Refresh
-		config.Cookie = newCookie
+		var buv = "https://api.bilibili.com/x/web-frontend/getbuvid"
+		get, _ := client.R().SetHeader("Cookie", newCookie).Get(buv)
+		type BuvidResponse struct {
+			Data struct {
+				Buvid string `json:"buvid"`
+			} `json:"data"`
+		}
+		var obj0 BuvidResponse
+		sonic.Unmarshal(get.Body(), &obj0)
+		config.Cookie = newCookie + "buvid3=" + obj0.Data.Buvid
 		log.Printf("[CookieRefresh] RefreshToken=%s", obj.Data.Refresh)
 		log.Printf("[CookieRefresh] Cookie=%s", newCookie)
 		SaveConfig()
