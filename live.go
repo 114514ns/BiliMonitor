@@ -548,7 +548,7 @@ func TraceArea(parent int) {
 
 							}
 							if club.Score != 0 {
-								club.Score = g.Score
+								club.Score = g.Score //如何数据库里这名用户没有这位主播的粉丝牌，就插入一条记录
 								club.Liver = g.Liver
 								club.DBGuard = g
 								db.Save(&club)
@@ -686,6 +686,13 @@ func RandomHost() string {
 }
 
 func TraceLive(roomId string) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered from panic:", r)
+		}
+	}()
+
 	var WS_HEADER = http.Header{}
 	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
@@ -800,8 +807,7 @@ func TraceLive(roomId string) {
 	}
 	ticker := time.NewTicker(45 * time.Second)
 
-	go func() {
-
+	SafeGoRetry(func() {
 		if lives[roomId].Live {
 
 			err := c.WriteMessage(websocket.TextMessage, BuildMessage(BuildAuthMessage(roomId), 7))
@@ -811,8 +817,6 @@ func TraceLive(roomId string) {
 			log.Printf("[%s] 成功连接到弹幕服务器", liver)
 		}
 		for {
-
-			// 打印接收到的消息
 			var msg = ""
 			if isLive(roomId) {
 				_, message, err := c.ReadMessage()
@@ -841,9 +845,6 @@ func TraceLive(roomId string) {
 				reader := io.NewSectionReader(bytes.NewReader(message), 16, int64(len(message)-16))
 				brotliReader := brotli.NewReader(reader)
 				var decompressedData bytes.Buffer
-
-				// 通过 io.Copy 将解压后的数据写入到缓冲区
-
 				_, err0 := io.Copy(&decompressedData, brotliReader)
 				if err0 != nil {
 					msg = string(message)
@@ -859,13 +860,11 @@ func TraceLive(roomId string) {
 				if buffer.Len() < 16 {
 					break
 				}
-
 				var totalSize uint32
 				var headerLength uint16
 				var protocolVersion uint16
 				var operation uint32
 				var sequence uint32
-
 				binary.Read(buffer, binary.BigEndian, &totalSize)
 				binary.Read(buffer, binary.BigEndian, &headerLength)
 				binary.Read(buffer, binary.BigEndian, &protocolVersion)
@@ -998,65 +997,14 @@ func TraceLive(roomId string) {
 					db.Create(&action)
 					consoleLogger.Printf("[%s] %s 投喂了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
-
 					var enter = EnterLive{}
 					sonic.Unmarshal(msgData, &enter)
 					action.FromId = enter.Data.UID
 					action.FromName = enter.Data.Uname
 					action.ActionName = "enter"
 					//db.Create(&action)
-
 				} else if strings.Contains(obj, "PREPARING") {
-					/*
-						lives[roomId].Live = false
-						var sum float64
-						db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
-
-						db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
-						living = false
-						i, _ := strconv.Atoi(roomId)
-						if config.EnableLiveBackup {
-							go UploadLive(Live{RoomId: i, UserName: liver})
-						}
-
-					*/
-
 				} else if text.Cmd == "LIVE" {
-					/*
-						var new = Live{}
-						living = true
-						new.UserID = liverId
-						time.Sleep(time.Second * 5) //如果马上去请求直播间信息会有问题
-						var r, _ = client.R().Get(roomUrl)
-						sonic.Unmarshal(r.Body(), &roomInfo)
-						var serverStartAt = time.Now() //time.Parse(time.DateTime, roomInfo.Data.LiveTime)
-						var foundLive = Live{}
-						lives[roomId].Title = roomInfo.Data.Title
-						db.Where("user_id=?", roomInfo.Data.UID).Last(&foundLive)
-						var diff = abs(int(foundLive.StartAt - serverStartAt.Unix()))
-						if diff-8*3600 > 60*15 && !lives[roomId].Live  {
-							log.Println("[" + roomId + "]  " + msg)
-							log.Println("[" + roomId + "]  " + string(msgData))
-							v := serverStartAt
-							v = v.Add(time.Hour * 8)
-							new.StartAt = v.Unix()
-							new.Title = roomInfo.Data.Title
-							new.Area = roomInfo.Data.Area
-							var i, _ = strconv.Atoi(roomId)
-							new.RoomId = i
-							new.UserName = liver
-							lives[roomId].Live = true
-							lives[roomId].StartAt = time.Now().Add(3600 * 8 * time.Second).Format(time.DateTime)
-							liver = strings.TrimSpace(liver)
-							db.Create(&new)
-							dbLiveId = int(new.ID)
-							var msg = "你关注的主播： " + liver + " 开始直播"
-							PushDynamic(msg, roomInfo.Data.Title)
-						} else {
-							log.Println("LIVE FALSE")
-						}
-					*/
-
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
 					var sc = SuperChatInfo{}
 					sonic.Unmarshal(msgData, &sc)
@@ -1116,7 +1064,7 @@ func TraceLive(roomId string) {
 			}
 
 		}
-	}()
+	}, 5, time.Second*10)
 
 	for {
 		select {
@@ -1161,6 +1109,7 @@ func TraceLive(roomId string) {
 				if !ok {
 					log.Println(roomId)
 					log.Println(lives)
+					livesMutex.Unlock()
 					return
 				}
 				lives[roomId].StartAt = time.Now().Format(time.DateTime)
@@ -1483,4 +1432,24 @@ func UpdateGuardList(room string, arr []Watcher) {
 	defer livesMutex.Unlock()
 	lives[room].GuardCount = len(arr)
 	lives[room].GuardList = arr
+}
+func SafeGoRetry(fn func(), maxRetries int, retryDelay time.Duration) {
+	go func() {
+		for i := 0; i <= maxRetries; i++ {
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						log.Printf("goroutine panic (attempt %d): %v", i+1, r)
+					}
+				}()
+
+				fn()
+				return
+			}()
+
+			if i < maxRetries {
+				time.Sleep(retryDelay)
+			}
+		}
+	}()
 }
