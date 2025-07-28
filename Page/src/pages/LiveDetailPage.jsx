@@ -2,7 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {useParams} from "react-router-dom";
 import axios from "axios";
 import "./LivePage.css"
-
+import {useNavigate} from "react-router";
 import {
     Autocomplete,
     AutocompleteItem,
@@ -17,12 +17,15 @@ import {
 } from "@heroui/react";
 import UserChip from "../components/UserChip";
 import {CheckIcon} from "./ChatPage";
+import HoverMedals from "../components/HoverMedals";
 
 function LiveDetailPage(props) {
     let {id} = useParams();
+
     const host = location.hostname;
     const [actions, setActions] = useState([])
 
+    const redirect = useNavigate();
     const [mid,setMid] = useState(0);
     useEffect(() => {
         refreshData(currentPage, pageSize)
@@ -169,8 +172,8 @@ function LiveDetailPage(props) {
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
-                            <span className="text-blue-600">主播</span>
-                            <div className='flex flex-row items-center' onClick={() => {toSpace(liveInfo.UserID)}}>
+                            <span className="text-blue-600"></span>
+                            <div className='flex flex-row items-center text-blue-600' onClick={() => {toSpace(liveInfo.UserID)}}>
                                 <img src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
                                 <br/>
                                 {liveInfo.UserName}
@@ -311,7 +314,7 @@ function LiveDetailPage(props) {
                                     <HoverMedals mid={item.FromId}/>
                                 } delay={400}>
                                     <div className={'flex'} onClick={() => {
-                                        toSpace(item.FromId)
+                                        redirect("/user/" +item.FromId)
                                     }}>
                                         {item.FromName}
                                         {item.MedalLevel != 0 ?                                     <Chip
@@ -319,7 +322,7 @@ function LiveDetailPage(props) {
                                             startContent={<CheckIcon size={18}/>}
                                             variant="faded"
                                             onClick={() => {
-                                                toSpace(props.props.LiverID);
+
                                             }}
                                             style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
                                         >
@@ -343,58 +346,7 @@ function LiveDetailPage(props) {
     );
 }
 
-function HoverMedals(props) {
-    var mid = props.mid
-    var [data,setData] = useState([])
-    useEffect(() => {
-        axios.get(`${protocol}://${host}:${port}/api/medals?mid=${mid}`).then((response) => {
-            if (response.data.list == null) {
-                response.data.list = []
-            }
-            response.data.list.sort((a,b) => {
-                return a.Score < b.Score
-            })
-            setData(response.data.list)
-        })
-    },[])
-    return (
 
-        <div className={'flex flex-col overflow-scroll fansMedal overflow-x-hidden'} style={{maxHeight:'600px'}}>
-            {data.map((item, index) => (
-                <div key={index} className={'mt-2'}>
-                    <p className={'font-medium'}>{item.Liver}</p>
 
-                    <div className={'flex flex-row align-middle mt-2'}>
-                        <Avatar
-                            src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.LiverID}`}
-                            onClick={() => {
-                                toSpace(item.LiverID);
-                            }}/>
-
-                        {item.Level ?              <Chip
-                            startContent={item.Type?<img  src={getGuardIcon(item.Type)} className={'w-6 h-6'}/>:<div/>}
-                            variant="faded"
-                            onClick={() => {
-                                toSpace(item.LiverID);
-                            }}
-                            style={{background: getColor(item.Level), color: 'white', marginLeft: '8px'}}
-                        >
-                            {item.MedalName}
-                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
-                                                            {item.Level}
-                                                        </span>
-                        </Chip>:<></>}
-                    </div>
-                </div>
-            ))}
-
-        </div>
-    )
-}
-
-function getGuardIcon(level) {
-    var array = ["","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-1.b718085..png","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-2.d43d078..png","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-3.6d2f428..png"]
-    return array[level]
-}
 
 export default LiveDetailPage;

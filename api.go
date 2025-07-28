@@ -804,6 +804,177 @@ func InitHTTP() {
 
 	})
 
+	r.GET("/hash", func(context *gin.Context) {
+
+		var hash = context.DefaultQuery("hash", "")
+		if hash == "" {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid hash",
+			})
+		} else {
+			var dst []UserMapping
+			clickDb.Raw("select * from user_mappings where hash = ?", hash).Scan(&dst)
+			context.JSON(http.StatusOK, gin.H{
+				"list": dst,
+			})
+		}
+	})
+	r.GET("/user/space", func(context *gin.Context) {
+		var uidStr = context.DefaultQuery("uid", "")
+		if uidStr == "" {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid uid",
+			})
+			return
+		}
+		var uid = toInt64(uidStr)
+		var wg sync.WaitGroup
+		var totalMessage = 0
+		var totalMoney = 0.0
+		var lastSeen time.Time
+		var firstSeen time.Time
+		var name = ""
+		type Room struct {
+			Liver    string
+			LiverID  int64
+			Count    int
+			Rate     float64
+			LiveRoom int
+		}
+		var medals int
+		var topMedal int
+		var rooms []Room
+		wg.Add(7)
+		go func() {
+			db.Raw("select count(*) from live_actions where from_id = ? ", uid).Scan(&totalMessage)
+			wg.Done()
+		}()
+		go func() {
+			db.Raw("SELECT COALESCE(SUM(gift_price), 0)  FROM live_actions WHERE from_id = ?", uid).Scan(&totalMoney)
+			wg.Done()
+		}()
+		go func() {
+			var obj LiveAction
+			db.Raw("select from_name,created_at from live_actions where from_id = ? order by id desc limit 1", uid).Scan(&obj)
+			lastSeen = obj.CreatedAt
+			name = obj.FromName
+			wg.Done()
+		}()
+		go func() {
+			db.Raw("select created_at from live_actions where from_id = ? order by id limit 1", uid).Scan(&firstSeen)
+			wg.Done()
+		}()
+		go func() {
+			db.Raw("SELECT live_room,COUNT(live_room) as count FROM live_actions where from_id = ?  GROUP BY live_room limit 100", uid).Scan(&rooms)
+			var totalCount = 0
+			for _, room := range rooms {
+				totalCount += room.Count
+			}
+			for j, room := range rooms {
+				rooms[j].Rate = float64(room.Count) / float64(totalCount)
+				rooms[j].Liver = liverMap[room.LiveRoom].UName
+			}
+			wg.Done()
+		}()
+		go func() {
+			db.Raw("select count(*) from fans_clubs where uid = ?", uid).Scan(&medals)
+			wg.Done()
+		}()
+		go func() {
+			db.Raw("select level from fans_clubs where uid = ? order by level desc limit 1", uid).Scan(&topMedal)
+			wg.Done()
+		}()
+		wg.Wait()
+
+		context.JSON(http.StatusOK, gin.H{
+			"Money":        totalMoney,
+			"Message":      totalMessage,
+			"UName":        name,
+			"LastSeen":     lastSeen,
+			"FirstSeen":    firstSeen,
+			"Rooms":        rooms,
+			"Medals":       medals,
+			"HighestLevel": topMedal,
+		})
+	})
+
+	r.GET("/user/action", func(context *gin.Context) {
+		type CustomLiveAction struct {
+			LiveAction
+			ToName string
+		}
+
+		var uidStr = context.DefaultQuery("uid", "")
+		var pageSizeStr = context.DefaultQuery("pageSize", "10")
+		var pageStr = context.DefaultQuery("page", "1")
+		var order = context.DefaultQuery("order", "time")
+		var typo = context.DefaultQuery("type", "")
+
+		var total = 0
+
+		var queryOrder = "order by id"
+		if order == "timeDesc" {
+			queryOrder = "order by id desc"
+		}
+		if order == "money" {
+			queryOrder = "order by gift_price desc"
+		}
+		if uidStr == "" {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid uid",
+			})
+			return
+		}
+		var typeQuery = ""
+		if typo == "sc" {
+			typeQuery = "and action_name = 'sc' "
+		}
+		if typo == "gift" {
+			typeQuery = "and action_name = 'gift'"
+		}
+		if typo == "msg" {
+			typeQuery = "and action_name = 'msg'"
+		}
+		if typo == "guard" {
+			typeQuery = "and action_name = 'guard'"
+		}
+		uid := toInt64(uidStr)
+		pageSize := toInt64(pageSizeStr)
+		page := toInt64(pageStr)
+		if page < 1 {
+			page = 1
+		}
+		if pageSize <= 0 {
+			pageSize = 10
+		}
+		offset := (page - 1) * pageSize
+		var dst []LiveAction
+		err := db.Raw(
+			fmt.Sprintf("select * from live_actions where from_id = ? %s %s limit ? offset ?", typeQuery, queryOrder),
+			uid, pageSize, offset,
+		).Scan(&dst).Error
+		if err != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{
+				"message": "query failed",
+				"error":   err.Error(),
+			})
+			return
+		}
+		db.Raw("select count(*) from live_actions where from_id = ? "+typeQuery, uid).Scan(&total)
+		var result []CustomLiveAction
+		for _, action := range dst {
+			var c CustomLiveAction
+			c.LiveAction = action
+			c.ToName = liverMap[int(toInt64(c.LiveRoom))].UName
+
+			result = append(result, c)
+		}
+		context.JSON(http.StatusOK, gin.H{
+			"data":  result,
+			"total": total,
+		})
+	})
+
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 
