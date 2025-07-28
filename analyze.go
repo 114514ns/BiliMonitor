@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/jinzhu/copier"
 	"github.com/sourcegraph/conc/pool"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -54,6 +55,8 @@ func TotalLiver() int {
 	return count
 }
 func RefreshLivers() {
+	var start = time.Now()
+	log.Println("[RefreshLivers] Start")
 	var result []FrontAreaLiver
 	var ids []int64
 	var idMap = make(map[int64][]FrontAreaLiver)
@@ -61,11 +64,11 @@ func RefreshLivers() {
 	var wg = pool.New().WithMaxGoroutines(6)
 	var mutex sync.Mutex
 	for _, id := range ids {
-		id := id // 👈 创建局部副本，避免闭包捕获同一个变量
+		id := id
 		wg.Go(func() {
 			var dst []FrontAreaLiver
 
-			db.Raw(`select uid,fans,updated_at,guard,u_name from area_livers where uid=?`, id).Find(&dst)
+			db.Raw(`select uid,fans,updated_at,guard,u_name,room from area_livers where uid=?`, id).Find(&dst)
 			mutex.Lock()
 			if len(dst) == 0 {
 				time.Sleep(time.Millisecond * 100)
@@ -81,9 +84,11 @@ func RefreshLivers() {
 	}
 
 	for i, liver := range result {
+
+		liverMap[liver.Room] = liver
 		var dst User
 		db.Raw("select * from users where user_id=? order by id desc limit 1", liver.UID).Scan(&dst)
-		if dst.ID != 0 {
+		if dst.ID != 0 && dst.Fans > 300 {
 			result[i].Bio = dst.Bio
 			result[i].Verify = dst.Verify
 			var live AreaLive
@@ -100,6 +105,7 @@ func RefreshLivers() {
 
 		}
 	}
+	log.Println("[RefreshLivers] Done " + time.Since(start).String())
 	copier.Copy(&cachedLivers, &result)
 }
 func MinuteMessageCount(minute int64) int64 {
@@ -116,3 +122,4 @@ func TotalMessage() int64 {
 }
 
 var cachedLivers = make([]FrontAreaLiver, 0)
+var liverMap = make(map[int]FrontAreaLiver)

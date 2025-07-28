@@ -38,6 +38,7 @@ var RecordedDynamic = make([]string, 0)
 var RecordedMedias = make([]string, 0)
 var GiftPrice = map[string]float32{}
 var mailClient = resend.NewClient("")
+var clickDb *gorm.DB
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
 

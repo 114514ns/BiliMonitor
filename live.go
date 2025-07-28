@@ -365,14 +365,16 @@ type AreaLiver struct {
 
 // 一场直播
 type AreaLive struct {
-	ID    uint `gorm:"primarykey"`
-	Time  time.Time
-	UName string
-	UID   int64
-	Room  int
-	Title string
-	Area  string
-	Watch int
+	ID       uint `gorm:"primarykey"`
+	Time     time.Time
+	UName    string
+	UID      int64
+	Room     int
+	Title    string
+	Area     string
+	Watch    int
+	LastSeen time.Time
+	Duration int
 }
 
 // 舰长，以json数组序列化后存在AreaLive的GuardList字段里
@@ -505,9 +507,12 @@ func TraceArea(parent int) {
 				l.Area = s2.Area
 				l.Watch = s2.Watch.Num
 				l.Time = time.Unix(info.Data.Time, 0)
+				l.LastSeen = time.Now()
 				db.Save(&l)
 			} else {
 				live.Watch = s2.Watch.Num
+				live.LastSeen = time.Now()
+				live.Duration = int(live.LastSeen.Sub(live.Time).Minutes())
 				db.Save(&live)
 			}
 			//log.Printf("current Liver %s", s2.UName)
@@ -516,7 +521,7 @@ func TraceArea(parent int) {
 				Order("id DESC").
 				First(&found)
 			//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
-			if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*48 {
+			if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*36 {
 				if found.UID == 0 {
 					//如果这个主播在数据库里没有，就获取活跃的粉丝团用户列表，和免费的粉丝团用户是数量
 					liveWorker.AddTask(func() {
@@ -788,7 +793,7 @@ func TraceLive(roomId string) {
 		log.Println("error,break" + res.String())
 		return
 	}
-	u := url.URL{Scheme: "wss", Host: RandomHost() + ":2245", Path: "/sub"}
+	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
 	var dialer = &websocket.Dialer{
 		Proxy:            nil,
 		HandshakeTimeout: 45 * time.Second,

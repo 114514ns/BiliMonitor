@@ -44,7 +44,10 @@ window.protocol = location.protocol.replace(":","")
 document.addEventListener("DOMContentLoaded", (event) => {
     window.page = 1
 });
-
+window.getGuardIcon= (level) =>{
+    var array = ["","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-1.b718085..png","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-2.d43d078..png","https://i1.hdslb.com/bfs/static/blive/blfe-live-room/static/img/logo-3.6d2f428..png"]
+    return array[level]
+}
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <NextThemesProvider defaultTheme={'light'}>

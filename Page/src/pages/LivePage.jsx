@@ -105,7 +105,7 @@ function LivePage(props) {
     }
 
     useEffect(() => {
-        refreshData(1, 10)
+        refreshData(1, pageSize)
     }, [])
 
     const [filters, setFilters] = useState([]);
@@ -167,7 +167,7 @@ function LivePage(props) {
     ])
     const [currentPage, setCurrentPage] = useState(window.page);
 
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(15);
 
     // 处理页码改变事件
     const handlePageChange = (page, pageSize) => {
@@ -180,7 +180,7 @@ function LivePage(props) {
     }
 
     useEffect(() => {
-        refreshData(currentPage, 10)
+        refreshData(currentPage, pageSize)
     },[liver,order])
     useEffect(() => {
         if (chartId !== null && chartId !== 0) {
@@ -261,8 +261,11 @@ function LivePage(props) {
                         onChange={(page) => handlePageChange(page, pageSize)}
                     />
                 </div>
-            }       maxTableHeight={500}
-                   rowHeight={70} isStriped>
+            }      maxTableHeight={850}
+                   rowHeight={50}
+                   isStriped
+
+            >
 
                 <TableHeader>
                     {columns.map((col, index) => (

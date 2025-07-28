@@ -31,6 +31,7 @@ func loadDB() {
 	db, _ = gorm.Open(mysql.New(mysql.Config{
 		DSN: dsl, // DSN data source name
 	}))
+
 }
 func TestHttp(test *testing.T) {
 
@@ -60,7 +61,7 @@ func TestMerge(test *testing.T) {
 		},
 	)})
 
-	click, _ := gorm.Open(clickhouse.Open("tcp://127.0.0.1:19000/bili?&username=default&password=Zyh060813@&read_timeout=10s"))
+	click, _ := gorm.Open(clickhouse.Open("tcp://127.0.0.1:19000/bili?&username=default&password=@&read_timeout=10s"))
 	const pageSize = 1000
 	var lastID = 0
 	total := 0

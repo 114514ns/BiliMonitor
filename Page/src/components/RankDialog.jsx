@@ -15,6 +15,7 @@ import {
 } from "@heroui/react";
 import axios from "axios";
 import {CheckIcon} from "../pages/ChatPage";
+import {useNavigate} from "react-router";
 
 window.getColor = (level) => {
     if (level <= 4) {
@@ -55,6 +56,7 @@ function RankDialog(props) {
 
     const [data, setData] = React.useState([]);
 
+    window.redirect = useNavigate()
 
     const fetchData = (key) => {
         if (!key) {
@@ -158,7 +160,7 @@ function RankDialog(props) {
                                 >Active Only</Switch>
                             </div>
 
-                            <FansList fans={fans}/>
+                            <FansList fans={fans} onClose={props.onClose} />
 
                         </div>
 
@@ -172,7 +174,7 @@ function RankDialog(props) {
     );
 }
 
-const FansList = memo(function Greeting({fans}) {
+const FansList = memo(function Greeting({fans,onClose}) {
     return <Listbox
         style={{
             //maxHeight: "800px",
@@ -200,7 +202,8 @@ const FansList = memo(function Greeting({fans}) {
                             <Avatar
                                 src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.UID}`}
                                 onClick={() => {
-                                    toSpace(f.UID);
+                                    redirect("/user/" + f.UID);
+                                    onClose();
                                 }}/>
 
                             <Chip
