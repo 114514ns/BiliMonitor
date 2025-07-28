@@ -22,6 +22,7 @@ import ListPage from "./pages/ListPage";
 import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
 import RankDialog from "./components/RankDialog";
+import UserPage from "./pages/UserPage";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -111,6 +112,7 @@ function BasicLayout() {
                     <Route path={'/list'} element={<ListPage/>}/>
                     <Route path={'/stat'} element={<StatusPage/>}/>
                     <Route path={'/liver/:id'} element={<LiverPage/>}/>
+                    <Route path={'/user/:id'} element={<UserPage/>}/>
 
                 </Routes>
             </div>

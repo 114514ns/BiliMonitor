@@ -297,3 +297,8 @@ type FansClubResponse struct {
 		} `json:"item"`
 	} `json:"data"`
 }
+type UserMapping struct {
+	Hash  string
+	UID   int64
+	UName string
+}

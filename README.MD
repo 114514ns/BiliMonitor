@@ -56,7 +56,7 @@ https://github.com/114514ns/BiliMonitor/actions
 ```json5
 {
   "RefreshFollowingsDelay": "30m", //刷新关注列表间隔
-  "User": "2", //你的uid，列表内的所有up主会被定时记录粉丝量，需要设置关注列表允许公开访问
+  "User": "98618805", //你的uid，列表内的所有up主会被定时记录粉丝量，需要设置关注列表允许公开访问
   "CommonDelay": "30m", //记录粉丝量的间隔
   "SpecialList": [], //特别关注列表，列表内的up主发布的动态和稿件会被推送，类型为int
   "SpecialDelay": "2m", //刷新特别关注列表内up主动态的间隔
@@ -104,7 +104,7 @@ https://github.com/114514ns/BiliMonitor/actions
 ## 粉丝量监控
 ```json5
 {
-  "User": "2",
+  "User": "98618805",
 }
 ```
 这里改成你的uid，然后允许公开访问你的关注列表即可。
@@ -183,6 +183,10 @@ https://github.com/114514ns/BiliMonitor/actions
 
 若不需要分布式爬虫，Slaves留空即可
 
+## 观众分析
+
+![](https://example.com//img/20250728231920.png)
+![](https://example.com//img/20250728232125.png)
 # Development
 
 - 运行main.test.go的TestHttp方法可以启动一个测试环境，不会爬取直播间，用于测试和调试接口
