@@ -39,7 +39,7 @@ function ActionTable(props) {
             )
         },
         {
-            title: 'Title',
+            title: 'Liver',
             dataIndex: 'Liver',
             key: 'Title',
         },
@@ -103,7 +103,7 @@ function ActionTable(props) {
                                             startContent={<CheckIcon size={18}/>}
                                             variant="faded"
                                             onClick={() => {
-                                                toSpace(props.props.LiverID);
+                                                toSpace(item.MedalLiver);
                                             }}
                                             style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
                                         >
@@ -118,7 +118,7 @@ function ActionTable(props) {
                             <TableCell>{item.ToName}</TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>
                             <TableCell>{item.GiftPrice.Float64}</TableCell>
-                            <TableCell>{item.GiftName || item.Extra}</TableCell>
+                            <TableCell>{item.GiftName || item.Extra }{item.ActionName==="gift" && item.GiftAmount.Int16 !== 1 && <span className={'font-bold'}>*{item.GiftAmount.Int16}</span>}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
