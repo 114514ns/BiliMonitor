@@ -14,6 +14,7 @@ import {
 } from "@heroui/react";
 import axios from "axios";
 import alasql from "alasql";
+import {useNavigate} from "react-router-dom";
 
 function formatTime(isoString) {
     const date = new Date(isoString);
@@ -63,6 +64,8 @@ function ListPage(props) {
     const port = location.port
 
     const protocol = location.protocol.replace(":", "")
+
+    const redirect = useNavigate();
 
 
     var rawSQLRef = React.createRef();
@@ -228,9 +231,13 @@ function ListPage(props) {
                 hideSelectedIcon
                 variant={'light'}
                 isVirtualized>
-                {filted.map((item, index) => (
+                {filted.slice(0,2000).map((item, index) => (
                     <ListboxItem key={index} value={item.value} css={{width: '100%'}} aria-label={item.label}
-                                 textValue={''}>
+                                 textValue={''}
+                                 onClick={() => {
+                                     window.open(location.origin + "/liver/" + item.UID)
+                                 }}
+                    >
                         <LiverCard
                             Rank={index}
                             Avatar={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.UID}`}

@@ -62,9 +62,9 @@ function BasicLayout() {
 
         <div>
             <DownloadDialog isOpen={showDownload}/>
-            <RankDialog open={showRank} onClose={() => {setShowRank(false)}} />
+            {showRank && <RankDialog open={showRank} onClose={() => {setShowRank(false)}} />}
             <Navbar style={{}}>
-                <NavbarContent style={{display: "flex", justifyContent: "center","overflow":"scroll"}}>
+                <NavbarContent style={{display: "flex", justifyContent: "center","overflow":"scroll"}} className={'scrollbar-hide'}>
                     {
                         menu.map((item, index) => (
                             <NavbarItem isActive={index === ind} key={index}>

@@ -290,6 +290,7 @@ func GetFansClub(liver string, callback func(g DBGuard)) []DBGuard {
 			d.MedalName = s.Medal.Name
 			list = append(list, d)
 			if callback != nil {
+
 				callback(d)
 			}
 		}
@@ -375,6 +376,7 @@ type AreaLive struct {
 	Watch    int
 	LastSeen time.Time
 	Duration int
+	Cover    string
 }
 
 // 舰长，以json数组序列化后存在AreaLive的GuardList字段里
@@ -474,7 +476,7 @@ func TraceArea(parent int) {
 			time.Sleep(800 * time.Millisecond)
 		}
 		sort.Slice(m, func(i, j int) bool {
-			return m[i].Time < m[j].Time
+			return m[i].Time > m[j].Time
 		})
 		for _, info := range m {
 			man.AddTask(info.Room)
@@ -503,6 +505,7 @@ func TraceArea(parent int) {
 				l.UName = s2.UName
 				l.UID = s2.UID
 				l.Room = s2.Room
+				l.Cover = s2.Cover
 				l.Title = s2.Title
 				l.Area = s2.Area
 				l.Watch = s2.Watch.Num
@@ -552,19 +555,21 @@ func TraceArea(parent int) {
 							if club.Score != g.Score {
 
 							}
+							club.DBGuard = g
+							club.Liver = s2.UName
+							club.LiverID = s2.UID
 							if club.Score != 0 {
 								club.Score = g.Score //如何数据库里这名用户没有这位主播的粉丝牌，就插入一条记录
-								club.Liver = g.Liver
-								club.DBGuard = g
 								db.Save(&club)
 							} else {
 								lock.Lock()
 								fansMap[g.UID] = g
 								lock.Unlock()
-								club.DBGuard = g
-								club.Liver = s2.UName
-								club.LiverID = s2.UID
 								db.Save(&club)
+							}
+							if club.Liver == "" {
+								str, _ := sonic.Marshal(club)
+								log.Println(string(str))
 							}
 
 						})
@@ -1007,7 +1012,7 @@ func TraceLive(roomId string) {
 					action.FromId = enter.Data.UID
 					action.FromName = enter.Data.Uname
 					action.ActionName = "enter"
-					//db.Create(&action)
+					db.Table("enter_action").Create(&action)
 				} else if strings.Contains(obj, "PREPARING") {
 				} else if text.Cmd == "LIVE" {
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
@@ -1019,13 +1024,17 @@ func TraceLive(roomId string) {
 					action.FromId = sc.Data.Uid
 					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sc.Data.Price), 64)
 					action.GiftPrice = sql.NullFloat64{Float64: result, Valid: true}
-
+					action.MedalName = sc.Data.MedalInfo.MedalName
+					action.MedalLiver = sc.Data.MedalInfo.MedalLiver
+					action.MedalLevel = int8(sc.Data.MedalInfo.MedalLevel)
+					action.GuardLevel = int8(sc.Data.MedalInfo.GuardLevel)
 					action.GiftAmount = sql.NullInt16{Valid: true, Int16: 1}
 					action.Extra = sc.Data.Message
 					if action.FromId != 0 {
 						db.Create(&action)
 					}
 				} else if strings.Contains(obj, "GUARD_BUY") { //上舰
+					//GUARD_BUY不返回粉丝牌信息
 					var guard = GuardInfo{}
 					sonic.Unmarshal(msgData, &guard)
 					action.FromId = guard.Data.Uid
@@ -1144,12 +1153,13 @@ func TraceLive(roomId string) {
 					var sum float64
 					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
 
-					tx := db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{EndAt: time.Now().Unix(), Money: sum})
+					tx := db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
+						"end_at": time.Now().Unix(),
+						"money":  sum,
+					})
 					if tx.Error != nil {
 						log.Println(tx.Error)
-
 					}
-					log.Println(tx.Statement.SQL.String())
 					living = false
 					i, _ := strconv.Atoi(roomId)
 					if config.EnableLiveBackup {
@@ -1412,6 +1422,12 @@ type SuperChatInfo struct {
 		UserInfo struct {
 			Uname string `json:"uname"`
 		} `json:"user_info"`
+		MedalInfo struct {
+			MedalLiver int64  `json:"target_id"`
+			MedalName  string `json:"medal_name"`
+			MedalLevel int    `json:"medal_level"`
+			GuardLevel int    `json:"guard_level"`
+		} `json:"medal_info"`
 	} `json:"data"`
 }
 

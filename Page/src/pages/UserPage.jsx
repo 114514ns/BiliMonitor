@@ -48,7 +48,7 @@ function UserPage(props) {
 
     return (
         <div>
-            <div className={'flex flex-col sm:flex-row '}>
+            <div className={'flex flex-col sm:flex-row  h-full'}>
                 <PieChart
                     series={[
                         {
@@ -109,7 +109,7 @@ function UserPage(props) {
                     <div className={'mt-4'}>
                         <div>
                             <Autocomplete
-                                className="max-w-xs mt-4 mb-4 ml-4"
+                                className="max-w-xs mt-4 mb-4"
                                 defaultItems={[{
                                     key: 'msg',
                                     value: "Message"
@@ -136,7 +136,7 @@ function UserPage(props) {
                                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
                             </Autocomplete>
                             <Autocomplete
-                                className="max-w-xs mt-4 mb-4 ml-4"
+                                className="max-w-xs mt-4 mb-4 sm:ml-4 sm:w-full"
                                 defaultItems={[{
                                     key: 'money',
                                     value: "Money"
