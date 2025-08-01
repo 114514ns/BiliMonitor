@@ -622,6 +622,7 @@ func main0() {
 	}
 	wbi.WithRawCookies(config.Cookie)
 	wbi.initWbi()
+	db.Table("enter_action").AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&Live{})
 	db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})

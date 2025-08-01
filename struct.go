@@ -142,6 +142,7 @@ type AreaLiverListResponse struct {
 	Data struct {
 		More int8 `json:"has_more"`
 		List []struct {
+			Cover      string `json:"cover"`
 			Room       int    `json:"roomid"`
 			ParentArea string `json:"parent_name"`
 			Area       string `json:"area_name"`
