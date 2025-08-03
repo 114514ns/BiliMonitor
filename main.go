@@ -554,6 +554,8 @@ func setupHTTPClient() {
 
 var localClient = resty.New()
 
+const MAX_TASK = 40
+
 func main() {
 	for {
 		func() {
@@ -718,12 +720,10 @@ func main0() {
 		c.AddFunc("@every 1m", FixMoney)
 		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
-		c.AddFunc("@every 240m", RefreshCookie)
+
 		if err != nil {
 			return
 		}
-
-		c.Start()
 
 		SortTracing()
 
@@ -732,6 +732,8 @@ func main0() {
 		}
 
 	}
+	c.AddFunc("@every 240m", RefreshCookie)
+	c.Start()
 	if config.Mode == "Slaver" {
 		log.Printf("Slave Mode")
 	}

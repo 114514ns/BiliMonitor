@@ -3,7 +3,7 @@ import {useParams} from "react-router-dom";
 import axios from "axios";
 import {PieChart} from '@mui/x-charts/PieChart';
 import {
-    Autocomplete, AutocompleteItem,
+    Autocomplete, AutocompleteItem, Avatar,
     Chip,
     Pagination,
     Table,
@@ -16,10 +16,9 @@ import {
 } from "@heroui/react";
 import {CheckIcon} from "./ChatPage";
 import ActionTable from "../components/ActionTable";
+import HoverMedals from "../components/HoverMedals";
 
-function isMobile() {
-    return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)  || window.innerWidth <= 768
-}
+
 function UserPage(props) {
     let {id} = useParams();
     const [space, setSpace] = useState({})
@@ -37,14 +36,18 @@ function UserPage(props) {
 
     const [order, setOrder] = useState("")
 
+    const [room,setRoom] = useState("")
+
+    const [input, setInput] = useState("")
+
     let page = 1
 
     useEffect(() => {
-        axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page}&order=${order}&type=${filter}`).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page}&order=${order}&type=${filter}&room=${room===null?"":room}`).then((response) => {
             setData(response.data.data);
             setTotal(response.data.total);
         })
-    },[order,filter])
+    },[order,filter,room])
 
     return (
         <div>
@@ -67,7 +70,7 @@ function UserPage(props) {
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
                             <div className='flex flex-row items-center text-blue-600' onClick={() => {
-                                toSpace(liveInfo.UserID)
+                                toSpace(id)
                             }}>
                                 <img
                                     src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${id}`}
@@ -99,11 +102,14 @@ function UserPage(props) {
                             <span
                                 className="font-semibold">{space.Money}</span>
                         </div>
-                        <div
-                            className="rounded-xl bg-red-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">最高粉丝牌等级<br/>
-                            <span
-                                className="font-semibold">{space.HighestLevel}</span>
-                        </div>
+                        <Tooltip content={<HoverMedals mid={id}/> }>
+                            <div
+                                className="rounded-xl bg-red-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">最高粉丝牌等级<br/>
+                                <span
+                                    className="font-semibold">{space.HighestLevel}</span>
+                            </div>
+                        </Tooltip>
+
                     </div>
 
                     <div className={'mt-4'}>
@@ -154,13 +160,34 @@ function UserPage(props) {
                             >
                                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
                             </Autocomplete>
+                            <Autocomplete
+                                className="max-w-xs mt-4 mb-4 sm:ml-4 sm:w-full"
+                                label="Liver"
+                                onSelectionChange={e => {
+                                    setRoom(e)
+                                }}
+                                onInputChange={e => {
+                                    setInput(e)
+                                }}
+                                items={space.Rooms == null?[]:space.Rooms.sort((a,b) => {return a.Rate-b.Rate}).filter(e => { return e.Liver.includes(input) !== 0})}
+                            >
+                                {(f) => <AutocompleteItem key={f.LiveRoom} textValue={f.Liver}>
+                                    <div className={'flex flex-row'}>
+                                        <Avatar src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.LiverID}`}/>
+                                        <span className={'font-bold ml-2 mt-2'}>{f.Liver}</span>
+                                    </div>
+                                </AutocompleteItem>}
+                            </Autocomplete>
                         </div>
                         <ActionTable dataSource={data} handlePageChange={(page0,pageSize) => {
                             page = page0
-                            axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page0}&order=${order}&type=${filter}`).then((response) => {
+                            axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page0}&order=${order}&type=${filter}&room=${room===null?"":room}`).then((response) => {
                                 setData(response.data.data);
                                 setTotal(response.data.total);
                             })
+                            if (page >= 2) {
+                                window.USER_PAGE = page0
+                            }
                         }} total={total} />
                     </div>
                 </div>

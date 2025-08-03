@@ -870,14 +870,13 @@ func InitHTTP() {
 			wg.Done()
 		}()
 		go func() {
-			db.Raw("SELECT live_room,COUNT(live_room) as count FROM live_actions where from_id = ?  GROUP BY live_room limit 100", uid).Scan(&rooms)
+			db.Raw("SELECT live_room,COUNT(live_room) as count,user_id as liver_id,user_name as liver  FROM live_actions,lives where from_id = ? and live_actions.live = lives.id  GROUP BY live_room limit 100", uid).Scan(&rooms)
 			var totalCount = 0
 			for _, room := range rooms {
 				totalCount += room.Count
 			}
 			for j, room := range rooms {
 				rooms[j].Rate = float64(room.Count) / float64(totalCount)
-				rooms[j].Liver = liverMap[room.LiveRoom].UName
 			}
 			wg.Done()
 		}()
@@ -906,7 +905,8 @@ func InitHTTP() {
 	r.GET("/user/action", func(context *gin.Context) {
 		type CustomLiveAction struct {
 			LiveAction
-			ToName string
+			UserName string
+			UserID   string
 		}
 
 		var uidStr = context.DefaultQuery("uid", "")
@@ -914,12 +914,13 @@ func InitHTTP() {
 		var pageStr = context.DefaultQuery("page", "1")
 		var order = context.DefaultQuery("order", "time")
 		var typo = context.DefaultQuery("type", "")
+		var room = context.DefaultQuery("room", "")
 
 		var total = 0
 
-		var queryOrder = "order by id"
+		var queryOrder = "order by live_actions.id"
 		if order == "timeDesc" {
-			queryOrder = "order by id desc"
+			queryOrder = "order by live_actions.id desc"
 		}
 		if order == "money" {
 			queryOrder = "order by gift_price desc"
@@ -943,6 +944,9 @@ func InitHTTP() {
 		if typo == "guard" {
 			typeQuery = "and action_name = 'guard'"
 		}
+		if room != "" {
+			typeQuery = typeQuery + "and live_room =  '" + room + "'"
+		}
 		uid := toInt64(uidStr)
 		pageSize := toInt64(pageSizeStr)
 		page := toInt64(pageStr)
@@ -953,11 +957,12 @@ func InitHTTP() {
 			pageSize = 10
 		}
 		offset := (page - 1) * pageSize
-		var dst []LiveAction
+		var dst []CustomLiveAction
 		err := db.Raw(
-			fmt.Sprintf("select * from live_actions where from_id = ? %s %s limit ? offset ?", typeQuery, queryOrder),
+			fmt.Sprintf("select *,live_actions.id from live_actions,lives where from_id = ? and lives.id = live_actions.live %s %s limit ? offset ?", typeQuery, queryOrder),
 			uid, pageSize, offset,
 		).Scan(&dst).Error
+
 		if err != nil {
 			context.JSON(http.StatusInternalServerError, gin.H{
 				"message": "query failed",
@@ -966,16 +971,11 @@ func InitHTTP() {
 			return
 		}
 		db.Raw("select count(*) from live_actions where from_id = ? "+typeQuery, uid).Scan(&total)
-		var result []CustomLiveAction
 		for _, action := range dst {
-			var c CustomLiveAction
-			c.LiveAction = action
-			c.ToName = liverMap[int(toInt64(c.LiveRoom))].UName
-
-			result = append(result, c)
+			action.ID = action.LiveAction.ID
 		}
 		context.JSON(http.StatusOK, gin.H{
-			"data":  result,
+			"data":  dst,
 			"total": total,
 		})
 	})
@@ -1159,6 +1159,56 @@ ORDER BY
 			"Guard":   l.Guard,
 			"Time":    l.UpdatedAt,
 			"Area":    l.Area,
+		})
+	})
+	r.GET("/queryPage", func(context *gin.Context) {
+		var live = context.DefaultQuery("live", "")
+		var id = context.DefaultQuery("id", "")
+		var size = context.DefaultQuery("size", "10")
+		if live == "" || id == "" || toInt64(live) == 0 || toInt64(id) == 0 || toInt64(size) == 0 {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid params",
+			})
+			return
+		}
+		var dst []int64
+		db.Raw("select id from live_actions where live = ? order by id", live).Scan(&dst)
+
+		var index = -1
+		var idn = toInt64(id)
+		for i, val := range dst {
+			if val == idn {
+				index = i
+				break
+			}
+		}
+		if index == -1 {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "id not found",
+			})
+			return
+		}
+		s := int(toInt64(size))
+		page := index/s + 1
+
+		context.JSON(http.StatusOK, gin.H{
+			"page": page,
+		})
+	})
+
+	r.GET("/reload", func(context *gin.Context) {
+		livesMutex.Lock()
+		loadConfig()
+		livesMutex.Unlock()
+		context.JSON(http.StatusOK, gin.H{
+			"message": "ok",
+		})
+	})
+
+	r.GET("/refreshCookie", func(context *gin.Context) {
+		RefreshCookie()
+		context.JSON(http.StatusOK, gin.H{
+			"message": "ok",
 		})
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
