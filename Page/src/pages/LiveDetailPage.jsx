@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {useParams} from "react-router-dom";
+import {useLocation, useParams} from "react-router-dom";
 import axios from "axios";
 import "./LivePage.css"
 import {useNavigate} from "react-router";
@@ -21,7 +21,8 @@ import HoverMedals from "../components/HoverMedals";
 
 function LiveDetailPage(props) {
     let {id} = useParams();
-
+    const { search } = useLocation();
+    const params = new URLSearchParams(search);
     const host = location.hostname;
     const [actions, setActions] = useState([])
 
@@ -30,10 +31,14 @@ function LiveDetailPage(props) {
     useEffect(() => {
         refreshData(currentPage, pageSize)
     }, [])
-    const [currentPage, setCurrentPage] = useState(1);
+    const p = parseInt(params.get("page"))
+    const [currentPage, setCurrentPage] = useState(isNaN(p)?1:p)
 
     const [pageSize, setPageSize] = useState(10);
     const [dataSource, setDatasource] = useState([])
+
+    const highLight = params.get("highLight")
+
 
     const [total, setTotal] = useState(0)
     const [selected, isSelected] = useState(false)
@@ -311,7 +316,7 @@ function LiveDetailPage(props) {
                             <TableCell>
                                 <Tooltip content={
                                     <HoverMedals mid={item.FromId}/>
-                                } delay={400}>
+                                } delay={400} placement={'top'}>
                                     <div className={'flex'} onClick={() => {
                                         redirect("/user/" +item.FromId)
                                     }}>
@@ -336,7 +341,10 @@ function LiveDetailPage(props) {
                             <TableCell>{item.Liver}</TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>
                             <TableCell>{item.GiftPrice}</TableCell>
-                            <TableCell className={item.ActionName === "gift" &&'font-bold'}>{item.Extra}{item.ActionName==="gift" && <span>*{item.GiftAmount.Int16}</span>}</TableCell>
+                            <TableCell className={
+                                (item.ActionName === "gift" ? "font-bold" : "") +
+                                (item.ID == highLight ? "bg-yellow-200" : "")
+                            }>{item.Extra}{item.ActionName==="gift" && <span>*{item.GiftAmount.Int16}</span>}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

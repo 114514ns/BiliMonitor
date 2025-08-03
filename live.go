@@ -465,15 +465,21 @@ func TraceArea(parent int) {
 		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
 		log.Printf("page=%d,len=%d", page, len(obj.Data.List))
+		var sum = 0
+		for _, node := range man.Nodes {
+			sum += len(node.Tasks)
+		}
 		for _, s2 := range obj.Data.List {
-			var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
-			r, _ := client.R().Get(u0)
-			var info = LiveStreamResponse{}
-			sonic.Unmarshal(r.Body(), &info)
-			if GetFansLocal(s2.UID) > 10000 || (GetFansLocal(s2.UID) == 0 && s2.Watch.Num > 1000) {
-				m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+			if sum <= MAX_TASK*len(man.Nodes) {
+				var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
+				r, _ := client.R().Get(u0)
+				var info = LiveStreamResponse{}
+				sonic.Unmarshal(r.Body(), &info)
+				if GetFansLocal(s2.UID) > 10000 || (GetFansLocal(s2.UID) == 0 && s2.Watch.Num > 1000) {
+					m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+				}
+				time.Sleep(800 * time.Millisecond)
 			}
-			time.Sleep(800 * time.Millisecond)
 		}
 		sort.Slice(m, func(i, j int) bool {
 			return m[i].Time > m[j].Time
@@ -511,6 +517,7 @@ func TraceArea(parent int) {
 				l.Watch = s2.Watch.Num
 				l.Time = time.Unix(info.Data.Time, 0)
 				l.LastSeen = time.Now()
+				live.Duration = int(live.LastSeen.Sub(live.Time).Minutes())
 				db.Save(&l)
 			} else {
 				live.Watch = s2.Watch.Num
