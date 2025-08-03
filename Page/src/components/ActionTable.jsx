@@ -1,5 +1,6 @@
 import React, {useEffect} from 'react';
 import {
+    Avatar,
     Chip,
     Pagination,
     Table,
@@ -12,17 +13,20 @@ import {
 } from "@heroui/react";
 import {CheckIcon} from "../pages/ChatPage";
 import HoverMedals from "./HoverMedals";
+import {useNavigate} from "react-router-dom";
+import axios from "axios";
 
 function ActionTable(props) {
 
-    const [currentPage, setCurrentPage] = React.useState(1);
+    const [currentPage, setCurrentPage] = React.useState(window.USER_PAGE?window.USER_PAGE:1);
 
 
+    const redirect = useNavigate();
 
     const pageSize = 10
 
     useEffect(() => {
-        props.handlePageChange(1.10)
+        props.handlePageChange(currentPage)
     },[])
 
     const columns = [
@@ -72,6 +76,7 @@ function ActionTable(props) {
                         showShadow
                         color="secondary"
                         page={currentPage}
+                        initialPage={window.USER_PAGE?window.USER_PAGE:1}
                         total={Math.ceil(props.total / pageSize)}
                         onChange={(page) => props.handlePageChange(page, pageSize)}
                     />
@@ -86,7 +91,7 @@ function ActionTable(props) {
                 </TableHeader>
                 <TableBody>
 
-                    {props.dataSource.map((item, index) => (
+                    {props.dataSource?.map((item, index) => (
                         <TableRow key={index} onClick={() => {
 
                         }}>
@@ -115,10 +120,36 @@ function ActionTable(props) {
                                     </div>
                                 </Tooltip>
                             </TableCell>
-                            <TableCell>{item.ToName}</TableCell>
+                            <TableCell>
+                                <div className={'flex'}>
+                                    {!isMobile()&&                                 <Avatar
+                                        src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.UserID}`}
+                                        onClick={() => {
+                                            toSpace(item.UserID);
+                                        }}/>}
+                                    <span className={'ml-2 mt-2'}>
+                                        {item.UserName}
+                                    </span>
+                                </div>
+                            </TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>
                             <TableCell>{item.GiftPrice.Float64}</TableCell>
-                            <TableCell>{item.GiftName || item.Extra }{item.ActionName==="gift" && item.GiftAmount.Int16 !== 1 && <span className={'font-bold'}>*{item.GiftAmount.Int16}</span>}</TableCell>
+                            <TableCell onClick={() => {
+                                axios.get(`${protocol}://${host}:${port}/api/queryPage?id=${item.ID}&live=${item.Live}`).then((response) => {
+                                    redirect(`/lives/${item.Live}?page=${response.data.page}&highLight=${item.ID}`);
+                                });
+
+                            }}>
+                                <Tooltip content={'点击跳转'}>
+                                    <div>
+                                                                            <span>
+                                        {item.GiftName || item.Extra }
+                                    </span>
+                                        {item.ActionName==="gift" && item.GiftAmount.Int16 !== 1 && <span className={'font-bold'}>*{item.GiftAmount.Int16}</span>}
+                                    </div>
+
+                                </Tooltip>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

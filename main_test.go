@@ -38,7 +38,7 @@ func TestHttp(test *testing.T) {
 	loadDB()
 	setupHTTPClient()
 	go func() {
-		RefreshLivers()
+		//RefreshLivers()
 	}()
 	InitHTTP()
 
