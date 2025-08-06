@@ -74,6 +74,11 @@ function ListPage(props) {
     useEffect(() => {
         var url = `${protocol}://${host}:${port}/api/areaLivers`
         axios.get(url).then((response) => {
+            response.data.list.forEach((element, index) => {
+                const parts = element.Guard.split(',');
+                response.data.list[index].GuardCount =
+                    parseInt(parts[0]) + parseInt(parts[1]) + parseInt(parts[2]);
+            });
             setList(response.data.list);
             setFiltered(response.data.list);
             var map = new Map();

@@ -6,15 +6,32 @@ function HoverMedals(props) {
     var mid = props.mid
     var [data,setData] = useState([])
     useEffect(() => {
-        axios.get(`${protocol}://${host}:${port}/api/medals?mid=${mid}`).then((response) => {
-            if (response.data.list == null) {
-                response.data.list = []
-            }
-            response.data.list.sort((a,b) => {
-                return a.Score < b.Score
+        if (props.mid) {
+            axios.get(`${protocol}://${host}:${port}/api/medals?mid=${mid}`).then((response) => {
+                if (response.data.list == null) {
+                    response.data.list = []
+                }
+                response.data.list.sort((a,b) => {
+                    return a.Score < b.Score
+                })
+                setData(response.data.list)
             })
-            setData(response.data.list)
-        })
+        } else {
+            axios.get(`${protocol}://${host}:${port}/api/fansRank?liver=${props.ruid}&size=100&page=1`).then((response) => {
+                if (response.data.list == null) {
+                    response.data.list = []
+                }
+                response.data.list.sort((a,b) => {
+                    return a.Score < b.Score
+                })
+                response.data.list.forEach((element) => {
+                    element.Liver = element.UName
+                    element.LiverID = element.UID
+                })
+                setData(response.data.list)
+            })
+        }
+
     },[])
     return (
 

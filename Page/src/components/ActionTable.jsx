@@ -96,37 +96,33 @@ function ActionTable(props) {
 
                         }}>
                             <TableCell>
-                                <Tooltip content={
-                                    <HoverMedals mid={item.FromId}/>
-                                } delay={400}>
-                                    <div className={'flex'} onClick={() => {
-                                        toSpace(item.FromId)
-                                    }}>
-                                        {item.FromName}
-                                        {item.MedalLevel != 0 ?                                     <Chip
-                                            className={'basis-64'}
-                                            startContent={<CheckIcon size={18}/>}
-                                            variant="faded"
-                                            onClick={() => {
-                                                toSpace(item.MedalLiver);
-                                            }}
-                                            style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
-                                        >
-                                            {item.MedalName}
-                                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
+                                <div className={'flex'} onClick={() => {
+                                    toSpace(item.FromId)
+                                }}>
+                                    {item.FromName}
+                                    {item.MedalLevel != 0 ?                                     <Chip
+                                        className={'basis-64'}
+                                        startContent={<CheckIcon size={18}/>}
+                                        variant="faded"
+                                        onClick={() => {
+                                            toSpace(item.MedalLiver);
+                                        }}
+                                        style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
+                                    >
+                                        {item.MedalName}
+                                        <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
                                                             {item.MedalLevel}
                                                         </span>
-                                        </Chip>:<></>}
-                                    </div>
-                                </Tooltip>
+                                    </Chip>:<></>}
+                                </div>
                             </TableCell>
                             <TableCell>
-                                <div className={'flex'}>
+                                <div className={'flex hover:scale-105 transition-transform hover:text-gray-500'}         onClick={() => {
+                                    redirect("/liver/" + item.UserID);
+                                }}>
                                     {!isMobile()&&                                 <Avatar
                                         src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.UserID}`}
-                                        onClick={() => {
-                                            toSpace(item.UserID);
-                                        }}/>}
+                                />}
                                     <span className={'ml-2 mt-2'}>
                                         {item.UserName}
                                     </span>
@@ -141,7 +137,7 @@ function ActionTable(props) {
 
                             }}>
                                 <Tooltip content={'点击跳转'}>
-                                    <div>
+                                    <div className={'hover:scale-105 transition-transform hover:text-gray-500'}>
                                                                             <span>
                                         {item.GiftName || item.Extra }
                                     </span>

@@ -23,6 +23,7 @@ import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
 import RankDialog from "./components/RankDialog";
 import UserPage from "./pages/UserPage";
+import {AnimatePresence,motion} from "framer-motion";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -97,28 +98,35 @@ function BasicLayout() {
                 </NavbarContent>
             </Navbar>
             <div className="site-layout-background" style={{padding: 24, width: '100%', height: `${calcHeight()}px`}}>
-                <Routes>
-                    <Route path="/" element={<Monitor/>}>
+                <AnimatePresence mode="wait">
+                    <Routes location={location} key={location.pathname}>
+                        <Route path="/" element={<PageWrapper><Monitor /></PageWrapper>} />
+                        <Route path="/lives" element={<PageWrapper><LivePage /></PageWrapper>} />
+                        <Route path="/lives/:id" element={<PageWrapper><LiveDetailPage /></PageWrapper>} />
+                        <Route path="/chat" element={<PageWrapper><ChatPage /></PageWrapper>} />
+                        <Route path="/list" element={<PageWrapper><ListPage /></PageWrapper>} />
+                        <Route path="/stat" element={<PageWrapper><StatusPage /></PageWrapper>} />
+                        <Route path="/liver/:id" element={<PageWrapper><LiverPage /></PageWrapper>} />
+                        <Route path="/user/:id" element={<PageWrapper><UserPage /></PageWrapper>} />
+                    </Routes>
+                </AnimatePresence>
 
-                    </Route>
-                    <Route path="/lives" element={<LivePage/>}>
-
-                    </Route>
-                    <Route path={'/lives/:id'} element={<LiveDetailPage/>}>
-
-
-                    </Route>
-                    <Route path={'chat/'} element={<ChatPage/>}/>
-                    <Route path={'/list'} element={<ListPage/>}/>
-                    <Route path={'/stat'} element={<StatusPage/>}/>
-                    <Route path={'/liver/:id'} element={<LiverPage/>}/>
-                    <Route path={'/user/:id'} element={<UserPage/>}/>
-
-                </Routes>
             </div>
         </div>
     )
 
 }
-
+function PageWrapper({ children }) {
+    return (
+        <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="h-full"
+        >
+            {children}
+        </motion.div>
+    );
+}
 export default BasicLayout;

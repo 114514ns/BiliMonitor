@@ -220,6 +220,7 @@ func InitHTTP() {
 		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
 		order := c.DefaultQuery("order", "id")
+		var uidStr = c.DefaultQuery("uid", "-1")
 
 		offset := (page - 1) * limit
 		var totalRecords int64
@@ -239,6 +240,10 @@ func InitHTTP() {
 		}
 
 		query := db.Model(&Live{}).Order(order + " desc").Offset(offset).Limit(limit)
+		if toInt64(uidStr) > 0 {
+			query = query.Where("user_id = ?", uidStr)
+			query.Count(&totalRecords)
+		}
 
 		if name == "1" {
 			query.Find(&f)
@@ -522,7 +527,7 @@ func InitHTTP() {
 		var t2 = msg5
 		var t3 = msg60
 		var l sync.Mutex
-		if man.Nodes == nil {
+		if man == nil || man.Nodes == nil {
 			context.JSON(http.StatusOK, gin.H{
 				"message": "error",
 			})
@@ -1142,11 +1147,21 @@ ORDER BY
 		var mid = toInt64(midStr)
 		var l AreaLiver
 		var wg sync.WaitGroup
-		wg.Add(1)
+		var medal = ""
+		wg.Add(3)
 		go func() {
 
 			db.Raw("select u_name,fans,guard,updated_at,area from area_livers where uid = ?  order by id desc", mid).Scan(&l)
 
+			wg.Done()
+		}()
+		var user = User{}
+		go func() {
+			db.Raw("select * from users where user_id = ? order by id desc limit 1", mid).Scan(&user)
+			wg.Done()
+		}()
+		go func() {
+			db.Raw("select medal_name from fans_clubs where liver_id = ? order by id desc limit 1", mid).Scan(&medal)
 			wg.Done()
 		}()
 
@@ -1155,10 +1170,13 @@ ORDER BY
 		context.JSON(http.StatusOK, gin.H{
 			"message": "ok",
 			"UName":   l.UName,
-			"Fans":    l.Fans,
+			"Fans":    user.Fans,
 			"Guard":   l.Guard,
 			"Time":    l.UpdatedAt,
 			"Area":    l.Area,
+			"Bio":     user.Bio,
+			"Verify":  user.Verify,
+			"Medal":   medal,
 		})
 	})
 	r.GET("/queryPage", func(context *gin.Context) {

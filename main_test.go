@@ -38,10 +38,16 @@ func TestHttp(test *testing.T) {
 	loadDB()
 	setupHTTPClient()
 	go func() {
-		//RefreshLivers()
+		RefreshLivers()
 	}()
 	InitHTTP()
 
+}
+
+func TestTraceArea(t *testing.T) {
+	//loadDB()
+	loadConfig()
+	TraceArea(9)
 }
 
 func TestMerge(test *testing.T) {

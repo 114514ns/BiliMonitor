@@ -190,7 +190,7 @@ function LivePage(props) {
 
     return (
 
-        <div>
+        <div className={''}>
             <Button onClick={() => {
                 axios.get(`http://${host}:${port}/api/refreshMoney`).then(res => {
                     refreshData(currentPage, pageSize)
@@ -279,7 +279,9 @@ function LivePage(props) {
                         <TableRow key={index} onClick={() => {
                             redirect(`/lives/${record.ID}`)
                         }}>
-                            <TableCell>{item.UserName}</TableCell>
+                            <TableCell onClick={(e) => {
+                                redirect("/liver/" + item.UserID)
+                            }} className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.UserName}</TableCell>
                             <TableCell>{item.Title}</TableCell>
                             <TableCell>{item.StartAt}</TableCell>
                             <TableCell>{item.EndAt}</TableCell>
