@@ -15,7 +15,7 @@ export default defineConfig({
       },
 
     },
-    port:5173,
+    port:5174,
     allowedHosts:['live-dev.ikun.dev']
   },
   build: {

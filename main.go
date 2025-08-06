@@ -8,6 +8,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
 	"github.com/jinzhu/copier"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
@@ -439,8 +440,7 @@ func CSRF() string {
 			jct = strings.Replace(s, "bili_jct=", "", 1)
 		}
 	}
-	jct = jct[1:]
-	return jct
+	return strings.TrimSpace(jct)
 }
 
 var man *SlaverManager
@@ -651,6 +651,8 @@ func main0() {
 	res, _ = client.R().Get("https://api.bilibili.com/x/web-interface/zone")
 	log.Println("当前ip：" + res.String())
 
+	RefreshCookie()
+	time.Sleep(5 * time.Second)
 	c.AddFunc("@every 1m", func() {
 		tempMutex.Lock()
 		msg1 = 0
@@ -794,6 +796,7 @@ func RefreshCookie() {
 		csrf := find.Text()
 		var body = fmt.Sprintf("csrf=%s&refresh_csrf=%s&source=main_web&refresh_token=%s", CSRF(), csrf, config.RefreshToken)
 		res, _ := client.R().SetBody(body).SetHeader("Cookie", config.Cookie).Post("https://passport.bilibili.com/x/passport-login/web/cookie/refresh?" + body)
+		log.Println("[CookieRefresh] " + res.Request.URL)
 		type RefreshResult struct {
 			Data struct {
 				Refresh string `json:"refresh_token"`
@@ -811,16 +814,7 @@ func RefreshCookie() {
 			return
 		}
 		config.RefreshToken = obj.Data.Refresh
-		var buv = "https://api.bilibili.com/x/web-frontend/getbuvid"
-		get, _ := client.R().SetHeader("Cookie", newCookie).Get(buv)
-		type BuvidResponse struct {
-			Data struct {
-				Buvid string `json:"buvid"`
-			} `json:"data"`
-		}
-		var obj0 BuvidResponse
-		sonic.Unmarshal(get.Body(), &obj0)
-		config.Cookie = newCookie + "buvid3=" + obj0.Data.Buvid
+		config.Cookie = newCookie + "buvid3=" + uuid.New().String() + "infoc"
 		log.Printf("[CookieRefresh] RefreshToken=%s", obj.Data.Refresh)
 		log.Printf("[CookieRefresh] Cookie=%s", newCookie)
 		SaveConfig()

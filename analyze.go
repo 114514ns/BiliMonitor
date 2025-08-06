@@ -110,14 +110,16 @@ func RefreshLivers() {
 }
 func MinuteMessageCount(minute int64) int64 {
 	var count int64
-	db.Model(&LiveAction{}).
-		Where("created_at >= (NOW() + INTERVAL 8 HOUR) - INTERVAL ? MINUTE", minute).
-		Count(&count)
+	db.
+		Raw("SELECT id FROM live_actions  ORDER BY id desc limit 1").
+		Scan(&count)
 	return count
 }
 func TotalMessage() int64 {
 	var count int64
-	db.Model(&LiveAction{}).Count(&count)
+	db.
+		Raw("SELECT id FROM live_actions  ORDER BY id desc limit 1").
+		Scan(&count)
 	return count
 }
 
