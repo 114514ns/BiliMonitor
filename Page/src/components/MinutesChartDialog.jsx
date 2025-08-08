@@ -43,7 +43,7 @@ function MinutesChartDialog(props) {
 
     useEffect(() => {
         console.log(props);
-        axios.get(`${protocol}://${host}:${port}/api/minute?id=${props.id}`).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/chart/live?id=${props.id}`).then((response) => {
             setData(response.data.data);
             setMax(response.data.data.length)
         });

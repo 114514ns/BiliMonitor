@@ -4,10 +4,10 @@ import axios from "axios";
 import "./LivePage.css"
 import {useNavigate} from "react-router";
 import {
-    Autocomplete,
+    Select,
     AutocompleteItem,
-    Avatar, Chip,
-    Pagination,
+    Autocomplete, Chip,
+    Pagination, SelectItem,
     Table,
     TableBody,
     TableCell,
@@ -219,9 +219,9 @@ function LiveDetailPage(props) {
                 </div>
             </div>
 
-            <Autocomplete
+            <Select
                 className="max-w-xs mt-4 mb-4 ml-4"
-                defaultItems={[{
+                items={[{
                     key: 'ascend',
                     value: "Ascend"
                 },
@@ -237,14 +237,15 @@ function LiveDetailPage(props) {
                 ]}
                 label="Sort by"
                 onSelectionChange={e => {
-                    setOrder(e)
+                    console.log(e)
+                    setOrder(e.currentKey)
                 }}
             >
-                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-            </Autocomplete>
-            <Autocomplete
+                {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+            </Select>
+            <Select
                 className="max-w-xs mt-4 mb-4 ml-4"
-                defaultItems={[{
+                items={[{
                     key: 'msg',
                     value: "Message"
                 },
@@ -264,11 +265,12 @@ function LiveDetailPage(props) {
                 ]}
                 label="Filter by"
                 onSelectionChange={e => {
-                    setFilter(e)
+                    console.log(e)
+                    setFilter(e.currentKey)
                 }}
             >
-                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-            </Autocomplete>
+                {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+            </Select>
             <Autocomplete
                 className="max-w-xs mt-4 mb-4 ml-4"
                 items={user}
@@ -314,29 +316,29 @@ function LiveDetailPage(props) {
 
                         }}>
                             <TableCell>
-                                <Tooltip content={
-                                    <HoverMedals mid={item.FromId}/>
-                                } delay={400} placement={'top'}>
-                                    <div className={'flex'} onClick={() => {
+                                    <div className={'flex '} onClick={() => {
                                         redirect("/user/" +item.FromId)
                                     }}>
-                                        {item.FromName}
-                                        {item.MedalLevel != 0 ?                                     <Chip
-                                            className={'basis-64'}
-                                            startContent={<CheckIcon size={18}/>}
-                                            variant="faded"
-                                            onClick={() => {
+                                        <span className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.FromName}</span>
+                                        {item.MedalLevel != 0 ?
+                                            <Tooltip content={<HoverMedals mid={item.FromId}/>}>
+                                                <Chip
+                                                    className={'basis-64'}
+                                                    startContent={<CheckIcon size={18}/>}
+                                                    variant="faded"
+                                                    onClick={() => {
 
-                                            }}
-                                            style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
-                                        >
-                                            {item.MedalName}
-                                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
+                                                    }}
+                                                    style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
+                                                >
+                                                    {item.MedalName}
+                                                    <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
                                                             {item.MedalLevel}
                                                         </span>
-                                        </Chip>:<></>}
+                                                </Chip>
+                                            </Tooltip>
+                                           :<></>}
                                     </div>
-                                </Tooltip>
                             </TableCell>
                             <TableCell>{item.Liver}</TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>

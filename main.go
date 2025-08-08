@@ -413,7 +413,7 @@ var file = time.Now().Format("2006-01-02_15-04-05") + ".log"
 var logFile, err = os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0766)
 var wbi = NewDefaultWbi()
 var httpBytes int64 = 0
-var websocketBytes = 0
+var websocketBytes int64 = 0
 
 const ENV = "DEV"
 

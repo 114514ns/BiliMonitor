@@ -194,8 +194,6 @@ func InitHTTP() {
 		type S struct {
 			AreaLiver
 			LiveCount int
-			LiveMoney float64
-			FansMoney float64
 		}
 		uid := c.DefaultQuery("id", "-1")
 		if uid == "-1" {
@@ -352,12 +350,6 @@ func InitHTTP() {
 			})
 		}
 	})
-	r.GET("/refreshMoney", func(context *gin.Context) {
-		go FixMoney()
-		context.JSON(http.StatusOK, gin.H{
-			"message": "success",
-		})
-	})
 
 	r.GET("/parse", func(context *gin.Context) {
 		id := context.DefaultQuery("bv", "10")
@@ -428,7 +420,7 @@ func InitHTTP() {
 		c.Writer.Write(res.Body())
 	})
 
-	r.GET("/minute", func(c *gin.Context) {
+	r.GET("/chart/live", func(c *gin.Context) {
 		var id = c.Query("id")
 		type LiveActionCount struct {
 			MinuteTime  string `gorm:"column:minute_time"`
@@ -532,6 +524,7 @@ func InitHTTP() {
 				"message": "error",
 			})
 		}
+		var bytes int64 = 0
 		for _, node := range man.Nodes {
 			if !node.Alive {
 				continue
@@ -543,12 +536,8 @@ func InitHTTP() {
 			wg.Add(1)
 			go func(n SlaverNode) {
 				defer wg.Done()
-				var result map[string][]Status
-
 				res, err := client.R().
-					SetResult(&result).
 					Get(n.Address + "/count")
-
 				if err != nil {
 					log.Printf("请求子节点 %s 失败: %v", n.Address, err)
 					return
@@ -567,6 +556,14 @@ func InitHTTP() {
 					l.Unlock()
 				}
 
+				res, err = client.R().Get(n.Address + "/status")
+				type S struct {
+					WSBytes int64
+				}
+				var s = S{}
+				sonic.Unmarshal(res.Body(), &s)
+				bytes += s.WSBytes
+
 			}(node)
 		}
 
@@ -582,7 +579,7 @@ func InitHTTP() {
 			"MessageHour":   t3,
 			"MessageDaily":  MinuteMessageCount(1440),
 			"HTTPBytes":     httpBytes,
-			"WSBytes":       websocketBytes,
+			"WSBytes":       websocketBytes + bytes,
 			"Nodes":         man.Nodes,
 		})
 	})
@@ -673,23 +670,6 @@ func InitHTTP() {
 		})
 
 	})
-	r.GET("/money", func(c *gin.Context) {
-		array := make([]LiveAction, 0)
-		uid := c.Query("uid")
-		db.Model(&LiveAction{}).Where("from_id = ? and gift_price != 0", uid).Find(&array)
-	})
-	r.GET("/debug", func(c *gin.Context) {
-		var room = c.Query("room")
-		url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + room
-		res, _ := client.R().Get(url)
-		status := LiveStatusResponse{}
-		sonic.Unmarshal(res.Body(), &status)
-		c.JSON(http.StatusOK, gin.H{
-			"ServerState": status.Data.LiveStatus,
-			"IsLive":      isLive(room),
-		})
-	})
-
 	//获取直播流
 	r.GET("/stream", func(c *gin.Context) {
 		var room = c.Query("room")
@@ -814,21 +794,6 @@ func InitHTTP() {
 
 	})
 
-	r.GET("/hash", func(context *gin.Context) {
-
-		var hash = context.DefaultQuery("hash", "")
-		if hash == "" {
-			context.JSON(http.StatusOK, gin.H{
-				"message": "invalid hash",
-			})
-		} else {
-			var dst []UserMapping
-			clickDb.Raw("select * from user_mappings where hash = ?", hash).Scan(&dst)
-			context.JSON(http.StatusOK, gin.H{
-				"list": dst,
-			})
-		}
-	})
 	r.GET("/user/space", func(context *gin.Context) {
 		var uidStr = context.DefaultQuery("uid", "")
 		if uidStr == "" {
