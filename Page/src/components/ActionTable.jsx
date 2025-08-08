@@ -96,7 +96,7 @@ function ActionTable(props) {
 
                         }}>
                             <TableCell>
-                                <div className={'flex'} onClick={() => {
+                                <div className={'flex hover:scale-105 transition-transform hover:text-gray-500'} onClick={() => {
                                     toSpace(item.FromId)
                                 }}>
                                     {item.FromName}

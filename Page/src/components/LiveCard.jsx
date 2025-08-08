@@ -1,5 +1,6 @@
 import {Avatar, Badge, Card, CardBody, CardFooter, CardHeader, Image} from "@heroui/react";
 import {memo} from "react";
+import {useNavigate} from "react-router-dom";
 
 
 const LiveCard = memo(function LiveCard(props) {
@@ -11,6 +12,7 @@ const LiveCard = memo(function LiveCard(props) {
     const {Live, UName, UID, Area, Title, Face, Cover} = props.liveData;
     const cover = Cover//`${protocol}://${host}:${port}/proxy?url=${Cover}`
 
+    const redirect = useNavigate();
 
     const toSpace = (id) => {
         window.open("https://space.bilibili.com/" + id)
@@ -22,10 +24,11 @@ const LiveCard = memo(function LiveCard(props) {
                 marginRight: '20px',
                 margin: '15px',
             }}
+                  isHoverable
             >
                 <CardHeader className="flex items-center gap-3">
                     {Live != null ? <Badge color={Live ? "success" : "default"} content="">
-                        <Avatar src={`${Face}`} onClick={() => {toSpace(UID)}}/>
+                        <Avatar src={`${Face}`} onClick={() => {redirect('/liver/' + UID)}}/>
                     </Badge> : <Avatar src={`${Face}`} onClick={() => {toSpace(UID)}}/>}
 
                     <div>
