@@ -9,7 +9,7 @@ import {
     DropdownItem,
     DropdownMenu,
     DropdownTrigger,
-    Pagination,
+    Pagination, Select, SelectItem,
     Table,
     TableBody,
     TableCell,
@@ -225,9 +225,9 @@ function LivePage(props) {
                 >
                     {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
                 </Autocomplete>
-                <Autocomplete
+                <Select
                     className="max-w-xs mt-4 mb-4 ml-4"
-                    defaultItems={[{
+                    items={[{
                         key: 'Time',
                         value: "Time"
                     },
@@ -243,11 +243,11 @@ function LivePage(props) {
                     ]}
                     label="Sort by"
                     onSelectionChange={e => {
-                        setOrder(e)
+                        setOrder(e.currentKey)
                     }}
                 >
-                    {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-                </Autocomplete>
+                    {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                </Select>
             </div>
             <Table bottomContent={
                 <div className="flex w-full justify-center">
