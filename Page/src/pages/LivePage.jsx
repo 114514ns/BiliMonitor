@@ -216,7 +216,7 @@ function LivePage(props) {
                     }}
                     onInputChange={e => {
                         console.log(e)
-                        axios.get(`${protocol}://${host}:${port}/api/liver?key=` + e).then(res => {
+                        axios.get(`${protocol}://${host}:${port}/api/searchLiver?key=` + e).then(res => {
                             if (!res.data.result) return; // 处理 null/undefined/空数据
                             const newFilters = res.data.result.map((item) => ({key: item, value: item}));
                             setFilters(newFilters);

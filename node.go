@@ -40,7 +40,7 @@ func (man *SlaverManager) AddTask(task string) {
 
 	var aliveNodes []*SlaverNode
 	for i := range man.Nodes {
-		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < 40 || Has(config.Tracing, task) {
+		if man.Nodes[i].Alive && len(man.Nodes[i].Tasks) < MAX_TASK || Has(config.Tracing, task) {
 			aliveNodes = append(aliveNodes, &man.Nodes[i])
 		}
 	}

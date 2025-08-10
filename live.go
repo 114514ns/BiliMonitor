@@ -799,7 +799,7 @@ func TraceLive(roomId string) {
 		}
 	}
 
-	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId + "&web_location=444.8&isGaiaAvoided"
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId + "&web_location=444.8&isGaiaAvoided=true"
 	query, _ := url.Parse(url0)
 	signed, _ := wbi.SignQuery(query.Query(), time.Now())
 	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
@@ -862,7 +862,7 @@ func TraceLive(roomId string) {
 					}
 					return
 				}
-				websocketBytes += len(message)
+				websocketBytes += int64(len(message))
 				reader := io.NewSectionReader(bytes.NewReader(message), 16, int64(len(message)-16))
 				brotliReader := brotli.NewReader(reader)
 				var decompressedData bytes.Buffer
