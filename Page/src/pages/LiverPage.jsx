@@ -2,8 +2,20 @@ import React from 'react';
 import {useNavigate, useParams} from "react-router-dom";
 import axios from "axios";
 import {LineChart} from "@mui/x-charts/LineChart";
-import {Avatar, Card, CardBody, CardHeader, Image, Tooltip} from "@heroui/react";
+import {
+    Avatar,
+    Card,
+    CardBody,
+    CardHeader,
+    Image,
+    Modal,
+    ModalBody,
+    ModalContent,
+    ModalHeader,
+    Tooltip
+} from "@heroui/react";
 import HoverMedals from "../components/HoverMedals";
+import {FansList} from "../components/RankDialog";
 
 function LiverPage(props) {
     const [fansChart, setFansChart] = React.useState([]);
@@ -14,6 +26,12 @@ function LiverPage(props) {
 
     const [lives, setLives] = React.useState([]);
 
+
+    const [open, setOpen] = React.useState(false);
+
+    const [guard, setGuard] = React.useState([]);
+
+    const [guardTime,setGuardTime] = React.useState("");
 
 
 
@@ -33,6 +51,7 @@ function LiverPage(props) {
                 dst.push({
                     UpdatedAt: element.UpdatedAt,
                     Guard: element.Guard.split(",").reduce((a, b) => parseInt(a) + parseInt(b)),
+                    ID: element.ID,
                 })
             })
             setGuardChart(dst??[])
@@ -43,6 +62,16 @@ function LiverPage(props) {
     }, [])
     return (
         <div>
+            <Modal isOpen={open} onOpenChange={() => {
+                setOpen(!open)
+            }} size={'xs'}>
+                <ModalContent>
+                    <ModalHeader className="flex flex-col gap-1">{guardTime}</ModalHeader>
+                    <ModalBody>
+                        <FansList fans={guard} height={800}/>
+                    </ModalBody>
+                </ModalContent>
+            </Modal>
             <div className={'flex flex-col mb-6 sm:justify-center items-center '}>
                 <Avatar src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${id}`}
                         size={'lg'} onClick={() => {
@@ -120,6 +149,13 @@ function LiverPage(props) {
 
                         },
                     ]}
+                    onAxisClick={(event, data) => {
+                        setGuardTime(new Date(guardChart[data.dataIndex].UpdatedAt).toLocaleString())
+                        axios.get(`${protocol}://${host}:${port}/api/guard?id=${guardChart[data.dataIndex].ID}`).then((response) => {
+                            setGuard(response.data.data);
+                            setOpen(true)
+                        })
+                    }}
                     height={300}
                 />
             </div>

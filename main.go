@@ -554,7 +554,7 @@ func setupHTTPClient() {
 
 var localClient = resty.New()
 
-const MAX_TASK = 40
+const MAX_TASK = 80
 
 func main() {
 	for {

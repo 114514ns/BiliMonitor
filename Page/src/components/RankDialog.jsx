@@ -174,7 +174,7 @@ function RankDialog(props) {
     );
 }
 
-const FansList = memo(function Greeting({fans,onClose}) {
+export const FansList = memo(function Greeting({fans,onClose,height}) {
     return <Listbox
         style={{
             //maxHeight: "800px",
@@ -184,12 +184,11 @@ const FansList = memo(function Greeting({fans,onClose}) {
         ref={ref}
         virtualization={
             {
-                maxListboxHeight: 400,
+                maxListboxHeight: height??400,
                 itemHeight: 80
             }
 
         }
-
     >
         {fans.map((f) => (
             <ListboxItem
@@ -226,5 +225,7 @@ const FansList = memo(function Greeting({fans,onClose}) {
         ))}
     </Listbox>
 });
+
+
 
 export default RankDialog;
