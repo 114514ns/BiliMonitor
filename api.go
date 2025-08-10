@@ -136,7 +136,7 @@ func InitHTTP() {
 			"live": lives[id],
 		})
 	})
-	r.GET("/liver", func(c *gin.Context) {
+	r.GET("/searchLiver", func(c *gin.Context) {
 		key := c.DefaultQuery("key", "1")
 		var result0 = make([]Live, 0)
 		var result = make([]string, 0)
@@ -691,7 +691,7 @@ func InitHTTP() {
 		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
-			time.Sleep(45 * time.Second)
+			time.Sleep(20 * time.Second)
 		})
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
@@ -1052,6 +1052,7 @@ TimeBuckets AS (
     SELECT
         u.guard,
         u.updated_at,
+		u.id,
         -- 计算总时间跨度（秒），然后将每条记录的相对时间位置映射到对应的桶中
         -- 使用 GREATEST 防止当 min_time 和 max_time 相同时出现除以零的错误
         FLOOR(
@@ -1071,6 +1072,7 @@ RankedByBucket AS (
     SELECT
         guard,
         updated_at,
+		id,
         time_bucket,
         ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY updated_at ASC) AS rn
     FROM
@@ -1079,7 +1081,8 @@ RankedByBucket AS (
 -- 第四步：从每个时间桶中只选取第一条记录
 SELECT
     guard,
-    updated_at
+    updated_at,
+	id
 FROM
     RankedByBucket
 WHERE
@@ -1192,6 +1195,22 @@ ORDER BY
 		RefreshCookie()
 		context.JSON(http.StatusOK, gin.H{
 			"message": "ok",
+		})
+	})
+	r.GET("/guard", func(context *gin.Context) {
+		var idStr = context.Query("id")
+		if toInt64(idStr) <= 0 {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid id",
+			})
+			return
+		}
+		var dst []DBGuard
+		var str = ""
+		db.Raw("select guard_list from area_livers where  id = ?", toInt64(idStr)).Scan(&str)
+		sonic.Unmarshal([]byte(str), &dst)
+		context.JSON(http.StatusOK, gin.H{
+			"data": dst,
 		})
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
