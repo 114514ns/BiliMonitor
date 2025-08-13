@@ -11,11 +11,12 @@ import {
     Modal,
     ModalBody,
     ModalContent,
-    ModalHeader,
+    ModalHeader, Select, SelectItem, Switch,
     Tooltip
 } from "@heroui/react";
 import HoverMedals from "../components/HoverMedals";
 import {FansList} from "../components/RankDialog";
+import LiveStatisticCard from "../components/LiveStatisticCard";
 
 function LiverPage(props) {
     const [fansChart, setFansChart] = React.useState([]);
@@ -32,6 +33,8 @@ function LiverPage(props) {
     const [guard, setGuard] = React.useState([]);
 
     const [guardTime,setGuardTime] = React.useState("");
+
+    const redirect = useNavigate();
 
 
 
@@ -60,15 +63,50 @@ function LiverPage(props) {
             setLives(response.data.lives);
         })
     }, [])
+
+    const [diffMode,setDiffMode] = React.useState(false);
     return (
         <div>
             <Modal isOpen={open} onOpenChange={() => {
                 setOpen(!open)
             }} size={'xs'}>
                 <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">{guardTime}</ModalHeader>
+                    <ModalHeader className="flex flex-col gap-1">
+                        {guardTime}
+                    </ModalHeader>
                     <ModalBody>
-                        <FansList fans={guard} height={800}/>
+                        <div>
+                            <Switch isSelected={diffMode}  onValueChange={(e => {
+                                setDiffMode(e)
+                            })}>Diff</Switch>
+                            {diffMode && <Select className={'mt-2'}>
+                                {guardChart.filter(e => new Date(e.UpdatedAt).toLocaleString() !== guardTime).map(e => {
+                                    var str = new Date(e.UpdatedAt).toLocaleString()
+                                   return (
+                                       <SelectItem key={str} value={str} onPress={() => {
+                                           axios.get(`${protocol}://${host}:${port}/api/guard?id=${e.ID}`).then((response) => {
+                                               var dst = response.data.data
+                                               const oldIds = new Set(guard.map(item => item.UID));
+                                               const newIds = new Set(dst.map(item => item.UID));
+                                               const added = dst
+                                                   .filter(item => !oldIds.has(item.UID))
+                                                   .map(item => ({ ...item, Label: 'add' }));
+
+                                               const removed = guard
+                                                   .filter(item => !newIds.has(item.UID))
+                                                   .map(item => ({ ...item, Label: 'remove' }));
+                                               setGuard([...added, ...removed]);
+
+                                           })
+                                       }} aria-label={''}>{str}</SelectItem>
+                                   )
+                                })}
+                            </Select>}
+                        </div>
+                        <FansList fans={guard} height={800} onItemClick={(e) => {
+                            console.log(e)
+                            redirect('/user/' + e.UID)
+                        }}/>
                     </ModalBody>
                 </ModalContent>
             </Modal>
@@ -161,7 +199,7 @@ function LiverPage(props) {
             </div>
             <div className={'grid grid-cols-1 sm:grid-cols-6'}>
                 {lives.map((live, index) => (
-                    <LiveStatisticCard item={live}/>
+                    <LiveStatisticCard item={live} showUser={false}/>
                 ))}
             </div>
         </div>
@@ -169,46 +207,5 @@ function LiverPage(props) {
 }
 
 
-function LiveStatisticCard(props) {
-    const redirect = useNavigate()
-    var item = props.item
-    console.log(item)
-    return (
-        <div onClick={e => {
-            redirect('/lives/' + item.ID)
-        }}>
-            <Card className={'my-4 mx-2'} isHoverable >
-                <CardHeader className="flex-col items-start">
-                    <p className="text-large uppercase font-bold">{item.Title}</p>
-                    <small className="text-default-500">{new Date(item.CreatedAt).toLocaleString()}</small>
-                    <div className={'flex-row flex items-center justify-center'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="icon" viewBox="0 0 1024 1024"
-                             style={{width: '20px', height: '20px'}}>
-                            <path
-                                d="M464 512a48 48 0 1 0 96 0 48 48 0 1 0-96 0zm200 0a48 48 0 1 0 96 0 48 48 0 1 0-96 0zm-400 0a48 48 0 1 0 96 0 48 48 0 1 0-96 0zm661.2-173.6c-22.6-53.7-55-101.9-96.3-143.3a444.35 444.35 0 0 0-143.3-96.3C630.6 75.7 572.2 64 512 64h-2c-60.6.3-119.3 12.3-174.5 35.9a445.35 445.35 0 0 0-142 96.5c-40.9 41.3-73 89.3-95.2 142.8-23 55.4-34.6 114.3-34.3 174.9A449.4 449.4 0 0 0 112 714v152a46 46 0 0 0 46 46h152.1A449.4 449.4 0 0 0 510 960h2.1c59.9 0 118-11.6 172.7-34.3a444.48 444.48 0 0 0 142.8-95.2c41.3-40.9 73.8-88.7 96.5-142 23.6-55.2 35.6-113.9 35.9-174.5.3-60.9-11.5-120-34.8-175.6zm-151.1 438C704 845.8 611 884 512 884h-1.7c-60.3-.3-120.2-15.3-173.1-43.5l-8.4-4.5H188V695.2l-4.5-8.4C155.3 633.9 140.3 574 140 513.7c-.4-99.7 37.7-193.3 107.6-263.8 69.8-70.5 163.1-109.5 262.8-109.9h1.7c50 0 98.5 9.7 144.2 28.9 44.6 18.7 84.6 45.6 119 80 34.3 34.3 61.3 74.4 80 119 19.4 46.2 29.1 95.2 28.9 145.8-.6 99.6-39.7 192.9-110.1 262.7z"/>
-                        </svg>
-                        <h3 className={'mt-1 ml-0.5'}>{item.Message}</h3>
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" style={{width: '20px', height: '20px'}} className={'ml-1'}>
-                            <path
-                                d="M911.5 700.7a8 8 0 0 0-10.3-4.8L840 718.2V180c0-37.6-30.4-68-68-68H252c-37.6 0-68 30.4-68 68v538.2l-61.3-22.3c-.9-.3-1.8-.5-2.7-.5-4.4 0-8 3.6-8 8V763c0 3.3 2.1 6.3 5.3 7.5L501 910.1c7.1 2.6 14.8 2.6 21.9 0l383.8-139.5c3.2-1.2 5.3-4.2 5.3-7.5v-59.6c0-1-.2-1.9-.5-2.8zM512 837.5l-256-93.1V184h512v560.4l-256 93.1zM660.6 312h-54.5c-3 0-5.8 1.7-7.1 4.4l-84.7 168.8H511l-84.7-168.8a8 8 0 0 0-7.1-4.4h-55.7c-1.3 0-2.6.3-3.8 1-3.9 2.1-5.3 7-3.2 10.8l103.9 191.6h-57c-4.4 0-8 3.6-8 8v27.1c0 4.4 3.6 8 8 8h76v39h-76c-4.4 0-8 3.6-8 8v27.1c0 4.4 3.6 8 8 8h76V704c0 4.4 3.6 8 8 8h49.9c4.4 0 8-3.6 8-8v-63.5h76.3c4.4 0 8-3.6 8-8v-27.1c0-4.4-3.6-8-8-8h-76.3v-39h76.3c4.4 0 8-3.6 8-8v-27.1c0-4.4-3.6-8-8-8H564l103.7-191.6c.6-1.2 1-2.5 1-3.8-.1-4.3-3.7-7.9-8.1-7.9z"/>
-                        </svg>
-                        <span className=" mt-1 ml-0.5">{item.Money}</span>
-                    </div>
-                </CardHeader>
-                <CardBody className="overflow-visible py-2">
-                    <Image
-                        alt="Card background"
-                        className="object-cover rounded-xl"
-                        src={item.Cover}
-                        isBlurred
-                        isZoomed
-
-                    />
-                </CardBody>
-            </Card>
-        </div>
-
-    )
-}
 
 export default LiverPage;
