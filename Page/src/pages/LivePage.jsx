@@ -4,20 +4,11 @@ import {useNavigate} from "react-router";
 import "./LivePage.css"
 import {
     Autocomplete,
-    AutocompleteItem, Button, DateRangePicker,
-    Dropdown,
-    DropdownItem,
-    DropdownMenu,
-    DropdownTrigger,
+    AutocompleteItem, Button,
     Pagination, Select, SelectItem,
-    Table,
-    TableBody,
-    TableCell,
-    TableColumn,
-    TableHeader,
-    TableRow
 } from "@heroui/react";
 import MinutesChartDialog from "../components/MinutesChartDialog";
+import LiveStatisticCard from "../components/LiveStatisticCard";
 
 const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
     return (
@@ -165,9 +156,9 @@ function LivePage(props) {
             key: 'Action',
         }
     ])
-    const [currentPage, setCurrentPage] = useState(window.page);
+    const [currentPage, setCurrentPage] = useState(window.page??1);
 
-    const [pageSize, setPageSize] = useState(15);
+    const [pageSize, setPageSize] = useState(18);
 
     // 处理页码改变事件
     const handlePageChange = (page, pageSize) => {
@@ -249,68 +240,27 @@ function LivePage(props) {
                     {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
                 </Select>
             </div>
-            <Table bottomContent={
-                <div className="flex w-full justify-center">
-                    <Pagination
-                        isCompact
-                        showControls
-                        showShadow
-                        color="secondary"
-                        page={currentPage}
-                        total={total / pageSize}
-                        onChange={(page) => handlePageChange(page, pageSize)}
-                    />
-                </div>
-            }      maxTableHeight={850}
-                   rowHeight={50}
-                   isStriped
 
-            >
-
-                <TableHeader>
-                    {columns.map((col, index) => (
-                        <TableColumn key={index}>{col.title}</TableColumn>
-
-                    ))}
-                </TableHeader>
-                <TableBody>
-
-                    {dataSource.map((item, index) => (
-                        <TableRow key={index} onClick={() => {
-                            redirect(`/lives/${record.ID}`)
-                        }}>
-                            <TableCell onClick={(e) => {
-                                redirect("/liver/" + item.UserID)
-                            }} className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.UserName}</TableCell>
-                            <TableCell>{item.Title}</TableCell>
-                            <TableCell>{item.StartAt}</TableCell>
-                            <TableCell>{item.EndAt}</TableCell>
-                            <TableCell>{item.Area}</TableCell>
-                            <TableCell>{item.Money}</TableCell>
-                            <TableCell>{item.Message}</TableCell>
-                            <TableCell>
-                                <div className="relative flex  items-center gap-2">
-                                    <Dropdown>
-                                        <DropdownTrigger>
-                                            <Button isIconOnly size="sm" variant="light">
-                                                <VerticalDotsIcon className="text-default-300"/>
-                                            </Button>
-                                        </DropdownTrigger>
-                                        <DropdownMenu>
-                                            <DropdownItem key="view" onClick={() => {
-                                                redirect(`/lives/${item.ID}`)
-                                            }}>Open</DropdownItem>
-                                            <DropdownItem key="chart" onClick={() => {
-                                                setChartId(item.ID);
-                                            }}>Chart</DropdownItem>
-                                        </DropdownMenu>
-                                    </Dropdown>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+            <div className={'grid grid-cols-1 sm:grid-cols-6'}>
+                {dataSource.map(item => {
+                    return (
+                        <LiveStatisticCard item={item} showUser/>
+                    )
+                })}
+            </div>
+            <Pagination
+                isCompact
+                showControls
+                showShadow
+                color="secondary"
+                page={currentPage}
+                total={total / pageSize}
+                initialPage={1}
+                onChange={(page) => handlePageChange(page, pageSize)}
+                classNames={{
+                    wrapper:'w-full mx-4',
+                }}
+            />
         </div>
     )
 }

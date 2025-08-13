@@ -1068,6 +1068,13 @@ func TraceLive(roomId string) {
 						sonic.Unmarshal(msgData, &obj)
 						db.Model(&Live{}).Where("id= ?", dbLiveId).UpdateColumns(Live{Watch: obj.Data.Num})
 					}
+				} else if text.Cmd == "CUT_OFF" {
+					action.ActionName = "cut"
+					var o = make(map[string]interface{})
+					sonic.Unmarshal(msgData, &o)
+					action.Extra = o["msg"].(string)
+				} else if text.Cmd == "ROOM_BLOCK_MSG" {
+					action.ActionName = "mute"
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
@@ -1209,6 +1216,9 @@ func TraceLive(roomId string) {
 		}
 	}
 	ticker.Stop()
+}
+func TraceStream() {
+
 }
 func BuildMessage(str string, opCode int) []byte {
 	buffer := new(bytes.Buffer)
