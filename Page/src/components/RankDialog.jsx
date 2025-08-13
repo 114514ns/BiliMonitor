@@ -174,7 +174,17 @@ function RankDialog(props) {
     );
 }
 
-export const FansList = memo(function Greeting({fans,onClose,height}) {
+export const FansList = memo(function Greeting({fans,onClose,height,onItemClick}) {
+
+    const getStyle = (e) => {
+        if (e === "add") {
+            return 'bg-green-200 rounded-lg px-2'
+        }
+        if (e === "remove") {
+            return 'bg-red-200 rounded-lg px-2'
+        }
+        return ""
+    }
     return <Listbox
         style={{
             //maxHeight: "800px",
@@ -194,10 +204,12 @@ export const FansList = memo(function Greeting({fans,onClose,height}) {
             <ListboxItem
                 key={f.UID + '-' + f.LiverID}
             >
-                <div>
+                <div className={getStyle(f.Label)}>
                     <p className={'font-medium'}>{f.UName}</p>
                     {(
-                        <div className={'flex flex-row align-middle mt-2'}>
+                        <div className={'flex flex-row align-middle mt-2'} onClick={() => {
+                            onItemClick(f)
+                        }}>
                             <Avatar
                                 src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.UID}`}
                                 onClick={() => {
@@ -206,7 +218,8 @@ export const FansList = memo(function Greeting({fans,onClose,height}) {
                                 }}/>
 
                             <Chip
-                                startContent={<CheckIcon size={18}/>}
+                                className={'mt-1'}
+                                startContent={f.Type?<img src={getGuardIcon(f.Type)} style={{width:'18px',height:'18px'}}/>:<CheckIcon size={18}/>}
                                 variant="faded"
                                 onClick={() => {
                                     toSpace(f.LiverID);

@@ -9,7 +9,7 @@ function StatusPage(props) {
     } = {}) {
         if (num === null || num === undefined || isNaN(num)) return '0';
 
-        const units = ['', 'K', 'M', 'B', 'T', 'P'];
+        const units = ['', 'K', 'M', 'G', 'T', 'P'];
         const tier = Math.floor(Math.log10(Math.abs(num)) / 3);
 
         if (tier === 0) return num + suffix;

@@ -190,26 +190,6 @@ func InitHTTP() {
 			})
 		}
 	})
-	r.GET("/liver/:id", func(c *gin.Context) {
-		type S struct {
-			AreaLiver
-			LiveCount int
-		}
-		uid := c.DefaultQuery("id", "-1")
-		if uid == "-1" {
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "params missing",
-			})
-		}
-		var result0 = AreaLiver{}
-		var s = S{}
-		db.Model(&AreaLiver{}).Where("uid = ?", uid).Find(&result0)
-		s.AreaLiver = result0
-		//db.Model()
-		c.JSON(http.StatusOK, gin.H{
-			"liver": s,
-		})
-	})
 	r.GET("/live", func(c *gin.Context) {
 		var f []Live
 		name := c.DefaultQuery("name", "1")
@@ -519,12 +499,14 @@ func InitHTTP() {
 		var t2 = msg5
 		var t3 = msg60
 		var l sync.Mutex
+		var bytes int64 = 0
 		if man == nil || man.Nodes == nil {
 			context.JSON(http.StatusOK, gin.H{
-				"message": "error",
+				"LaunchedAt": launchTime.Format(time.DateTime),
+				"WSBytes":    websocketBytes,
 			})
+			return
 		}
-		var bytes int64 = 0
 		for _, node := range man.Nodes {
 			if !node.Alive {
 				continue
