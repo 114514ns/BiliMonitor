@@ -40,9 +40,9 @@ function BasicLayout() {
     }, {
         Name: 'LivePage',
         Path: '/lives'
-    }, {
+    }, /*{
         Name: 'Danmakus', Path: '/chat'
-    }, {
+    }, */{
         Name: 'List', Path: '/list'},{
         Name: 'Status', Path: '/stat'}
     ]

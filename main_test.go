@@ -40,6 +40,9 @@ func TestHttp(test *testing.T) {
 	go func() {
 		RefreshLivers()
 	}()
+	go func() {
+		//RefreshMessagePoints()
+	}()
 	InitHTTP()
 
 }

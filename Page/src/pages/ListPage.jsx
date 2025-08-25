@@ -46,6 +46,8 @@ const sort = [
     {label: "fans", key: "fans", description: "粉丝"},
     {label: "diff", key: "diff", description: "日增"},
     {label: "guard-equal", key: "guard-equal", description: "等效舰长"},
+    {label: "month-diff-desc", key: "month-diff-desc", description: "月增粉丝"},
+    {label: "month-diff", key: "month-diff", description: "月减粉丝"},
 ];
 
 function ListPage(props) {
@@ -150,6 +152,18 @@ function ListPage(props) {
 
                     {sort.map((item) => (
                         <SelectItem key={item.key} onPress={(e) => {
+                            if (item.key.includes("month")) {
+                                if (item.key.includes("asc")) {
+                                    setFiltered(prev => [...prev].sort((a, b) => a.MonthlyDiff - b.MonthlyDiff))
+                                } else {
+                                    setFiltered(prev => [...prev].sort((a, b) => b.MonthlyDiff - a.MonthlyDiff))
+                                }
+                                return
+                            }
+                            if (item.key === ("guard")) {
+                                setFiltered(prev => [...prev].sort((a, b) => b.GuardCount - a.GuardCount))
+                                return
+                            }
                             var url = `${protocol}://${host}:${port}/api/areaLivers?sort=${item.key}`
                             axios.get(url).then((response) => {
                                 setList(response.data.list);
@@ -231,7 +245,7 @@ function ListPage(props) {
             <Listbox
                 virtualization={{
                     maxListboxHeight: calcHeight()-120,
-                    itemHeight: 300,
+                    itemHeight: 325,
                 }}
                 hideSelectedIcon
                 variant={'light'}
@@ -249,6 +263,7 @@ function ListPage(props) {
                             UName={item.UName}
                             Guard={item.Guard}
                             DailyDiff={item.DailyDiff}
+                            MonthlyDiff={item.MonthlyDiff}
                             Fans={item.Fans}
                             LastActive={(item.LastActive)}
                             UID={item.UID}
@@ -279,6 +294,7 @@ function ListPage(props) {
 
 const LiverCard = memo(function LiverCard(props) {
     const up = props.DailyDiff >= 0
+    const mup = props.MonthlyDiff >= 0
     return (
         <Card isHoverable style={{width: "100%", marginTop: "16px"}}>
             <CardBody style={{
@@ -308,7 +324,11 @@ const LiverCard = memo(function LiverCard(props) {
 
 
                 <div style={{display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.6}}>
-                    <p style={{margin: 0}}>关注：{formatNumber(props.Fans)}</p>
+                    {props.MonthlyDiff ?  (
+                        <p style={{margin: 0}}>月增：{<span
+                            style={{color: mup ? '#00cc00' : '#ff0000'}}>{mup ? '▲' : '▼'}</span>}{parseInt(props.MonthlyDiff).toLocaleString()}</p>
+                    ):<></>}
+                    <p style={{margin: 0}}>粉丝：{formatNumber(props.Fans)}</p>
                     <p style={{margin: 0}}>日增：{<span
                         style={{color: up ? '#00cc00' : '#ff0000'}}>{up ? '▲' : '▼'}</span>}{props.DailyDiff}</p>
                     <p style={{margin: 0}}>大航海：{props.Guard}</p>
