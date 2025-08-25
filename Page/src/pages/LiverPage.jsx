@@ -17,6 +17,7 @@ import {
 import HoverMedals from "../components/HoverMedals";
 import {FansList} from "../components/RankDialog";
 import LiveStatisticCard from "../components/LiveStatisticCard";
+import {AnimatePresence,motion} from "framer-motion";
 
 function LiverPage(props) {
     const [fansChart, setFansChart] = React.useState([]);
@@ -36,6 +37,9 @@ function LiverPage(props) {
 
     const redirect = useNavigate();
 
+    const [orig,setOrig] = React.useState([]);
+
+    const [noDM, setNoDM] = React.useState(false);
 
 
     let {id} = useParams();
@@ -59,17 +63,19 @@ function LiverPage(props) {
             })
             setGuardChart(dst??[])
         })
-        axios.get(`${protocol}://${host}:${port}/api/live?uid=${id}&limit=1000`).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/live?uid=${id}&limit=1000&no_dm=${noDM}`).then((response) => {
             setLives(response.data.lives);
         })
-    }, [])
+    }, [noDM])
 
     const [diffMode,setDiffMode] = React.useState(false);
     return (
         <div>
             <Modal isOpen={open} onOpenChange={() => {
                 setOpen(!open)
-            }} size={'xs'}>
+            }} size={'xs'}   className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+            }`}>
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">
                         {guardTime}
@@ -78,30 +84,46 @@ function LiverPage(props) {
                         <div>
                             <Switch isSelected={diffMode}  onValueChange={(e => {
                                 setDiffMode(e)
+                                if (!e) {
+                                    setGuard(orig)
+                                }
                             })}>Diff</Switch>
-                            {diffMode && <Select className={'mt-2'}>
-                                {guardChart.filter(e => new Date(e.UpdatedAt).toLocaleString() !== guardTime).map(e => {
-                                    var str = new Date(e.UpdatedAt).toLocaleString()
-                                   return (
-                                       <SelectItem key={str} value={str} onPress={() => {
-                                           axios.get(`${protocol}://${host}:${port}/api/guard?id=${e.ID}`).then((response) => {
-                                               var dst = response.data.data
-                                               const oldIds = new Set(guard.map(item => item.UID));
-                                               const newIds = new Set(dst.map(item => item.UID));
-                                               const added = dst
-                                                   .filter(item => !oldIds.has(item.UID))
-                                                   .map(item => ({ ...item, Label: 'add' }));
+                            <AnimatePresence>
+                                {diffMode && (
+                                    <motion.div
+                                        key="select"
+                                        initial={{ opacity: 0, y: -5 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -5 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <Select className="mt-2">
+                                            {guardChart.filter(e => new Date(e.UpdatedAt).getTime() > new Date(guardTime).getTime()).map(e => {
+                                                var str = new Date(e.UpdatedAt).toLocaleString()
+                                                return (
+                                                    <SelectItem key={str} value={str} onPress={() => {
+                                                        axios.get(`${protocol}://${host}:${port}/api/guard?id=${e.ID}`).then((response) => {
+                                                            var dst = response.data.data
+                                                            const oldIds = new Set(orig.map(item => item.UID));
+                                                            const newIds = new Set(dst.map(item => item.UID));
+                                                            const added = dst
+                                                                .filter(item => !oldIds.has(item.UID))
+                                                                .map(item => ({ ...item, Label: 'add' }));
 
-                                               const removed = guard
-                                                   .filter(item => !newIds.has(item.UID))
-                                                   .map(item => ({ ...item, Label: 'remove' }));
-                                               setGuard([...added, ...removed]);
+                                                            const removed = orig
+                                                                .filter(item => !newIds.has(item.UID))
+                                                                .map(item => ({ ...item, Label: 'remove' }));
+                                                            setGuard([...added, ...removed]);
 
-                                           })
-                                       }} aria-label={''}>{str}</SelectItem>
-                                   )
-                                })}
-                            </Select>}
+                                                        })
+                                                    }} aria-label={''}>{str}
+                                                    </SelectItem>
+                                                )
+                                            })}
+                                        </Select>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                         <FansList fans={guard} height={800} onItemClick={(e) => {
                             console.log(e)
@@ -191,12 +213,18 @@ function LiverPage(props) {
                         setGuardTime(new Date(guardChart[data.dataIndex].UpdatedAt).toLocaleString())
                         axios.get(`${protocol}://${host}:${port}/api/guard?id=${guardChart[data.dataIndex].ID}`).then((response) => {
                             setGuard(response.data.data);
+                            setOrig(response.data.data)
                             setOpen(true)
                         })
                     }}
                     height={300}
                 />
             </div>
+            <Switch onValueChange={(value) => {
+                setNoDM(value)
+            }} defaultSelected={false}>
+                显示所有场次
+            </Switch>
             <div className={'grid grid-cols-1 sm:grid-cols-6'}>
                 {lives.map((live, index) => (
                     <LiveStatisticCard item={live} showUser={false}/>
