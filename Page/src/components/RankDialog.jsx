@@ -1,4 +1,4 @@
-import React, {memo, useEffect} from 'react';
+import React, {memo, useEffect, useMemo} from 'react';
 import {
     Autocomplete,
     AutocompleteItem,
@@ -210,27 +210,29 @@ export const FansList = memo(function Greeting({fans,onClose,height,onItemClick}
                         <div className={'flex flex-row align-middle mt-2'} onClick={() => {
                             onItemClick(f)
                         }}>
-                            <Avatar
-                                src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.UID}`}
-                                onClick={() => {
-                                    redirect("/user/" + f.UID);
-                                    onClose();
-                                }}/>
 
-                            <Chip
-                                className={'mt-1'}
-                                startContent={f.Type?<img src={getGuardIcon(f.Type)} style={{width:'18px',height:'18px'}}/>:<CheckIcon size={18}/>}
-                                variant="faded"
-                                onClick={() => {
-                                    toSpace(f.LiverID);
-                                }}
-                                style={{background: getColor(f.Level), color: 'white', marginLeft: '8px'}}
-                            >
-                                {f.MedalName}
-                                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
+                                        <Avatar
+                                            src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.UID}`}
+                                            onClick={() => {
+                                                redirect("/user/" + f.UID);
+                                                onClose();
+                                            }}/>
+
+                                        <Chip
+                                            className={'mt-1'}
+                                            startContent={f.Type?<img src={getGuardIcon(f.Type)} style={{width:'18px',height:'18px'}}/>:<CheckIcon size={18}/>}
+                                            variant="faded"
+                                            onClick={() => {
+                                                toSpace(f.LiverID);
+                                            }}
+                                            style={{background: getColor(f.Level), color: 'white', marginLeft: '8px'}}
+                                        >
+                                            {f.MedalName}
+                                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
                                                             {f.Level}
                                                         </span>
-                            </Chip>
+                                        </Chip>
+        
                         </div>
                     )}
                 </div>

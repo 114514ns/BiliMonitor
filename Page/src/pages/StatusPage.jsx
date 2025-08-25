@@ -1,5 +1,6 @@
 import React, {useEffect} from 'react';
 import axios from "axios";
+import {LineChart} from "@mui/x-charts/LineChart";
 
 function StatusPage(props) {
 
@@ -21,6 +22,8 @@ function StatusPage(props) {
 
 
     const [overview, setOverview] = React.useState({});
+
+    const [msg,setMsg] = React.useState([]);
     useEffect(() => {
         var intervalId = setInterval(() => {
             axios.get('/api/status').then(res => {
@@ -29,6 +32,13 @@ function StatusPage(props) {
         },500)
         return () => clearInterval(intervalId);
     },[])
+    useEffect(() => {
+        axios.get('/api/chart/msg').then(res => {
+            setMsg(res.data.data);
+        })
+    },[])
+
+    const contentMap = ['24小时弹幕','月弹幕','6月弹幕']
     return (
 
         <div>
@@ -82,6 +92,31 @@ function StatusPage(props) {
                         className="font-semibold">{formatNumber(overview.WSBytes)}</span>
                 </div>
             </div>
+            {msg.length > 0 &&
+                msg.map((msg, i) => (
+                    <LineChart
+
+                        xAxis={[{
+                            data: msg.map((item, index) => (new Date(item.Time).getTime())),
+                            label: contentMap[i],
+                            valueFormatter: (timestamp) => {
+                                const date = new Date(timestamp)
+                                if (i !== 0) {
+                                    return date.toLocaleDateString()
+                                }
+                                return date.toLocaleTimeString()
+                            }
+                        }]}
+                        series={[
+                            {
+                                area:true,
+                                data: msg.map((item, index) => (item.Count))
+                            },
+                        ]}
+                        height={300}
+                    />
+                ))
+            }
         </div>
     );
 }

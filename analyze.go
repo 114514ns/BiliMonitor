@@ -10,6 +10,14 @@ import (
 	"time"
 )
 
+type MessagePoint struct {
+	Time  string
+	Count int
+}
+
+var cachedMessagesPoint [][]MessagePoint = make([][]MessagePoint, 3)
+var cachedFans = make(map[int][][]MessagePoint)
+
 func reverse[T any](arr []T) []T {
 	n := len(arr)
 	result := make([]T, n)
@@ -41,6 +49,50 @@ func TotalGuards() [3]int {
 
 	}
 	return array
+}
+func RefreshMessagePoints() {
+	var wg sync.WaitGroup
+	wg.Add(3)
+	go func() {
+		db.Raw(`
+	SELECT
+    	DATE_FORMAT(created_at, '%Y-%m-%d %H:00:00') AS time,
+    	COUNT(*) AS count
+	FROM live_actions
+	WHERE created_at >= NOW() - INTERVAL 24-8 HOUR
+	GROUP BY time
+	ORDER BY time;
+`).Scan(&cachedMessagesPoint[0])
+		wg.Done()
+	}()
+
+	go func() {
+		db.Raw(`
+			SELECT
+		    	DATE_FORMAT(created_at, '%Y-%m-%d 00:00:00') AS time,
+		    	COUNT(*) AS count
+			FROM live_actions
+			WHERE created_at >= NOW() - INTERVAL 24*30-8 HOUR
+			GROUP BY time
+			ORDER BY time;
+		`).Scan(&cachedMessagesPoint[0x01])
+		wg.Done()
+	}()
+
+	go func() {
+		db.Raw(`
+			SELECT
+		    	DATE_FORMAT(created_at, '%Y-%m-31 00:00:00') AS time,
+		    	COUNT(*) AS count
+			FROM live_actions
+			WHERE created_at >= NOW() - INTERVAL 24*30*6-8 HOUR
+			GROUP BY time
+			ORDER BY time;
+		`).Scan(&cachedMessagesPoint[2])
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
 func TotalWatcher() int {
 	var count = 0
@@ -83,6 +135,41 @@ func RefreshLivers() {
 		result = append(result, livers[len(livers)-1])
 	}
 
+	type DiffStruct struct {
+		UserID int64
+		Diff   int
+	}
+	var order = []string{"DESC", "ASC"}
+	var m = make(map[int64]DiffStruct)
+
+	for _, s := range order {
+		var dst []DiffStruct
+		db.Raw(`
+WITH ranked AS (
+    SELECT user_id, name, fans, created_at,
+           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)  AS rn_asc,
+           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn_desc
+    FROM users
+    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+)
+SELECT e.user_id,
+       e.name,
+       e.fans AS start_fans,
+       e.created_at AS start_time,
+       l.fans AS end_fans,
+       l.created_at AS end_time,
+       l.fans - e.fans AS Diff,
+       TIMESTAMPDIFF(MONTH, e.created_at, l.created_at) AS months,
+       (l.fans - e.fans) / NULLIF(TIMESTAMPDIFF(MONTH, e.created_at, l.created_at), 0) AS monthly_growth
+FROM ranked e
+JOIN ranked l ON e.user_id = l.user_id
+WHERE e.rn_asc = 1 AND l.rn_desc = 1
+ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
+		for _, diffStruct := range dst {
+			m[diffStruct.UserID] = diffStruct
+		}
+	}
+
 	for i, liver := range result {
 
 		liverMap[liver.Room] = liver
@@ -91,6 +178,12 @@ func RefreshLivers() {
 		if dst.ID != 0 && dst.Fans > 300 {
 			result[i].Bio = dst.Bio
 			result[i].Verify = dst.Verify
+			_, ok := m[liver.UID]
+			if ok {
+				if m[liver.UID].Diff != 0 {
+					result[i].MonthlyDiff = m[liver.UID].Diff
+				}
+			}
 			var live AreaLive
 			db.Raw("select time from area_lives where uid=? order by time desc limit 1", liver.UID).Scan(&live)
 			result[i].LastActive = live.Time

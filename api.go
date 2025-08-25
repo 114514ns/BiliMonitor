@@ -42,10 +42,11 @@ func removeDuplicates(input []string) []string {
 
 type FrontAreaLiver struct {
 	AreaLiver
-	LastActive time.Time
-	DailyDiff  int
-	Verify     string
-	Bio        string
+	LastActive  time.Time
+	DailyDiff   int
+	MonthlyDiff int
+	Verify      string
+	Bio         string
 }
 
 //go:embed Page/dist
@@ -199,6 +200,21 @@ func InitHTTP() {
 		limit, _ := strconv.Atoi(limitStr)
 		order := c.DefaultQuery("order", "id")
 		var uidStr = c.DefaultQuery("uid", "-1")
+		var noDM = c.DefaultQuery("no_dm", "false")
+
+		if noDM == "true" {
+			var dst []AreaLive
+			db.Raw("select * from area_lives where uid =? order by id desc", uidStr).Scan(&dst)
+			copier.Copy(&f, dst)
+			for i, live := range dst {
+				f[i].CreatedAt = live.Time
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"lives": f,
+			})
+			return
+
+		}
 
 		offset := (page - 1) * limit
 		var totalRecords int64
@@ -398,30 +414,6 @@ func InitHTTP() {
 		c.Writer.Header().Set("Cache-Control", "public, max-age=31536000")
 		c.Writer.WriteHeader(res.StatusCode())
 		c.Writer.Write(res.Body())
-	})
-
-	r.GET("/chart/live", func(c *gin.Context) {
-		var id = c.Query("id")
-		type LiveActionCount struct {
-			MinuteTime  string `gorm:"column:minute_time"`
-			RecordCount int    `gorm:"column:record_count"`
-		}
-
-		var results []LiveActionCount
-
-		db.Raw(`
-    SELECT 
-        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS minute_time, 
-        COUNT(*) AS record_count
-    FROM live_actions
-    WHERE live = ?
-    GROUP BY minute_time
-    ORDER BY minute_time;
-`, id).Scan(&results)
-		c.JSON(http.StatusOK, gin.H{
-			"message": "success",
-			"data":    results,
-		})
 	})
 
 	//直播间最近的弹幕，用于在前端的实时直播页面显示
@@ -932,6 +924,31 @@ func InitHTTP() {
 		})
 	})
 
+	//一场直播内每分钟弹幕数
+	r.GET("/chart/live", func(c *gin.Context) {
+		var id = c.Query("id")
+		type LiveActionCount struct {
+			MinuteTime  string `gorm:"column:minute_time"`
+			RecordCount int    `gorm:"column:record_count"`
+		}
+
+		var results []LiveActionCount
+
+		db.Raw(`
+    SELECT 
+        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS minute_time, 
+        COUNT(*) AS record_count
+    FROM live_actions
+    WHERE live = ?
+    GROUP BY minute_time
+    ORDER BY minute_time;
+`, id).Scan(&results)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    results,
+		})
+	})
+
 	r.GET("/chart/fans", func(context *gin.Context) {
 
 		const POINT = 30
@@ -1083,6 +1100,13 @@ ORDER BY
 			"data": dst,
 		})
 
+	})
+
+	r.GET("/chart/msg", func(context *gin.Context) {
+		context.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    cachedMessagesPoint,
+		})
 	})
 
 	r.GET("/liver/space", func(context *gin.Context) {

@@ -1075,6 +1075,10 @@ func TraceLive(roomId string) {
 					action.Extra = o["msg"].(string)
 				} else if text.Cmd == "ROOM_BLOCK_MSG" {
 					action.ActionName = "mute"
+					var o = make(map[string]interface{})
+					sonic.Unmarshal(msgData, &o)
+					action.FromId = toInt64(o["uid"].(string))
+					action.FromName = o["uname"].(string)
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
@@ -1173,7 +1177,9 @@ func TraceLive(roomId string) {
 
 					tx := db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
 						"end_at": time.Now().Unix(),
-						"money":  sum,
+					})
+					tx = db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
+						"money": sum,
 					})
 					if tx.Error != nil {
 						log.Println(tx.Error)
