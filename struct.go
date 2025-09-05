@@ -251,6 +251,7 @@ type GuardListResponse struct {
 		Top  []GuardResponseItem `json:"top3"`
 		Info struct {
 			Total int `json:"num"`
+			Page  int `json:"page"`
 		} `json:"info"`
 	} `json:"data"`
 }
@@ -296,6 +297,7 @@ type FansClubResponse struct {
 				Name string `json:"name"`
 			} `json:"uinfo_medal"`
 		} `json:"item"`
+		Num int `json:"num"`
 	} `json:"data"`
 }
 type UserMapping struct {

@@ -53,3 +53,7 @@ button:focus-visible {
   }
 }
 
+ul {
+  list-style: disc;
+}
+

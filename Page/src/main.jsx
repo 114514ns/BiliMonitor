@@ -30,6 +30,7 @@ console.warn = (...args) => {
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
         config.url = config.url?.replace('/api', '');
+        //config.url = config.url?.replace('live.ikun.dev', 'live-api.ikun.dev');
     }
     return config;
 });

@@ -45,9 +45,11 @@ const sort = [
     {label: "l1-guard", key: "l1-guard", description: "总督"},
     {label: "fans", key: "fans", description: "粉丝"},
     {label: "diff", key: "diff", description: "日增"},
+    {label: "diff-desc", key: "diff-desc", description: "日减"},
     {label: "guard-equal", key: "guard-equal", description: "等效舰长"},
     {label: "month-diff-desc", key: "month-diff-desc", description: "月增粉丝"},
     {label: "month-diff", key: "month-diff", description: "月减粉丝"},
+    {label: "month-diff-rate", key: "month-diff-rate", description: "月粉丝增幅"},
 ];
 
 function ListPage(props) {
@@ -152,17 +154,41 @@ function ListPage(props) {
 
                     {sort.map((item) => (
                         <SelectItem key={item.key} onPress={(e) => {
-                            if (item.key.includes("month")) {
-                                if (item.key.includes("asc")) {
-                                    setFiltered(prev => [...prev].sort((a, b) => a.MonthlyDiff - b.MonthlyDiff))
-                                } else {
-                                    setFiltered(prev => [...prev].sort((a, b) => b.MonthlyDiff - a.MonthlyDiff))
-                                }
-                                return
+                            if (item.key === ("month-diff")) {
+                                setFiltered(prev => [...prev].sort((a, b) => a.MonthlyDiff - b.MonthlyDiff))
+                                return;
+                            }
+                            if (item.key === ("month-diff-desc")) {
+                                setFiltered(prev => [...prev].sort((a, b) => b.MonthlyDiff - a.MonthlyDiff))
+                                return;
                             }
                             if (item.key === ("guard")) {
                                 setFiltered(prev => [...prev].sort((a, b) => b.GuardCount - a.GuardCount))
                                 return
+                            }
+                            if (item.key === "l1-guard") {
+                                setFiltered(prev => [...prev].sort((a, b) => parseInt(b.Guard.split(",")[0]) - parseInt(a.Guard.split(",")[0]) ))
+                                return;
+                            }
+                            if (item.key === "guard-equal") {
+                                setFiltered(prev => [...prev].sort((a, b) => (parseInt(b.Guard.split(",")[0])*19998 + parseInt(b.Guard.split(",")[1]) *1998 + parseInt(b.Guard.split(",")[2])*138  )- (parseInt(a.Guard.split(",")[0])*19998 + parseInt(a.Guard.split(",")[1]) *1998 + parseInt(a.Guard.split(",")[2])*138)))
+                                return;
+                            }
+                            if (item.key === ("fans")) {
+                                setFiltered(prev => [...prev].sort((a, b) => b.Fans - a.Fans))
+                                return
+                            }
+                            if (item.key === "diff") {
+                                setFiltered(prev => [...prev].sort((a, b) => b.DailyDiff - a.DailyDiff))
+                                return;
+                            }
+                            if (item.key === "diff-desc") {
+                                setFiltered(prev => [...prev].sort((a, b) => a.DailyDiff - b.DailyDiff))
+                                return;
+                            }
+                            if (item.key === "month-diff-rate") {
+                                setFiltered(prev => [...prev].sort((a, b) => (b.Fans/(b.Fans-b.MonthlyDiff))- a.Fans/(a.Fans-a.MonthlyDiff)))
+                                return;
                             }
                             var url = `${protocol}://${host}:${port}/api/areaLivers?sort=${item.key}`
                             axios.get(url).then((response) => {
@@ -245,7 +271,7 @@ function ListPage(props) {
             <Listbox
                 virtualization={{
                     maxListboxHeight: calcHeight()-120,
-                    itemHeight: 325,
+                    itemHeight: 310,
                 }}
                 hideSelectedIcon
                 variant={'light'}

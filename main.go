@@ -89,6 +89,7 @@ type Config struct {
 	QueryProxy              string
 	QueryAlive              int
 	RequestDelay            int
+	ConnectionPoolSize      int
 }
 
 type User struct {
@@ -486,9 +487,15 @@ func loadConfig() {
 	}
 	err = sonic.Unmarshal(content, &config)
 }
+
+var cPools = make([]*resty.Client, 0)
+var requestCountMutex sync.Mutex
+
 func setupHTTPClient() {
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
+		requestCountMutex.Lock()
 		totalRequests++
+		requestCountMutex.Unlock()
 		httpBytes += response.RawResponse.ContentLength
 		return nil
 	})
@@ -498,7 +505,7 @@ func setupHTTPClient() {
 		return nil
 	})
 
-	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
+	var checkFailHandler = func(c *resty.Client, response *resty.Response) error {
 		if strings.Contains(response.Request.URL, "bilibili.com") && strings.Contains(response.Request.URL, "api") {
 			var obj map[string]interface{}
 			sonic.Unmarshal(response.Body(), &obj)
@@ -529,7 +536,9 @@ func setupHTTPClient() {
 		}
 
 		return nil
-	})
+	}
+
+	client.OnAfterResponse(checkFailHandler)
 
 	queryClient.SetTransport(&http.Transport{
 		DialContext: (&net.Dialer{
@@ -550,6 +559,46 @@ func setupHTTPClient() {
 		request.Header.Set("User-Agent", randomUserAgent())
 		return nil
 	})
+
+	var ips []string
+	for j := 0; j < config.ConnectionPoolSize; j++ {
+
+		var c = resty.New().SetProxy(config.QueryProxy)
+		ip := checkIP(c)
+		var found = false
+		for s := range ips {
+			if ip == ips[s] {
+				found = true
+				break
+			}
+		}
+		if !found {
+			ips = append(ips, ip)
+			fmt.Println(len(cPools))
+			c.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
+				request.Header.Set("User-Agent", randomUserAgent())
+				requestCountMutex.Lock()
+				totalRequests++
+				requestCountMutex.Unlock()
+				return nil
+			})
+			c.OnAfterResponse(checkFailHandler)
+			cPools = append(cPools, c)
+		} else {
+			transport, _ := c.Transport()
+			transport.CloseIdleConnections()
+			j--
+		}
+	}
+	go func() {
+		for {
+			for _, pool := range cPools {
+				pool.R().Get("https://api.bilibili.com/x/web-interface/zone")
+			}
+			time.Sleep(time.Minute * 1)
+		}
+	}()
+
 }
 
 var localClient = resty.New()
@@ -700,6 +749,7 @@ func main0() {
 			}
 		}()
 		go func() {
+			RefreshMessagePoints()
 			RefreshLivers()
 		}()
 		go func() {
@@ -722,6 +772,7 @@ func main0() {
 		c.AddFunc("@every 1m", FixMoney)
 		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
+		c.AddFunc("@every 60m", RefreshMessagePoints)
 
 		if err != nil {
 			return

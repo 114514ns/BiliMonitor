@@ -47,10 +47,27 @@ func TestHttp(test *testing.T) {
 
 }
 
+func TestGetGuardList(t *testing.T) {
+	loadConfig()
+	setupHTTPClient()
+	GetGuardList("22625027", "672342685")
+}
+
+func TestGetFansClub(t *testing.T) {
+	loadConfig()
+	setupHTTPClient()
+	GetFansClub("672342685", nil)
+}
 func TestTraceArea(t *testing.T) {
 	//loadDB()
 	loadConfig()
 	TraceArea(9)
+}
+
+func TestAnalyzeWatcher(test *testing.T) {
+	loadConfig()
+	loadDB()
+	RefreshWatchers()
 }
 
 func TestMerge(test *testing.T) {

@@ -19,7 +19,7 @@ module.exports = {
     },
     darkMode: "class",
     plugins: [heroui({
-        /*
+
         "themes": {
             "light": {
                 "colors": {
@@ -40,6 +40,6 @@ module.exports = {
             }
         }
         
-         */
+
     })],
 };

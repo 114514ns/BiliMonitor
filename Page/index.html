@@ -6,20 +6,21 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="./src/App.css" />
+<!--    <script-->
+<!--            src="databuddy.js"-->
+<!--            data-client-id="y3_dd5vTaYXtXQOZCtyLp"-->
+<!--            data-enable-batching="true"-->
+<!--            crossOrigin="anonymous"-->
+<!--            async-->
+<!--    ></script>-->
     <script
-            src="https://cdn.databuddy.cc/databuddy.js"
-            data-client-id="y3_dd5vTaYXtXQOZCtyLp"
-            data-enable-batching="true"
             crossOrigin="anonymous"
-            async
-    ></script>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=chat_bubble,currency_yen" />
-    <script
-            crossOrigin="anonymous"
-            src="//unpkg.com/react-scan/dist/auto.global.js"
+            src="https://unpkg.shop.jd.com/react-scan/dist/auto.global.js"
     />
-    <script src='https://cdn.jsdelivr.net/gh/colxi/getEventListeners/src/getEventListeners.min.js'></script>
     <title>Vite + React</title>
+    <script>
+
+    </script>
   </head>
   <body>
   <svg style="display: none">
@@ -32,6 +33,45 @@
   </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+  <script>
+    async function loadAssets(url) {
+      const response = await fetch(url,{
+        referrerPolicy: "no-referrer"
+      });
+      const arrayBuffer = await response.arrayBuffer()
+      const part = arrayBuffer.slice(17499);
+      var type = "text/javascript"
+      if (url.includes(".css")) {
+        type = "text/css"
+      }
+      var blob =  new Blob([part], { type:type })
+      if (type === "text/javascript") {
+        const script = document.createElement("script");
+        script.src = URL.createObjectURL(blob);
+        script.type = "module"
+        document.head.appendChild(script);
+      } else {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = href;
+        document.head.appendChild(URL.createObjectURL(blob));
+      }
+
+    }
+    async function loadDatabuddy(url) {
+      const response = await fetch('https://i0.hdslb.com/bfs/im_new/1a61445361831d2287a132d95653d56b2.png',{
+        referrerPolicy: "no-referrer"
+      });
+      const arrayBuffer = await response.arrayBuffer()
+      const part = arrayBuffer.slice(17499);
+      var blob =  new Blob([part], { type: "text/javascript" })
+      const script = document.createElement("script");
+      script.src = URL.createObjectURL(blob);
+      script.setAttribute("data-client-id","y3_dd5vTaYXtXQOZCtyLp")
+      document.head.appendChild(script);
+    }
+    loadDatabuddy()
+  </script>
   </body>
 
 </html>

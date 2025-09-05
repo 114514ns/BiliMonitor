@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {Route, Routes, useNavigate} from 'react-router-dom';
 import Monitor from "./pages/Monitor.jsx";
 import './App.css'
@@ -24,6 +24,8 @@ import StatusPage from "./pages/StatusPage";
 import RankDialog from "./components/RankDialog";
 import UserPage from "./pages/UserPage";
 import {AnimatePresence,motion} from "framer-motion";
+import NoticeDialog from "./components/NoticeDialog";
+import axios from "axios";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -37,12 +39,7 @@ function BasicLayout() {
     const menu = [{
         Name: 'Overview',
         Path: '/'
-    }, {
-        Name: 'LivePage',
-        Path: '/lives'
-    }, /*{
-        Name: 'Danmakus', Path: '/chat'
-    }, */{
+    },{
         Name: 'List', Path: '/list'},{
         Name: 'Status', Path: '/stat'}
     ]
@@ -55,15 +52,26 @@ function BasicLayout() {
 
     const [showRank, setShowRank] = React.useState(false);
 
+    const [showNotice,setShowNotice] = React.useState(false);
+
     PubSub.subscribe('DownloadDialog', (msg, data) => {
         console.log(msg, data);
         setShowDownload(false);
     });
+    const [content, setContent] = React.useState("");
+    useEffect(() => {
+        axios.get("/about.md").then((response) => {
+            setContent(response.data);
+        })
+    },[])
     return (
 
         <div>
+            {showNotice && <NoticeDialog onClose={() => {
+                setShowNotice(false);
+            }} content={content}></NoticeDialog>}
             <DownloadDialog isOpen={showDownload}/>
-            {showRank && <RankDialog open={showRank} onClose={() => {setShowRank(false)}} />}
+            {showRank && <RankDialog open={showRank} onClose={() => {setShowRank(false)}} content={content}/>}
             <Navbar style={{}}>
                 <NavbarContent style={{display: "flex", justifyContent: "center","overflow":"scroll"}} className={'scrollbar-hide'}>
                     {
@@ -83,7 +91,7 @@ function BasicLayout() {
                     <Dropdown>
                         <DropdownTrigger>
                             <Link>
-                                Toolkit
+                                Misc
                             </Link>
                         </DropdownTrigger>
                         <DropdownMenu>
@@ -93,6 +101,9 @@ function BasicLayout() {
                             <DropdownItem key="rank" onClick={() => {
                                 setShowRank(true);
                             }}>Rank</DropdownItem>
+                            <DropdownItem key="notice" onClick={() => {
+                                setShowNotice(true);
+                            }}>Notice & Changelog</DropdownItem>
                         </DropdownMenu>
                     </Dropdown>
                 </NavbarContent>
@@ -100,7 +111,7 @@ function BasicLayout() {
             <div className="site-layout-background" style={{padding: 24, width: '100%', height: `${calcHeight()}px`}}>
                 <AnimatePresence mode="wait">
                     <Routes location={location} key={location.pathname}>
-                        <Route path="/" element={<PageWrapper><Monitor /></PageWrapper>} />
+                        <Route path="/" element={<PageWrapper><LivePage /></PageWrapper>} />
                         <Route path="/lives" element={<PageWrapper><LivePage /></PageWrapper>} />
                         <Route path="/lives/:id" element={<PageWrapper><LiveDetailPage /></PageWrapper>} />
                         <Route path="/chat" element={<PageWrapper><ChatPage /></PageWrapper>} />

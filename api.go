@@ -19,7 +19,7 @@ import (
 )
 
 var videoCache = []Video{}
-var worker = NewWorker()
+var worker = NewWorker(1)
 
 func removeDuplicates(input []string) []string {
 	// 创建一个空的 map，用于记录已经存在的字符串
@@ -55,7 +55,7 @@ var distFS embed.FS
 func InitHTTP() {
 	r := gin.Default()
 	r.UseH2C = true
-
+	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.Use(CORSMiddleware())
 	//r.Static("/page", "./Page/dist/")
 	//r.Static("/assets", "./Page/dist/assets")
@@ -65,7 +65,7 @@ func InitHTTP() {
 	} else {
 		r.Use(static.Serve("/", static.LocalFile("./Page/dist", false)))
 	}
-	r.Use(gzip.Gzip(gzip.DefaultCompression))
+
 	r.GET("/monitor", func(c *gin.Context) {
 
 		var array = make([]Status, 0)
@@ -545,6 +545,7 @@ func InitHTTP() {
 
 		context.JSON(http.StatusOK, gin.H{
 			"Requests":      totalRequests,
+			"Tasks":         guardWorker.QueueLen(),
 			"LaunchedAt":    launchTime.Format(time.DateTime),
 			"Livers":        TotalLiver(),
 			"TotalMessages": TotalMessage(),
@@ -951,9 +952,10 @@ func InitHTTP() {
 
 	r.GET("/chart/fans", func(context *gin.Context) {
 
+		var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
 		const POINT = 30
 		var end = time.Now()
-		var start = end.AddDate(0, -3, 0)
+		var start = end.AddDate(0, int(month)*-1, 0)
 
 		var uid = context.DefaultQuery("uid", "")
 		if uid == "" {
@@ -1025,6 +1027,7 @@ ORDER BY
 	})
 
 	r.GET("/chart/guard", func(context *gin.Context) {
+		var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
 		var uidStr = context.DefaultQuery("uid", "")
 		if uidStr == "" || toInt64(uidStr) == 0 {
 			context.JSON(http.StatusOK, gin.H{
@@ -1091,7 +1094,7 @@ ORDER BY
 
 `, map[string]interface{}{
 			"user_id":    uid,
-			"start_date": time.Now().AddDate(0, -4, 0),
+			"start_date": time.Now().AddDate(0, int(month)*-1, 0),
 			"end_date":   time.Now(),
 			"num_points": 30,
 		}).Scan(&dst)
