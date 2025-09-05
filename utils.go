@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"golang.org/x/net/html"
+	mathRand "math/rand"
 	"os"
 	"sort"
 	"strconv"
@@ -193,4 +195,17 @@ func chunkSlice[T any](slice []T, size int) [][]T {
 		chunks = append(chunks, slice[i:end])
 	}
 	return chunks
+}
+func checkIP(c *resty.Client) string {
+	res, _ := c.R().SetHeader("Connection", "close").Get("https://api.bilibili.com/x/web-interface/zone")
+	return res.String()
+}
+func RandomPick[T any](arr []T) T {
+	if len(arr) == 0 {
+		var zero T
+		return zero // 如果数组为空，返回零值
+	}
+	mathRand.Seed(time.Now().UnixNano()) // 初始化随机种子
+	index := mathRand.Intn(len(arr))
+	return arr[index]
 }

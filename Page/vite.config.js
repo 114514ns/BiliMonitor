@@ -3,8 +3,17 @@ import react from "@vitejs/plugin-react";
 
 
 // https://vitejs.dev/config/
+const ReactCompilerConfig = { /* ... */ };
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      babel: {
+        plugins: [
+          ["babel-plugin-react-compiler", ReactCompilerConfig],
+        ],
+      },
+    }),
+  ],
   server: {
     proxy: {
 
@@ -20,6 +29,12 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+        inlineDynamicImports: true
+      }
+    }
   },
   esbuild: {
     sourcemap: true,

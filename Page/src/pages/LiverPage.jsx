@@ -1,9 +1,9 @@
-import React from 'react';
+import React, {useState} from 'react';
 import {useNavigate, useParams} from "react-router-dom";
 import axios from "axios";
 import {LineChart} from "@mui/x-charts/LineChart";
 import {
-    Avatar,
+    Avatar, Button,
     Card,
     CardBody,
     CardHeader,
@@ -41,17 +41,19 @@ function LiverPage(props) {
 
     const [noDM, setNoDM] = React.useState(false);
 
+    const [month,setMonth] = useState(3)
+
 
     let {id} = useParams();
 
     React.useEffect(() => {
-        axios.get(`${protocol}://${host}:${port}/api/chart/fans?uid=${id}`).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/chart/fans?uid=${id}&month=${month}`).then((response) => {
             setFansChart(response.data.data??[]);
         })
         axios.get(`${protocol}://${host}:${port}/api/liver/space?uid=${id}`).then((response) => {
             setSpace(response.data);
         })
-        axios.get(`${protocol}://${host}:${port}/api/chart/guard?uid=${id}`).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/chart/guard?uid=${id}&month=${month}`).then((response) => {
             var dst = []
             var map = [19998, 1998, 138]
             response.data.data?.forEach(element => {
@@ -66,7 +68,7 @@ function LiverPage(props) {
         axios.get(`${protocol}://${host}:${port}/api/live?uid=${id}&limit=1000&no_dm=${noDM}`).then((response) => {
             setLives(response.data.lives);
         })
-    }, [noDM])
+    }, [noDM,month])
 
     const [diffMode,setDiffMode] = React.useState(false);
     return (
@@ -169,11 +171,19 @@ function LiverPage(props) {
                 </div>
                 <Tooltip content={<HoverMedals ruid={id}/>}>
                     <div
+                        onContextMenu={e => {
+
+                        }}
                         className="rounded-xl bg-pink-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝牌<br/>
                         <span
                             className="font-semibold">{space.Medal}</span>
                     </div>
                 </Tooltip>
+            </div>
+            <div>
+                <Button onClick={e => {
+                    setMonth(month+3)
+                }}>更多</Button>
             </div>
             <div className={'grid grid-cols-1 sm:grid-cols-2 w-full'}>
                 <LineChart
@@ -227,7 +237,7 @@ function LiverPage(props) {
             </Switch>
             <div className={'grid grid-cols-1 sm:grid-cols-6'}>
                 {lives.map((live, index) => (
-                    <LiveStatisticCard item={live} showUser={false}/>
+                    <LiveStatisticCard item={live} showUser={false} key={live.ID}/>
                 ))}
             </div>
         </div>

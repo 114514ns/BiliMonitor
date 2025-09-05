@@ -19,7 +19,7 @@ import (
 // 获取up主的粉丝数
 func FetchUser(mid string, onError func()) User {
 	var url = "https://api.bilibili.com/x/web-interface/card?mid=" + mid
-	res, err := queryClient.R().SetHeader("User-Agent", USER_AGENT).Get(url)
+	res, err := RandomPick(cPools).R().SetHeader("User-Agent", USER_AGENT).Get(url)
 	if err != nil {
 		log.Println(err)
 	}

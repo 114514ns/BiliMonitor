@@ -11,19 +11,23 @@ type Worker struct {
 	wg        sync.WaitGroup
 }
 
-func NewWorker() *Worker {
+func NewWorker(poolSize int) *Worker {
 	w := &Worker{
-		taskQueue: make(chan Task, 100),
+		taskQueue: make(chan Task, 10000),
 	}
-	w.wg.Add(1)
-	go w.run()
+	for i := 0; i < poolSize; i++ {
+		w.wg.Add(1)
+		go w.run()
+	}
 	return w
 }
-
+func (w *Worker) QueueLen() int {
+	return len(w.taskQueue)
+}
 func (w *Worker) run() {
 	defer w.wg.Done()
 	for task := range w.taskQueue {
-		task() // 执行任务
+		task()
 	}
 }
 
