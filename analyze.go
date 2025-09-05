@@ -1,9 +1,12 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/jinzhu/copier"
 	"github.com/sourcegraph/conc/pool"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -146,11 +149,11 @@ func RefreshLivers() {
 		var dst []DiffStruct
 		db.Raw(`
 WITH ranked AS (
-    SELECT user_id, name, fans, created_at,
-           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)  AS rn_asc,
-           ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn_desc
-    FROM users
-    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
+  SELECT user_id, name, fans, created_at,
+         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)  AS rn_asc,
+         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn_desc
+  FROM users
+  WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)   -- 最近1个月内的数据
 )
 SELECT e.user_id,
        e.name,
@@ -158,9 +161,9 @@ SELECT e.user_id,
        e.created_at AS start_time,
        l.fans AS end_fans,
        l.created_at AS end_time,
-       l.fans - e.fans AS Diff,
-       TIMESTAMPDIFF(MONTH, e.created_at, l.created_at) AS months,
-       (l.fans - e.fans) / NULLIF(TIMESTAMPDIFF(MONTH, e.created_at, l.created_at), 0) AS monthly_growth
+       l.fans - e.fans AS diff,
+       TIMESTAMPDIFF(DAY, e.created_at, l.created_at) AS days_span,
+       (l.fans - e.fans) / NULLIF(TIMESTAMPDIFF(DAY, e.created_at, l.created_at) / 30.4375, 0) AS monthly_growth
 FROM ranked e
 JOIN ranked l ON e.user_id = l.user_id
 WHERE e.rn_asc = 1 AND l.rn_desc = 1
@@ -178,6 +181,7 @@ ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
 		if dst.ID != 0 && dst.Fans > 300 {
 			result[i].Bio = dst.Bio
 			result[i].Verify = dst.Verify
+			result[i].Fans = dst.Fans
 			_, ok := m[liver.UID]
 			if ok {
 				if m[liver.UID].Diff != 0 {
@@ -200,6 +204,64 @@ ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
 	}
 	log.Println("[RefreshLivers] Done " + time.Since(start).String())
 	copier.Copy(&cachedLivers, &result)
+}
+func RefreshWatchers() {
+	var month = 7
+	var dst []AreaLiver
+	db.Raw(`
+SELECT t.uid, t.u_name, t.updated_at,t.guard,t.guard_list
+FROM area_livers t
+WHERE MONTH(t.updated_at) = ?
+  AND t.updated_at = (
+    SELECT MAX(updated_at)
+    FROM area_livers
+    WHERE uid = t.uid
+      AND MONTH(updated_at) = ?
+  )
+  AND (
+    SELECT COUNT(*)
+    FROM area_livers
+    WHERE uid = t.uid AND MONTH(updated_at) = 8
+  ) >= 3;`, month, month).Scan(&dst)
+	var l1 int64 = 0
+	var l2 int64 = 0
+	var l3 int64 = 0
+	var m = make(map[int64][]DBGuard)
+	sort.Slice(dst, func(i, j int) bool {
+		var count1 int64 = 0
+		for _, s := range strings.Split(dst[i].Guard, ",") {
+			count1 += toInt64(s)
+		}
+		var count2 int64 = 0
+		for _, s := range strings.Split(dst[j].Guard, ",") {
+			count2 += toInt64(s)
+		}
+		return count2 < count1
+	})
+	for _, liver := range dst {
+		var list []DBGuard
+		json.Unmarshal([]byte(liver.GuardList), &list)
+		for _, guard := range list {
+			m[guard.UID] = append(m[guard.UID], guard)
+		}
+		if liver.UpdatedAt.Day() > 10 {
+			for i, s := range strings.Split(liver.Guard, ",") {
+				var num = toInt64(s)
+				if i == 0 {
+					l1 += num
+				}
+				if i == 1 {
+					l2 += num
+				}
+				if i == 2 {
+					l3 += num
+				}
+			}
+		}
+
+	}
+
+	fmt.Println(l1, l2, month)
 }
 func MinuteMessageCount(minute int64) int64 {
 	var count int64
