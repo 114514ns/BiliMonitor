@@ -64,6 +64,8 @@ function BasicLayout() {
             setContent(response.data);
         })
     },[])
+
+    const hide = location.href.includes("hide")
     return (
 
         <div>
@@ -72,7 +74,7 @@ function BasicLayout() {
             }} content={content}></NoticeDialog>}
             <DownloadDialog isOpen={showDownload}/>
             {showRank && <RankDialog open={showRank} onClose={() => {setShowRank(false)}} content={content}/>}
-            <Navbar style={{}}>
+            {!hide &&             <Navbar style={{}}>
                 <NavbarContent style={{display: "flex", justifyContent: "center","overflow":"scroll"}} className={'scrollbar-hide'}>
                     {
                         menu.map((item, index) => (
@@ -107,7 +109,7 @@ function BasicLayout() {
                         </DropdownMenu>
                     </Dropdown>
                 </NavbarContent>
-            </Navbar>
+            </Navbar>}
             <div className="site-layout-background" style={{padding: 24, width: '100%', height: `${calcHeight()}px`}}>
                 <AnimatePresence mode="wait">
                     <Routes location={location} key={location.pathname}>
