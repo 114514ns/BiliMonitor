@@ -316,7 +316,7 @@ function LiveDetailPage(props) {
 
                         }}>
                             <TableCell>
-                                    <div className={'flex sm:flex-row flex-col'} onClick={() => {
+                                    <div className={'flex sm:flex-row'} onClick={() => {
                                         redirect("/user/" +item.FromId)
                                     }}>
                                         <span className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.FromName}</span>
@@ -324,7 +324,7 @@ function LiveDetailPage(props) {
                                             <Tooltip content={<HoverMedals mid={item.FromId}/>}>
                                                 <Chip
                                                     className={'basis-64'}
-                                                    startContent={<CheckIcon size={18}/>}
+                                                    startContent={item.MedalLevel != 0 ?<img src={getGuardIcon(item.GuardLevel)}/>:<CheckIcon size={18}/> }
 
                                                     variant="faded"
                                                     onClick={() => {

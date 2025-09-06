@@ -724,7 +724,7 @@ func InitHTTP() {
 		}
 
 		var dst []FrontLiveAction
-		db.Raw("SELECT from_id,from_name,medal_level,medal_name FROM live_actions where live = ?  GROUP BY from_id order by medal_level desc", liveInt).Scan(&dst)
+		db.Raw("SELECT from_id,from_name,medal_level,medal_name,guard_level FROM live_actions where live = ?  GROUP BY from_id order by medal_level desc", liveInt).Scan(&dst)
 		if keyword != "" {
 			var tmp []FrontLiveAction
 			for _, watcher := range dst {
