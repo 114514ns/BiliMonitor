@@ -15,7 +15,7 @@ function UserChip(props) {
                         }}/>
 
                     {props.props.MedalLevel ?              <Chip
-                        startContent={<CheckIcon size={18}/>}
+                        startContent={props.props.MedalLevel != 0 ?<img src={getGuardIcon(props.props.GuardLevel)}/>:<CheckIcon size={18}/> }
                         variant="faded"
                         onClick={() => {
                             toSpace(props.props.LiverID);
