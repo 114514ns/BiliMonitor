@@ -28,14 +28,18 @@ func loadDB() {
 	dsl = strings.Replace(dsl, "#server", config.SQLServer, 1)
 	dsl = strings.Replace(dsl, "#name", config.SQLName, 1)
 
-	db, _ = gorm.Open(mysql.New(mysql.Config{
+	db, err = gorm.Open(mysql.New(mysql.Config{
 		DSN: dsl, // DSN data source name
 	}))
+	if err != nil {
+
+	}
 
 }
 func TestHttp(test *testing.T) {
 
 	loadDB()
+	RefreshWatcher()
 	setupHTTPClient()
 	go func() {
 		RefreshLivers()

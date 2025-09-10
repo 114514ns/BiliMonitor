@@ -40,6 +40,8 @@ function UserPage(props) {
 
     const [input, setInput] = useState("")
 
+    const [showMedal,setShowMedal] = useState(false)
+
     let page = 1
 
     useEffect(() => {
@@ -102,9 +104,14 @@ function UserPage(props) {
                             <span
                                 className="font-semibold">{space.Money}</span>
                         </div>
-                        <Tooltip content={<HoverMedals mid={id}/> }>
+                        <Tooltip content={<HoverMedals mid={id}/> } isOpen={showMedal}onOpenChange={(o) => {
+                            setShowMedal(o)
+                        }}>
                             <div
-                                className="rounded-xl bg-red-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">最高粉丝牌等级<br/>
+                                className="rounded-xl bg-red-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg "  onContextMenu={() => {
+                                console.log("context menu")
+                                setShowMedal(true)
+                            }} >最高粉丝牌等级<br/>
                                 <span
                                     className="font-semibold">{space.HighestLevel}</span>
                             </div>

@@ -1,7 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-
 // https://vitejs.dev/config/
 const ReactCompilerConfig = { /* ... */ };
 export default defineConfig({
@@ -12,7 +11,7 @@ export default defineConfig({
           ["babel-plugin-react-compiler", ReactCompilerConfig],
         ],
       },
-    }),
+    })
   ],
   server: {
     proxy: {
