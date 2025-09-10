@@ -1,6 +1,5 @@
 import React, {useEffect} from 'react';
 import {Route, Routes, useNavigate} from 'react-router-dom';
-import Monitor from "./pages/Monitor.jsx";
 import './App.css'
 import LivePage from "./pages/LivePage.jsx";
 import LiveDetailPage from "./pages/LiveDetailPage.jsx";
@@ -23,9 +22,10 @@ import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
 import RankDialog from "./components/RankDialog";
 import UserPage from "./pages/UserPage";
-import {AnimatePresence,motion} from "framer-motion";
+import {AnimatePresence, motion} from "framer-motion";
 import NoticeDialog from "./components/NoticeDialog";
 import axios from "axios";
+import SearchPage from "./pages/SearchPage";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -33,15 +33,20 @@ const calcHeight = () => {
     const result = vh - 4 * rem;
     return result;
 }
+
 function BasicLayout() {
 
 
     const menu = [{
         Name: 'Overview',
         Path: '/'
+    }, {
+        Name: 'List', Path: '/list'
     },{
-        Name: 'List', Path: '/list'},{
-        Name: 'Status', Path: '/stat'}
+        Name: 'Search', Path: '/search'
+    }, {
+        Name: 'Status', Path: '/stat'
+    }
     ]
 
     const [ind, setInd] = React.useState(0);
@@ -52,7 +57,7 @@ function BasicLayout() {
 
     const [showRank, setShowRank] = React.useState(false);
 
-    const [showNotice,setShowNotice] = React.useState(false);
+    const [showNotice, setShowNotice] = React.useState(false);
 
     PubSub.subscribe('DownloadDialog', (msg, data) => {
         console.log(msg, data);
@@ -63,7 +68,7 @@ function BasicLayout() {
         axios.get("/about.md").then((response) => {
             setContent(response.data);
         })
-    },[])
+    }, [])
 
     const hide = location.href.includes("hide")
     return (
@@ -73,9 +78,12 @@ function BasicLayout() {
                 setShowNotice(false);
             }} content={content}></NoticeDialog>}
             <DownloadDialog isOpen={showDownload}/>
-            {showRank && <RankDialog open={showRank} onClose={() => {setShowRank(false)}} content={content}/>}
-            {!hide &&             <Navbar style={{}}>
-                <NavbarContent style={{display: "flex", justifyContent: "center","overflow":"scroll"}} className={'scrollbar-hide'}>
+            {showRank && <RankDialog open={showRank} onClose={() => {
+                setShowRank(false)
+            }} content={content}/>}
+            {!hide && <Navbar style={{}}>
+                <NavbarContent style={{display: "flex", justifyContent: "center", "overflow": "scroll"}}
+                               className={'scrollbar-hide'}>
                     {
                         menu.map((item, index) => (
                             <NavbarItem isActive={index === ind} key={index}>
@@ -113,14 +121,15 @@ function BasicLayout() {
             <div className="site-layout-background" style={{padding: 24, width: '100%', height: `${calcHeight()}px`}}>
                 <AnimatePresence mode="wait">
                     <Routes location={location} key={location.pathname}>
-                        <Route path="/" element={<PageWrapper><LivePage /></PageWrapper>} />
-                        <Route path="/lives" element={<PageWrapper><LivePage /></PageWrapper>} />
-                        <Route path="/lives/:id" element={<PageWrapper><LiveDetailPage /></PageWrapper>} />
-                        <Route path="/chat" element={<PageWrapper><ChatPage /></PageWrapper>} />
-                        <Route path="/list" element={<PageWrapper><ListPage /></PageWrapper>} />
-                        <Route path="/stat" element={<PageWrapper><StatusPage /></PageWrapper>} />
-                        <Route path="/liver/:id" element={<PageWrapper><LiverPage /></PageWrapper>} />
-                        <Route path="/user/:id" element={<PageWrapper><UserPage /></PageWrapper>} />
+                        <Route path="/" element={<PageWrapper><LivePage/></PageWrapper>}/>
+                        <Route path="/lives" element={<PageWrapper><LivePage/></PageWrapper>}/>
+                        <Route path="/search" element={<PageWrapper><SearchPage/></PageWrapper>}/>
+                        <Route path="/lives/:id" element={<PageWrapper><LiveDetailPage/></PageWrapper>}/>
+                        <Route path="/chat" element={<PageWrapper><ChatPage/></PageWrapper>}/>
+                        <Route path="/list" element={<PageWrapper><ListPage/></PageWrapper>}/>
+                        <Route path="/stat" element={<PageWrapper><StatusPage/></PageWrapper>}/>
+                        <Route path="/liver/:id" element={<PageWrapper><LiverPage/></PageWrapper>}/>
+                        <Route path="/user/:id" element={<PageWrapper><UserPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 
@@ -129,17 +138,19 @@ function BasicLayout() {
     )
 
 }
-function PageWrapper({ children }) {
+
+function PageWrapper({children}) {
     return (
         <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
+            initial={{opacity: 0, x: 20}}
+            animate={{opacity: 1, x: 0}}
+            exit={{opacity: 0, x: -20}}
+            transition={{duration: 0.3}}
             className="h-full"
         >
             {children}
         </motion.div>
     );
 }
+
 export default BasicLayout;

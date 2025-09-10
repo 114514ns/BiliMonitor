@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	github.com/114514ns/BiliClient v0.0.0-00010101000000-000000000000
+	github.com/Pooh-Mucho/go-mysql-stdzlib v0.0.0-20200618055944-52e80a3e5c87
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/andybalholm/brotli v1.1.1
 	github.com/bytedance/sonic v1.13.3

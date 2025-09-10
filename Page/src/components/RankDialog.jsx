@@ -16,6 +16,7 @@ import {
 import axios from "axios";
 import {CheckIcon} from "../pages/ChatPage";
 import {useNavigate} from "react-router";
+import UserChip from "./UserChip";
 
 window.getColor = (level) => {
     if (level <= 4) {
@@ -210,28 +211,7 @@ export const FansList = memo(function Greeting({fans,onClose,height,onItemClick}
                         <div className={'flex flex-row align-middle mt-2'} onClick={() => {
                             onItemClick(f)
                         }}>
-
-                                        <Avatar
-                                            src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.UID}`}
-                                            onClick={() => {
-                                                redirect("/user/" + f.UID);
-                                                onClose();
-                                            }}/>
-
-                                        <Chip
-                                            className={'mt-1'}
-                                            startContent={f.Type?<img src={getGuardIcon(f.Type)} style={{width:'18px',height:'18px'}}/>:<CheckIcon size={18}/>}
-                                            variant="faded"
-                                            onClick={() => {
-                                                toSpace(f.LiverID);
-                                            }}
-                                            style={{background: getColor(f.Level), color: 'white', marginLeft: '8px'}}
-                                        >
-                                            {f.MedalName}
-                                            <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
-                                                            {f.Level}
-                                                        </span>
-                                        </Chip>
+                            <UserChip props={convert(f)}/>
         
                         </div>
                     )}
@@ -241,6 +221,16 @@ export const FansList = memo(function Greeting({fans,onClose,height,onItemClick}
     </Listbox>
 });
 
+const convert = (item) => {
+    item.MedalLevel = item.Level
+    if (!item.FromId) {
+        item.FromId = item.UID;
+    }
+    if (item.Type) {
+        item.GuardLevel = item.Type
+    }
+    return item;
+}
 
 
 export default RankDialog;
