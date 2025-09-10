@@ -1222,6 +1222,81 @@ ORDER BY
 			"data": dst,
 		})
 	})
+	r.GET("/search", func(context *gin.Context) {
+		var typo = context.DefaultQuery("type", "name")
+		var key = context.DefaultQuery("key", "")
+		type Response struct {
+			UName      string
+			UID        int64
+			ExtraInt   int64
+			MedalLevel int
+			MedalName  string
+		}
+
+		var dst []Response
+		if typo == "name" {
+			var count = 0
+			for _, liver := range cachedLivers {
+				if count > 30 {
+					break
+				}
+				if strings.Contains(liver.UName, key) {
+					count++
+					dst = append(dst, Response{
+						UName:    liver.UName,
+						UID:      liver.UID,
+						ExtraInt: int64(liver.Fans),
+					})
+				}
+
+			}
+			sort.Slice(dst, func(i, j int) bool {
+				return dst[i].ExtraInt > dst[j].ExtraInt
+			})
+		}
+		if typo == "uid" {
+			for _, liver := range cachedLivers {
+				if toInt64(key) == liver.UID {
+					dst = append(dst, Response{
+						UName: liver.UName,
+						UID:   liver.UID,
+					})
+					break
+				}
+
+			}
+		}
+		if typo == "room" {
+			var dst0 AreaLive
+			db.Raw("select * from area_lives where room = ? limit 1", key).Scan(&dst0)
+			dst = append(dst, Response{
+				UName: dst0.UName,
+				UID:   dst0.UID,
+			})
+		}
+		if typo == "watcher-name" {
+			var count = 0
+			for _, club := range cachedWatcher {
+				if count > 30 {
+					break
+				}
+				if strings.Contains(club.UName, key) {
+					count++
+					dst = append(dst, Response{
+						UName:      club.UName,
+						UID:        club.UID,
+						MedalLevel: int(club.Level),
+						MedalName:  club.MedalName,
+					})
+				}
+			}
+		}
+
+		context.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+
+	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 

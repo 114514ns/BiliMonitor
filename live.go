@@ -1014,7 +1014,9 @@ func TraceLive(roomId string) {
 							}
 						}
 					}
-					db.Create(&action)
+					go func() {
+						db.Create(&action)
+					}()
 					go func() {
 						var dst FaceCache
 						db.Raw("SELECT * FROM face_caches where uid = ?", action.FromId)
@@ -1056,7 +1058,9 @@ func TraceLive(roomId string) {
 					}
 					front.Face = info.Data.Face
 					front.GiftPicture = GiftPic[info.Data.GiftName]
-					db.Create(&action)
+					go func() {
+						db.Create(&action)
+					}()
 					consoleLogger.Printf("[%s] %s 投喂了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
 				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
 					var enter = EnterLive{}
@@ -1064,7 +1068,9 @@ func TraceLive(roomId string) {
 					action.FromId = enter.Data.UID
 					action.FromName = enter.Data.Uname
 					action.ActionName = "enter"
-					db.Table("enter_action").Create(&action)
+					go func() {
+						db.Table("enter_action").Create(&action)
+					}()
 				} else if strings.Contains(obj, "PREPARING") {
 				} else if text.Cmd == "LIVE" {
 				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC

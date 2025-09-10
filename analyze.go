@@ -20,7 +20,7 @@ type MessagePoint struct {
 
 var cachedMessagesPoint [][]MessagePoint = make([][]MessagePoint, 3)
 var cachedFans = make(map[int][][]MessagePoint)
-
+var cachedWatcher []FansClub //搜索那边用的
 func reverse[T any](arr []T) []T {
 	n := len(arr)
 	result := make([]T, n)
@@ -203,6 +203,9 @@ ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
 		}
 	}
 	log.Println("[RefreshLivers] Done " + time.Since(start).String())
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Fans > result[j].Fans
+	})
 	copier.Copy(&cachedLivers, &result)
 }
 func RefreshWatchers() {
@@ -262,6 +265,11 @@ WHERE MONTH(t.updated_at) = ?
 	}
 
 	fmt.Println(l1, l2, month)
+}
+
+func RefreshWatcher() {
+	db.Raw("select u_name,uid,medal_name,level from fans_clubs group by uid order by level desc ").Scan(&cachedWatcher)
+	time.Now()
 }
 func MinuteMessageCount(minute int64) int64 {
 	var count int64

@@ -241,7 +241,7 @@ function LivePage(props) {
                 </Select>
             </div>
 
-            <div className={'grid grid-cols-1 sm:grid-cols-6'}>
+            <div className={'grid grid-cols-1 md:grid-cols-4 2xl:grid-cols-6'}>
                 {dataSource.map(item => {
                     return (
                         <LiveStatisticCard item={item} showUser/>
