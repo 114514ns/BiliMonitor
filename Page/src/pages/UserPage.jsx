@@ -1,22 +1,13 @@
 import React, {useEffect, useState} from 'react';
 import {useParams} from "react-router-dom";
 import axios from "axios";
-import {PieChart} from '@mui/x-charts/PieChart';
 import {
     Autocomplete, AutocompleteItem, Avatar,
-    Chip,
-    Pagination,
-    Table,
-    TableBody,
-    TableCell,
-    TableColumn,
-    TableHeader,
-    TableRow,
     Tooltip
 } from "@heroui/react";
-import {CheckIcon} from "./ChatPage";
 import ActionTable from "../components/ActionTable";
 import HoverMedals from "../components/HoverMedals";
+import {HeroUIPieChart} from "../components/PieChart";
 
 
 function UserPage(props) {
@@ -41,7 +32,6 @@ function UserPage(props) {
     const [input, setInput] = useState("")
 
     const [showMedal,setShowMedal] = useState(false)
-
     let page = 1
 
     useEffect(() => {
@@ -54,19 +44,15 @@ function UserPage(props) {
     return (
         <div>
             <div className={'flex flex-col sm:flex-row  h-full'}>
-                <PieChart
-                    series={[
-                        {
-                            data: getPieData(space.Rooms)
-                        },
-                    ]}
+                <HeroUIPieChart
                     width={isMobile()?vwToPx(90):vwToPx(35)}
-                    height={vhToPx(35)}
-                    onItemClick={(event,item) => {
-                        console.log(space.Rooms[item.dataIndex]);
+                    data={getPieData(space.Rooms)}
+                    onSegmentClick={(data, index) => {
+                        console.log(data); // 包含所有字段
+                        alert(`${data.name}: ${data.value}, 增长: ${data.growth}`);
                     }}
                 />
-                <div className={'sm:w-[65vw]' }>
+                <div className={'sm:w-[75vw]' }>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
@@ -75,7 +61,7 @@ function UserPage(props) {
                                 toSpace(id)
                             }}>
                                 <img
-                                    src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${id}`}
+                                    src={`${AVATAR_API}${id}`}
                                     className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius: '50%'}}></img>
                                 <br/>
                                 {space.UName}
@@ -122,7 +108,7 @@ function UserPage(props) {
                     <div className={'mt-4'}>
                         <div>
                             <Autocomplete
-                                className="max-w-xs mt-4 mb-4"
+                                className="w-full sm:max-w-xs mt-4 mb-4"
                                 defaultItems={[{
                                     key: 'msg',
                                     value: "Message"
@@ -149,7 +135,7 @@ function UserPage(props) {
                                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
                             </Autocomplete>
                             <Autocomplete
-                                className="max-w-xs mt-4 mb-4 sm:ml-4 sm:w-full"
+                                className="mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
                                 defaultItems={[{
                                     key: 'money',
                                     value: "Money"
@@ -168,7 +154,7 @@ function UserPage(props) {
                                 {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
                             </Autocomplete>
                             <Autocomplete
-                                className="max-w-xs mt-4 mb-4 sm:ml-4 sm:w-full"
+                                className=" mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
                                 label="Liver"
                                 onSelectionChange={e => {
                                     setRoom(e)
@@ -180,7 +166,7 @@ function UserPage(props) {
                             >
                                 {(f) => <AutocompleteItem key={f.LiveRoom} textValue={f.Liver}>
                                     <div className={'flex flex-row'}>
-                                        <Avatar src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${f.LiverID}`}/>
+                                        <Avatar src={`${AVATAR_API}${f.LiverID}`}/>
                                         <span className={'font-bold ml-2 mt-2'}>{f.Liver}</span>
                                     </div>
                                 </AutocompleteItem>}
@@ -211,7 +197,7 @@ function getPieData(obj) {
             data.push({
                 id: item.LiveRoom,
                 value: item.Rate * 100,
-                label: item.Liver,
+                name: item.Liver,
             })
         })
     }
@@ -220,14 +206,5 @@ function getPieData(obj) {
     return data
 }
 
-function vhToPx(vhPercent) {
-    const vh = window.innerHeight;
-    return (vhPercent / 100) * vh;
-}
-
-function vwToPx(vhPercent) {
-    const vh = window.innerWidth;
-    return (vhPercent / 100) * vh;
-}
 
 export default UserPage;

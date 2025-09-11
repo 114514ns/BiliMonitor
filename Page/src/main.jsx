@@ -5,7 +5,7 @@ import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider} from "@heroui/react";
 import axios from "axios";
-import {ThemeProvider as NextThemesProvider,} from "next-themes";
+
 window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
@@ -26,6 +26,17 @@ console.warn = (...args) => {
 };
 
  */
+window.vhToPx = (vhPercent) =>{
+    const vh = window.innerHeight;
+    return (vhPercent / 100) * vh;
+}
+
+window.vwToPx= (vhPercent) =>{
+    const vh = window.innerWidth;
+    return (vhPercent / 100) * vh;
+}
+
+window.AVATAR_API = 'https://workers.vrp.moe/bilibili/avatar/'
 
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
@@ -56,10 +67,8 @@ window.isMobile = ()=> {
 
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
-          <NextThemesProvider defaultTheme={'light'}>
-              <BrowserRouter>
-                  <App />
-              </BrowserRouter>
-          </NextThemesProvider>
+          <BrowserRouter>
+              <App />
+          </BrowserRouter>
       </HeroUIProvider>
 )

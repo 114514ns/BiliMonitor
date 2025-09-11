@@ -1,7 +1,6 @@
 import React, {useState} from 'react';
 import {useNavigate, useParams} from "react-router-dom";
 import axios from "axios";
-import {LineChart} from "@mui/x-charts/LineChart";
 import {
     Avatar, Button,
     Card,
@@ -18,6 +17,9 @@ import HoverMedals from "../components/HoverMedals";
 import {FansList} from "../components/RankDialog";
 import LiveStatisticCard from "../components/LiveStatisticCard";
 import {AnimatePresence,motion} from "framer-motion";
+import {FansChart, GuardChart} from "../components/LineChart";
+
+
 
 function LiverPage(props) {
     const [fansChart, setFansChart] = React.useState([]);
@@ -135,7 +137,7 @@ function LiverPage(props) {
                 </ModalContent>
             </Modal>
             <div className={'flex flex-col mb-6 sm:justify-center items-center '}>
-                <Avatar src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${id}`}
+                <Avatar src={`${AVATAR_API}${id}`}
                         size={'lg'} onClick={() => {
                     toSpace(id)
                 }}/>
@@ -169,7 +171,7 @@ function LiverPage(props) {
                     <span
                         className="font-semibold">{space.Guard}</span>
                 </div>
-                <Tooltip content={<HoverMedals ruid={id}/>}>
+                <Tooltip content={<HoverMedals ruid={id}/>} delay={1500}>
                     <div
                         onContextMenu={e => {
 
@@ -183,59 +185,29 @@ function LiverPage(props) {
             <div>
                 <Button onClick={e => {
                     setMonth(month+3)
-                }}>更多</Button>
+                }} className={'mt-2'}>更多</Button>
             </div>
             <div className={'grid grid-cols-1 sm:grid-cols-2 w-full'}>
-                <LineChart
-                    xAxis={[{
-                        data: fansChart.map((item, index) => (new Date(item.CreatedAt).getTime())),
-                        label: "粉丝",
-                        valueFormatter: (timestamp) => {
-                            const date = new Date(timestamp)
-                            return date.toLocaleDateString()
-                        }
-                    }]}
-                    series={[
-                        {
-                            data: fansChart.map((item, index) => (item.Fans))
-                        },
-                    ]}
-                    height={300}
-                />
-                <LineChart
-                    xAxis={[{
-                        data: guardChart.map((item, index) => (new Date(item.UpdatedAt).getTime())),
-
-                        label: "大航海",
-                        valueFormatter: (timestamp) => {
-                            const date = new Date(timestamp)
-                            return date.toLocaleDateString()
-                        }
-                    }]}
-                    series={[
-                        {
-                            data: guardChart.map((item, index) => (new Date(item.Guard).getTime())),
-
-
-                        },
-                    ]}
-                    onAxisClick={(event, data) => {
-                        setGuardTime(new Date(guardChart[data.dataIndex].UpdatedAt).toLocaleString())
-                        axios.get(`${protocol}://${host}:${port}/api/guard?id=${guardChart[data.dataIndex].ID}`).then((response) => {
+                <div className="h-[300px]">
+                    <FansChart data={fansChart}/>
+                </div>
+                <div className="h-[300px]">
+                    <GuardChart data={guardChart} onClick={(index) => {
+                        setGuardTime(new Date(guardChart[index].UpdatedAt).toLocaleString())
+                        axios.get(`/api/guard?id=${guardChart[index].ID}`).then((response) => {
                             setGuard(response.data.data);
                             setOrig(response.data.data)
                             setOpen(true)
                         })
-                    }}
-                    height={300}
-                />
+                    }}/>
+                </div>
             </div>
             <Switch onValueChange={(value) => {
                 setNoDM(value)
             }} defaultSelected={false}>
                 显示所有场次
             </Switch>
-            <div className={'grid grid-cols-1 sm:grid-cols-6'}>
+            <div className={'grid grid-cols-1 md:grid-cols-4 2xl:grid-cols-5'}>
                 {lives.map((live, index) => (
                     <LiveStatisticCard item={live} showUser={false} key={live.ID}/>
                 ))}

@@ -13,7 +13,6 @@ import {
     SelectItem, ToastProvider, Tooltip,Code
 } from "@heroui/react";
 import axios from "axios";
-import alasql from "alasql";
 import {useNavigate} from "react-router-dom";
 
 function formatTime(isoString) {
@@ -285,7 +284,7 @@ function ListPage(props) {
                     >
                         <LiverCard
                             Rank={index}
-                            Avatar={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.UID}`}
+                            Avatar={`${AVATAR_API}${item.UID}`}
                             UName={item.UName}
                             Guard={item.Guard}
                             DailyDiff={item.DailyDiff}

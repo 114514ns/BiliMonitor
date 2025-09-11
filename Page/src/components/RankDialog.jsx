@@ -10,8 +10,8 @@ import {
     ModalBody,
     ModalContent,
     ModalHeader,
-    Pagination,
-    Switch
+    Pagination, SelectItem,
+    Switch, Tooltip,Dropdown,DropdownMenu,DropdownItem
 } from "@heroui/react";
 import axios from "axios";
 import {CheckIcon} from "../pages/ChatPage";
@@ -19,32 +19,32 @@ import {useNavigate} from "react-router";
 import UserChip from "./UserChip";
 
 window.getColor = (level) => {
-    if (level <= 4) {
-        return "#5762A799"
-    }
-    if (level <= 8) {
-        return "#5866C799"
-    }
-    if (level <= 12) {
-        return "#9BA9EC"
-    }
-    if (level <= 16) {
-        return "#DA9AD8"
+    if (level <= 10) {
+        return "#727BB5"
     }
     if (level <= 20) {
-        return "#C79D24"
+        return "#CF86B2"
     }
-    if (level <= 24) {
-        return "#67C0E7"
+    if (level <= 30) {
+        return "#5EC0F7"
     }
-    if (level <= 28) {
-        return "#6C91F2"
+    if (level <= 40) {
+        return "#6992FF"
     }
-    if (level <= 32) {
-        return "#A97EE8"
+    if (level <= 50) {
+        return "#AA78F1"
     }
-    if (level <= 36) {
-        return "#C96B7E"
+    if (level <= 60) {
+        return "#ED5674"
+    }
+    if (level <= 70) {
+        return "#F58737"
+    }
+    if (level <= 80) {
+        return "#F58837"
+    }
+    if (level <= 90) {
+        return "#F58837"
     }
     if (level <= 40) {
         return "#FF9D55"
@@ -144,7 +144,7 @@ function RankDialog(props) {
                                                 <Avatar
                                                     className="flex-shrink-0"
                                                     size="sm"
-                                                    src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${user.UID}`}
+                                                    src={`${AVATAR_API}${user.UID}`}
                                                 ></Avatar>
 
                                                 <div className="flex flex-col">
@@ -175,8 +175,10 @@ function RankDialog(props) {
     );
 }
 
-export const FansList = memo(function Greeting({fans,onClose,height,onItemClick}) {
+export const FansList = memo(function FansList({fans,onClose,height,onItemClick}) {
 
+    const [open, setOpen] = React.useState(false);
+    const [id,setId] = React.useState(0);
     const getStyle = (e) => {
         if (e === "add") {
             return 'bg-green-200 rounded-lg px-2'
@@ -200,22 +202,44 @@ export const FansList = memo(function Greeting({fans,onClose,height,onItemClick}
             }
 
         }
+        onClick={(e) => {
+            setOpen(false)
+        }}
     >
         {fans.map((f) => (
             <ListboxItem
                 key={f.UID + '-' + f.LiverID}
             >
-                <div className={getStyle(f.Label)}>
-                    <p className={'font-medium'}>{f.UName}</p>
-                    {(
-                        <div className={'flex flex-row align-middle mt-2'} onClick={() => {
-                            onItemClick(f)
-                        }}>
-                            <UserChip props={convert(f)}/>
-        
-                        </div>
-                    )}
-                </div>
+                <Tooltip content={
+                    <div>
+                        <Dropdown>
+                            <DropdownMenu aria-label="Static Actions">
+                                <DropdownItem key="new" onClick={() => {
+                                    window.open("https://space.bilibili.com/" + f.UID)
+                                }}>Bilibili</DropdownItem>
+                                <DropdownItem key="copy" onClick={() => {
+                                    window.open("/user/" + f.UID)
+                                }}>KUN</DropdownItem>
+                            </DropdownMenu>
+                        </Dropdown>
+                    </div>
+                } isOpen={open && (id === f.UID + '-' + f.LiverID)}>
+                    <div className={getStyle(f.Label)} onContextMenu={(e) => {
+                        e.preventDefault();
+                        setId(f.UID + '-' + f.LiverID)
+                        setOpen(!open);
+                    }}>
+                        <p className={'font-medium'}>{f.UName}</p>
+                        {(
+                            <div className={'flex flex-row align-middle mt-2'} onClick={() => {
+                                onItemClick(f)
+                            }}>
+                                <UserChip props={convert(f)}/>
+
+                            </div>
+                        )}
+                    </div>
+                </Tooltip>
             </ListboxItem>
         ))}
     </Listbox>

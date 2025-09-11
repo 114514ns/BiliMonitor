@@ -1,21 +1,16 @@
-import React, {useRef} from 'react';
-import {Avatar, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger} from "@heroui/react";
+import React, {useEffect, useRef} from 'react';
+import {Avatar, Chip, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger, Tooltip} from "@heroui/react";
 import {CheckIcon} from "../pages/ChatPage";
-import { ContextMenu } from "radix-ui";
 
 function UserChip(props) {
-    const ref = React.useRef();
     return (
         <div className={'mt-2 w-full'}>
-            <ContextMenu.Root>
-                <ContextMenu.Trigger>
-                    <p className={'font-medium w-full'} onContextMenu={(e) => {
-                        ref.current.click()
-                    }}>{props.props.FromName}</p>
+                <div >
+                    <p className={'font-medium w-full'} >{props.props.FromName}</p>
                     {(
                         <div className={'flex flex-row align-middle'}>
                             <Avatar
-                                src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${props.props.FromId}`}
+                                src={`${AVATAR_API}${props.props.FromId}`}
                                 onClick={() => {
                                     toSpace(props.props.FromId);
                                 }}/>
@@ -35,16 +30,7 @@ function UserChip(props) {
                             </Chip>:<></>}
                         </div>
                     )}
-                </ContextMenu.Trigger>
-                <ContextMenu.Content>
-                    <Dropdown>
-                        <DropdownMenu aria-label="Static Actions">
-                            <DropdownItem key="new">Bilibili</DropdownItem>
-                            <DropdownItem key="copy">Copy link</DropdownItem>
-                        </DropdownMenu>
-                    </Dropdown>
-                </ContextMenu.Content>
-            </ContextMenu.Root>
+                </div>
 
         </div>
     );

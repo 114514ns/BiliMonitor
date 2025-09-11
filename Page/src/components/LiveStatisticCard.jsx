@@ -34,7 +34,7 @@ export default function LiveStatisticCard(props) {
                             redirect('/liver/' + item.UserID)
                         }}>
                             <Avatar
-                                src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.UserID}`}
+                                src={`${AVATAR_API}${item.UserID}`}
                             />
                             <span className="ml-1 my-1.5 text-default-500 cursor-pointer">{item.UserName}</span>
                         </div>}
