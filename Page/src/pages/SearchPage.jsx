@@ -1,5 +1,5 @@
 import React, {useEffect} from 'react';
-import {Autocomplete, AutocompleteItem, Avatar, Button, Chip, Input, Select} from "@heroui/react";
+import {Autocomplete, AutocompleteItem, Avatar, Button, Chip, Input, Select, SelectItem} from "@heroui/react";
 import axios from "axios";
 import {CheckIcon} from "./ChatPage";
 
@@ -25,16 +25,16 @@ function SearchPage(props) {
 
             </Avatar>
             <div className={'flex w-full mt-[20vh] sm:flex-row flex-col'}>
-                <Select className="max-w-xs sm:mr-4 " onSelectionChange={(e) => {
+                <Select className="sm:max-w-xs sm:mr-4 " onSelectionChange={(e) => {
                     setType(e.currentKey);
-                }} label={'Type'} defaultSelectedKeys={'name'}>
-                    <AutocompleteItem key={'room'}>Room</AutocompleteItem>
-                    <AutocompleteItem key={'uid'}>UID</AutocompleteItem>
-                    <AutocompleteItem key={'name'}>UName</AutocompleteItem>
-                    <AutocompleteItem key={'watcher-name'}>Watcher</AutocompleteItem>
+                }} label={'Type'} selectedKeys={['name']}>
+                    <SelectItem key={'room'}>Room</SelectItem>
+                    <SelectItem key={'uid'}>UID</SelectItem>
+                    <SelectItem key={'name'}>UName</SelectItem>
+                    <SelectItem key={'watcher-name'}>Watcher</SelectItem>
                 </Select>
                 {(type === 'name' || type === 'watcher-name') &&
-                    <Autocomplete className="sm:ml-4" label="Select..." onInputChange={(e) => {
+                    <Autocomplete className="sm:ml-4 sm:mt-0 mt-4" label="Select..." onInputChange={(e) => {
                         if (e !== '') {
                             axios.get(`/api/search?type=${type}&key=${e}`).then((response) => {
                                 if (response.data.data != null) {
@@ -57,11 +57,11 @@ function SearchPage(props) {
                                     window.open("/liver/" + e.UID)
                                 }
                             }} onMouseEnter={() => {
-                                setAvatar(`${import.meta.env.PROD ? '/' : '/api'}face?mid=${e.UID}`)
+                                setAvatar(`${AVATAR_API}${e.UID}`)
                             }}>
                                 <div className={'flex flex-row'}>
                                     <div>
-                                        <Avatar src={`${import.meta.env.PROD ? '/' : '/api'}face?mid=${e.UID}`} className={'mr-2'}/>
+                                        <Avatar src={`${AVATAR_API}${e.UID}`} className={'mr-2'}/>
                                     </div>
                                     <div>
                                         <p className={'font-bold'}>{e.UName}</p>

@@ -520,12 +520,24 @@ func TraceArea(parent int) {
 						user := FetchUser(strconv.FormatInt(s2.UID, 10), nil)
 						fans = user.Fans
 					}
-					if fans > 10000 {
-						m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+					var hour = time.Now().Hour()
+					//白天2500粉丝以上被爬取，晚上8000粉以上，10舰长以上
+					if fans > 8000 {
+						if hour > 19 {
+							var guards = 0
+							for _, i := range strings.Split(o.Guard, ",") {
+								guards += int(toInt64(i))
+							}
+							if guards > 10 {
+								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+							}
+						} else {
+							m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+						}
+
 					} else {
-						var hour = time.Now().Hour()
 						if hour > 1 && hour < 17 {
-							if fans > 3500 {
+							if fans > 2500 {
 								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
 							}
 						}
@@ -1073,7 +1085,7 @@ func TraceLive(roomId string) {
 					}()
 				} else if strings.Contains(obj, "PREPARING") {
 				} else if text.Cmd == "LIVE" {
-				} else if strings.Contains(obj, "SUPER_CHAT_MESSAGE") { //SC
+				} else if text.Cmd == "SUPER_CHAT_MESSAGE" { //SC
 					var sc = SuperChatInfo{}
 					sonic.Unmarshal(msgData, &sc)
 

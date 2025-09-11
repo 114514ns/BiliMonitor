@@ -2,24 +2,13 @@
 ~~视奸你喜欢的up主~~
 # Features
 - 定时记录关注列表内的up主的粉丝数
-- 记录直播间内弹幕，礼物流水
+- 记录直播间内事件
 - 当主播开始直播/发布动态时发送邮件/Server酱/QQ提醒
-- 记录主播大航海成员
-- 在web上查看记录到的数据
-- 备份新稿件到Alist
-- 联动Mikufans录播姬
-  - 自动上传录播文件
-  - 上传时将flv格式转化为mp4
-  - 单独上传直播音频
-- 可选MySQL和SQLite数据库
-- 备份(爬取)用户动态和评论
-- 下载单个视频/分P视频/播放列表
-- 自动下载收藏夹内的视频（使用场景：想要下载一个视频，或者感觉这个视频会被下架掉，只要点收藏就可以备份/快速获得视频链接）
+- 全区主播信息查询
 - 爬虫：
   - 爬取分区内主播粉丝量，大航海成员，粉丝团成员
   - 支持分布式
   - 支持设置代理
-- 一个简易的直播间页面，可以观看直播和发送弹幕
     
 scripts目录下有一些数据整理的python脚本
 
@@ -34,20 +23,13 @@ https://github.com/114514ns/BiliMonitor/actions
 
 # Screenshots
 
-![](https://example.com/undefined20250305001302952.png)
-![](https://example.com/undefined20250305001138294.png)
-![](https://example.com/undefined20250302233820130.png)
-![](https://example.com//img/20250502170730.png)
-![](https://example.com/undefined20250625001439153.png)
-![](https://example.com//img/20250212235435.png)
-![](https://example.com/undefined20250220222834082.png)
-![](https://example.com/undefined20250302233902605.png)
-![](https://example.com/undefined20250302233924636.png)
-![](https://example.com/undefined20250511002801489.png)
-![](https://example.com/undefined20250627001835961.png)
-![](https://example.com/undefined20250625001246302.png)
-![](https://example.com/undefined20250627001748657.png)
-
+<img src="https://i0.hdslb.com/bfs/im_new/8af2a36a95a2f751a29a5b4e6befdedc2.png" referrerpolicy="no-referrer">
+<img src="https://i0.hdslb.com/bfs/im_new/9fc25943eb8f4784bf42d94fb2b55e7d2.png" referrerpolicy="no-referrer">
+<img src="https://i0.hdslb.com/bfs/im_new/58427e14f36256886036c6b16d18857a2.png" referrerpolicy="no-referrer">
+<img src="https://i0.hdslb.com/bfs/im_new/5b1f2717000cab771dd47ca1edd1dcd72.png" referrerpolicy="no-referrer">
+<img src="https://i0.hdslb.com/bfs/im_new/cee41796ff8f9b50c8528da9a367a0a32.png" referrerpolicy="no-referrer">
+<img src="https://i0.hdslb.com/bfs/im_new/7a6fa2331e38977b7726e089e769b8ee2.png" referrerpolicy="no-referrer">
+<img src="https://i0.hdslb.com/bfs/im_new/729f4b893070869edb09ca307a833a502.png" referrerpolicy="no-referrer">
 
 # Known issues
 - 暂不支持mips64架构
@@ -101,28 +83,9 @@ https://github.com/114514ns/BiliMonitor/actions
 ```
 大部分功能都需要Cookie，所以请先填写好Cookie。
 <br>
-## 粉丝量监控
-```json5
-{
-  "User": "98618805",
-}
-```
-这里改成你的uid，然后允许公开访问你的关注列表即可。
 
-程序会每隔指定时间记录关注列表内up主粉丝数
 
-目前没有前端界面显示粉丝量的趋势，只存储在数据库里，后面会加。
 
-## 收藏夹监控
-~~~json5
-
-{
-  "EnableCollectionMonitor": true
-}
-~~~
-被监控的用户就是上面设置的那个User。
-
-新建一个名字为Monitor的收藏夹，并设为可公开访问，当收藏夹内出现新的视频时可自动下载并发出推送。
 ## 动态监控
 ```json5
 {
@@ -139,32 +102,13 @@ https://github.com/114514ns/BiliMonitor/actions
 }
 
 ```
-主播开播后会发送推送,同时记录直播间内弹幕和礼物。
 
-
-![](https://example.com/undefined20250307003957739.png)
-![](https://example.com/undefined20250310000627967.png)
-<details>
- <summary> 展开截图 </summary>
-<img src="https://example.com/undefined20250307004410454.png">
-<img src="https://example.com/undefined20250307004703580.png"> 
-<img src="https://example.com/undefined20250307005721329.png">
-<img src="https://example.com/undefined20250510135208967.png">
-</details>
-
-## 视频下载
-下载视频到Alist，需要安装ffmpeg。 入口在网页端顶部下拉菜单。
-支持下载分P视频，单独的视频，播放列表
-<img src="https://example.com/undefined20250307010130538.png">
-<img src="https://example.com/undefined20250307010229305.png">
 
 ## 分区监控
 
 每隔一定时间监控分区内所有主播，并记录大航海和粉丝数据，可在前端页面查看趋势。
 
 主播在分区内直播时：数据在两天内更新过则不更新。
-
-程序最多同时连接20个直播间ws服务器，如果当前不到20个，会选择从分区内选择直播间连接。
 
 支持设置http代理服务器。
 
@@ -183,10 +127,8 @@ https://github.com/114514ns/BiliMonitor/actions
 
 若不需要分布式爬虫，Slaves留空即可
 
-## 观众分析
 
-![](https://example.com//img/20250728231920.png)
-![](https://example.com//img/20250728232125.png)
+
 # Development
 
 - 运行main.test.go的TestHttp方法可以启动一个测试环境，不会爬取直播间，用于测试和调试接口

@@ -603,7 +603,7 @@ func setupHTTPClient() {
 
 var localClient = resty.New()
 
-const MAX_TASK = 80
+const MAX_TASK = 100
 
 func main() {
 	for {
@@ -751,6 +751,7 @@ func main0() {
 		go func() {
 			RefreshMessagePoints()
 			RefreshLivers()
+			RefreshWatcher()
 		}()
 		go func() {
 			for _, slave := range config.Slaves {
@@ -773,6 +774,7 @@ func main0() {
 		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
 		c.AddFunc("@every 60m", RefreshMessagePoints)
+		c.AddFunc("@every 120m", RefreshWatcher)
 
 		if err != nil {
 			return

@@ -97,11 +97,6 @@ func RefreshMessagePoints() {
 
 	wg.Wait()
 }
-func TotalWatcher() int {
-	var count = 0
-	db.Raw("SELECT COUNT(DISTINCT uid) FROM fans_clubs").Scan(&count)
-	return count
-}
 
 func TotalLiver() int {
 

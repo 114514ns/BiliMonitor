@@ -121,7 +121,7 @@ function ActionTable(props) {
                                     redirect("/liver/" + item.UserID);
                                 }}>
                                     {!isMobile()&&                                 <Avatar
-                                        src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.UserID}`}
+                                        src={`${AVATAR_API}${item.UserID}`}
                                 />}
                                     <span className={'ml-2 mt-2'}>
                                         {item.UserName}
