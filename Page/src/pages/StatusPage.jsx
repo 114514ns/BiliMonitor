@@ -1,6 +1,7 @@
 import React, {useEffect} from 'react';
 import axios from "axios";
-import {LineChart} from "@mui/x-charts/LineChart";
+import {Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
+import {Dropdown, DropdownItem} from "@heroui/react";
 
 function StatusPage(props) {
 
@@ -23,22 +24,23 @@ function StatusPage(props) {
 
     const [overview, setOverview] = React.useState({});
 
-    const [msg,setMsg] = React.useState([]);
+    const color = 'success'
+    const [msg, setMsg] = React.useState([]);
     useEffect(() => {
         var intervalId = setInterval(() => {
             axios.get('/api/status').then(res => {
                 setOverview(res.data);
             })
-        },500)
+        }, 500)
         return () => clearInterval(intervalId);
-    },[])
+    }, [])
     useEffect(() => {
         axios.get('/api/chart/msg').then(res => {
             setMsg(res.data.data);
         })
-    },[])
+    }, [])
 
-    const contentMap = ['24小时弹幕','月弹幕','6月弹幕']
+    const contentMap = ['24小时弹幕', '月弹幕', '6月弹幕']
     return (
 
         <div>
@@ -94,27 +96,90 @@ function StatusPage(props) {
             </div>
             {msg.length > 0 &&
                 msg.map((msg, i) => (
-                    <LineChart
+                    <div className={'h-[250px]'}>
+                        <ResponsiveContainer>
+                            <AreaChart
+                                accessibilityLayer
+                                data={msg}
+                                margin={{
+                                    left: 10,
+                                    right: 10,
+                                    top: 10,
+                                    bottom: 10
+                                }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorGradient" x1="0" x2="0" y1="0" y2="1">
+                                        <stop
+                                            offset="10%"
+                                            stopColor={`hsl(var(--heroui-${color}-500))`}
+                                            stopOpacity={0.3}
+                                        />
+                                        <stop
+                                            offset="100%"
+                                            stopColor={`hsl(var(--heroui-${color}-100))`}
+                                            stopOpacity={0.1}
+                                        />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid
+                                    stroke="hsl(var(--heroui-default-200))"
+                                    strokeDasharray="3 3"
+                                    vertical={false}
+                                />
+                                <XAxis
+                                    axisLine={false}
+                                    dataKey="Time"
+                                    style={{fontSize: "var(--heroui-font-size-tiny)"}}
+                                    tickLine={false}
+                                    tickMargin={5}
+                                />
+                                <Tooltip content={({label, payload}) => (
+                                    <div>
+                                        {payload[0] &&
+                                            <div className="flex h-auto min-w-[120px] items-center gap-x-2 rounded-medium bg-foreground p-2 text-tiny shadow-small">
+                                            <div className="flex w-full flex-col gap-y-0">
+                                                <div className="flex w-full items-center gap-x-2">
+                                                    <div className="flex w-full items-center gap-x-1 text-small text-background">
+                                                        <span>{payload[0].value}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>}
+                                    </div>
+                                )}/>
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tickMargin={8}
+                                    tickFormatter={(value) => Math.round(value).toString()}
+                                    tickCount={6}
+                                    style={{fontSize: "var(--heroui-font-size-tiny)"}}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="Count"
+                                    stroke={`hsl(var(--heroui-${color}))`}
+                                    strokeWidth={2}
+                                    fill="url(#colorGradient)"
+                                    animationDuration={1000}
+                                    animationEasing="ease"
+                                    activeDot={{
+                                        stroke: `hsl(var(--heroui-${color}))`,
+                                        strokeWidth: 2,
+                                        fill: "hsl(var(--heroui-background))",
+                                        r: 5,
+                                        onClick: (e, payload) => {
+                                            console.log('点击了数据点', payload);
+                                            // payload 包含了点击的数据信息
+                                        }
+                                    }}
 
-                        xAxis={[{
-                            data: msg.map((item, index) => (new Date(item.Time).getTime())),
-                            label: contentMap[i],
-                            valueFormatter: (timestamp) => {
-                                const date = new Date(timestamp)
-                                if (i !== 0) {
-                                    return date.toLocaleDateString()
-                                }
-                                return date.toLocaleTimeString()
-                            }
-                        }]}
-                        series={[
-                            {
-                                area:true,
-                                data: msg.map((item, index) => (item.Count))
-                            },
-                        ]}
-                        height={300}
-                    />
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+
                 ))
             }
         </div>

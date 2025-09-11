@@ -39,7 +39,7 @@ func loadDB() {
 func TestHttp(test *testing.T) {
 
 	loadDB()
-	RefreshWatcher()
+
 	setupHTTPClient()
 	go func() {
 		RefreshLivers()

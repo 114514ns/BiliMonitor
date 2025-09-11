@@ -13,7 +13,7 @@ import {
     TableCell,
     TableColumn,
     TableHeader,
-    TableRow, Tooltip
+    TableRow, Tooltip, Avatar
 } from "@heroui/react";
 import UserChip from "../components/UserChip";
 import {CheckIcon} from "./ChatPage";
@@ -178,7 +178,7 @@ function LiveDetailPage(props) {
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
                             <div className='flex flex-row items-center text-blue-600' onClick={() => {redirect(`/liver/${liveInfo.UserID}`)}}>
-                                <img src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
+                                <img src={`${AVATAR_API}${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
                                 <br/>
                                 {liveInfo.UserName}
                             </div>
@@ -316,9 +316,10 @@ function LiveDetailPage(props) {
 
                         }}>
                             <TableCell>
-                                    <div className={'flex sm:flex-row'} onClick={() => {
+                                    <div className={'flex sm:flex-row items-center'} onClick={() => {
                                         redirect("/user/" +item.FromId)
                                     }}>
+                                        <Avatar src={AVATAR_API + item.FromId} className={'mr-2'}/>
                                         <span className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.FromName}</span>
                                         {item.MedalLevel != 0 ?
                                             <Tooltip content={<HoverMedals mid={item.FromId}/>}>

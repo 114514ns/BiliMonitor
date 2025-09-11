@@ -7,7 +7,6 @@ import {
     AutocompleteItem, Button,
     Pagination, Select, SelectItem,
 } from "@heroui/react";
-import MinutesChartDialog from "../components/MinutesChartDialog";
 import LiveStatisticCard from "../components/LiveStatisticCard";
 
 const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
@@ -111,54 +110,9 @@ function LivePage(props) {
         setFilters(arr)
     }, [dataSource])
 
-    const [columns, setColumn] = useState([
-        {
-            title: 'Name',
-            dataIndex: 'UserName',
-            key: 'UserName',
-            filterSearch: true,
-            filters: filters,
-
-        },
-        {
-            title: 'Title',
-            dataIndex: 'Title',
-            key: 'Title',
-        },
-        {
-            title: 'Time',
-            dataIndex: 'StartAt',
-            key: 'StartAt',
-        },
-        {
-            title: 'EndAt',
-            dataIndex: 'EndAt',
-            key: 'EndAt'
-        },
-        {
-            title: 'Area',
-            dataIndex: 'Area',
-            key: 'Area',
-        },
-        {
-            title: 'Money',
-            dataIndex: 'Money',
-            key: 'Money',
-        },
-        {
-            title: 'Message',
-            dataIndex: 'Message',
-            key: 'Message'
-        },
-        {
-            title: 'Action',
-            dataIndex: 'Action',
-            key: 'Action',
-        }
-    ])
     const [currentPage, setCurrentPage] = useState(window.page??1);
 
-    const [pageSize, setPageSize] = useState(18);
+    const [pageSize, setPageSize] = useState(20);
 
     // 处理页码改变事件
     const handlePageChange = (page, pageSize) => {
@@ -182,17 +136,7 @@ function LivePage(props) {
     return (
 
         <div className={''}>
-            <Button onClick={() => {
-                axios.get(`http://${host}:${port}/api/refreshMoney`).then(res => {
-                    refreshData(currentPage, pageSize)
-                })
-            }} type="primary"  style={{ position: "fixed", bottom: "20px", right: "20px" }}><RefreshIcon/></Button>
-            {chart?<MinutesChartDialog id={chartId} onClose={() => {
-                setChart(false)
-            }}>
-
-            </MinutesChartDialog>:<></>}
-            <div className='flex-row flex mb-4'>
+            <div className='sm:flex-row flex mb-4 flex-col'>
                 <Autocomplete
                     className="max-w-xs mt-4 mb-4 ml-4"
                     defaultItems={filters}
@@ -241,7 +185,7 @@ function LivePage(props) {
                 </Select>
             </div>
 
-            <div className={'grid grid-cols-1 md:grid-cols-4 2xl:grid-cols-6'}>
+            <div className={'grid grid-cols-1 md:grid-cols-4 2xl:grid-cols-5'}>
                 {dataSource.map(item => {
                     return (
                         <LiveStatisticCard item={item} showUser/>

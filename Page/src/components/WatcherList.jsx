@@ -1,6 +1,5 @@
 import React, {useEffect} from "react";
 import { Avatar, Card, CardBody, Chip } from "@heroui/react";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { CheckIcon } from "../pages/ChatPage";
 import axios from "axios";
 
@@ -12,12 +11,6 @@ function WatcherList(props) {
     const port =  location.port;
 
     const protocol = location.protocol.replace(":", "")
-    const rowVirtualizer = useVirtualizer({
-        count: list.length,
-        getScrollElement: () => parentRef.current,
-        estimateSize: () => 80,
-        overscan: 3,
-    });
     const refresh = () => {
         axios.get(`${protocol}://${host}:${port}/api/monitor/${props.room}`).then((response) => {
             if (props.type=="guard") {
@@ -55,7 +48,6 @@ function WatcherList(props) {
     return (
         <div>
             <div
-                ref={parentRef}
                 style={{
                     height: 'calc(100vh - 4rem - 360px)',
                     overflow: "auto",
@@ -69,8 +61,8 @@ function WatcherList(props) {
                         width: "100%",
                     }}
                 >
-                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                        const item = list[virtualRow.index];
+                    {list.map((virtualRow) => {
+                        const item = virtualRow
 
                         return (
                             <Card
@@ -78,7 +70,6 @@ function WatcherList(props) {
                                     toSpace(item.uid)
                                 }}
                                 key={item.uid}
-                                ref={virtualRow.measureElement}
                                 style={{
                                     position: "absolute",
                                     top: 0,
@@ -162,7 +153,4 @@ function WatcherList(props) {
         </div>
     );
 }
-const CacheAvatar = React.memo(({ src }) => {
-    return <Avatar src={src}/>;
-});
 export default React.memo(WatcherList);

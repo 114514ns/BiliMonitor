@@ -42,7 +42,7 @@ function HoverMedals(props) {
 
                     <div className={'flex flex-row align-middle mt-2'}>
                         <Avatar
-                            src={`${protocol}://${host}:${port}${import.meta.env.PROD ? '' : '/api'}/face?mid=${item.LiverID}`}
+                            src={`${AVATAR_API}${item.LiverID}`}
                             onClick={() => {
                                 toSpace(item.LiverID);
                             }}/>
