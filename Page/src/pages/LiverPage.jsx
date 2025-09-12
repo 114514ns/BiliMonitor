@@ -45,6 +45,8 @@ function LiverPage(props) {
 
     const [month,setMonth] = useState(3)
 
+    const [stream,setStream] = React.useState({})
+
 
     let {id} = useParams();
 
@@ -72,13 +74,15 @@ function LiverPage(props) {
         })
     }, [noDM,month])
 
+
+
     const [diffMode,setDiffMode] = React.useState(false);
     return (
         <div>
             <Modal isOpen={open} onOpenChange={() => {
                 setOpen(!open)
-            }} size={'xs'}   className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-                diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+            }} size={'sm'}   className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] h-[70vh]'
             }`}>
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">

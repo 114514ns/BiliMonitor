@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import {useLocation, useParams} from "react-router-dom";
+import {NavLink, useLocation, useParams} from "react-router-dom";
 import axios from "axios";
 import "./LivePage.css"
 import {useNavigate} from "react-router";
@@ -13,11 +13,28 @@ import {
     TableCell,
     TableColumn,
     TableHeader,
-    TableRow, Tooltip, Avatar
+    TableRow, Tooltip, Avatar, DropdownMenu, DropdownItem, Dropdown
 } from "@heroui/react";
 import UserChip from "../components/UserChip";
 import {CheckIcon} from "./ChatPage";
 import HoverMedals from "../components/HoverMedals";
+import ReactPlayer from "react-player";
+import Draggable from "react-draggable";
+
+import {
+    MediaController,
+    MediaControlBar,
+    MediaTimeRange,
+    MediaTimeDisplay,
+    MediaVolumeRange,
+    MediaPlaybackRateButton,
+    MediaPlayButton,
+    MediaSeekBackwardButton,
+    MediaSeekForwardButton,
+    MediaMuteButton,
+    MediaFullscreenButton,
+} from "media-chrome/react";
+
 
 function LiveDetailPage(props) {
     let {id} = useParams();
@@ -26,8 +43,14 @@ function LiveDetailPage(props) {
     const host = location.hostname;
     const [actions, setActions] = useState([])
 
+    const ref = React.createRef();
+
     const redirect = useNavigate();
     const [mid,setMid] = useState(0);
+
+    const videoRef = React.createRef();
+    const [playing, setPlaying] = useState(false);
+    const [stream,setStream] = useState('');
     useEffect(() => {
         refreshData(currentPage, pageSize)
     }, [])
@@ -54,6 +77,10 @@ function LiveDetailPage(props) {
     const [columns, setColumn] = useState([])
 
     const [liveInfo, setLiveInfo] = useState({});
+
+    const [hideStream,setHideStream] = useState(false);
+
+    const [menu,setMenu] = useState(false)
 
 
     const [user, setUser] = useState([]);
@@ -142,6 +169,18 @@ function LiveDetailPage(props) {
         })
     }, []);
 
+
+
+    useEffect(() => {
+        liveInfo   && liveInfo.RoomId && axios.get("/api/stream?room=" + liveInfo.RoomId).then(res => {
+            setStream(res.data['Stream'])
+        })
+    }, [liveInfo]);
+
+    useEffect(() => {
+        console.log(stream)
+    }, [stream]);
+
     useEffect(() => {
         refreshData(currentPage, pageSize)
     },[filter,mid])
@@ -177,11 +216,11 @@ function LiveDetailPage(props) {
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
-                            <div className='flex flex-row items-center text-blue-600' onClick={() => {redirect(`/liver/${liveInfo.UserID}`)}}>
+                            <NavLink className='flex flex-row items-center text-blue-600' to={`/liver/${liveInfo.UserID}`}>
                                 <img src={`${AVATAR_API}${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
                                 <br/>
                                 {liveInfo.UserName}
-                            </div>
+                            </NavLink>
 
                         </div>
                         <div
@@ -316,9 +355,7 @@ function LiveDetailPage(props) {
 
                         }}>
                             <TableCell>
-                                    <div className={'flex sm:flex-row items-center'} onClick={() => {
-                                        redirect("/user/" +item.FromId)
-                                    }}>
+                                    <NavLink className={'flex sm:flex-row items-center'} to={"/user/" +item.FromId}>
                                         <Avatar src={AVATAR_API + item.FromId} className={'mr-2'}/>
                                         <span className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.FromName}</span>
                                         {item.MedalLevel != 0 ?
@@ -340,7 +377,7 @@ function LiveDetailPage(props) {
                                                 </Chip>
                                             </Tooltip>
                                            :<></>}
-                                    </div>
+                                    </NavLink>
                             </TableCell>
                             <TableCell>{item.Liver}</TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>
@@ -353,6 +390,35 @@ function LiveDetailPage(props) {
                     ))}
                 </TableBody>
             </Table>
+            {stream && stream !== '' && <Draggable nodeRef={ref}>
+                <div ref={ref}  className={'fixed bottom-3 right-3'} onContextMenu={e => {
+                    e.preventDefault()
+                    setMenu(!menu)
+                }} onMouseLeave={() => {
+                    setMenu(false)
+                }}>
+                    {menu && <Dropdown>
+                        <DropdownMenu>
+                            <DropdownItem onClick={e => {
+                                setMenu(false)
+                                setPlaying(!playing)
+                            }}>Play/Stop</DropdownItem>
+                            <DropdownItem onClick={() => {
+                                setStream('')
+                            }}>Close</DropdownItem>
+                            <DropdownItem onClick={e => {
+                                setMenu(false)
+                                videoRef.current.requestFullscreen()
+                            }}>Fullscreen</DropdownItem>
+                        </DropdownMenu>
+
+                    </Dropdown>}
+                    <ReactPlayer src={stream} playing={playing} onPlaying={() => {
+
+                    }} ref={videoRef}/>
+
+                </div>
+            </Draggable>}
         </div>
     );
 }
