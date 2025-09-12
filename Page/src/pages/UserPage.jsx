@@ -32,6 +32,8 @@ function UserPage(props) {
     const [input, setInput] = useState("")
 
     const [showMedal,setShowMedal] = useState(false)
+
+    const [selected, setSelected] = useState("")
     let page = 1
 
     useEffect(() => {
@@ -49,7 +51,7 @@ function UserPage(props) {
                     data={getPieData(space.Rooms)}
                     onSegmentClick={(data, index) => {
                         console.log(data); // 包含所有字段
-                        alert(`${data.name}: ${data.value}, 增长: ${data.growth}`);
+                        setRoom(data.payload.id)
                     }}
                 />
                 <div className={'sm:w-[75vw]' }>
@@ -162,6 +164,7 @@ function UserPage(props) {
                                 onInputChange={e => {
                                     setInput(e)
                                 }}
+                                selectedKey={room}
                                 items={space.Rooms == null?[]:space.Rooms.sort((a,b) => {return a.Rate-b.Rate}).filter(e => { return e.Liver.includes(input) !== 0})}
                             >
                                 {(f) => <AutocompleteItem key={f.LiveRoom} textValue={f.Liver}>

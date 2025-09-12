@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"database/sql"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bytedance/sonic"
@@ -118,25 +117,18 @@ type Video struct {
 
 type Status struct {
 	sync.RWMutex
-	Live           bool
-	LastActive     int64
-	UName          string
-	UID            string
-	Area           string
-	Title          string
-	StartAt        string
-	RemainTrying   int8
-	Face           string
-	Cover          string
-	LiveRoom       string
-	StreamCacheKey int64
-	OnlineWatcher  []Watcher
-	OnlineCount    int
-	GuardList      []Watcher
-	GuardCacheKey  int64
-	Danmuku        []FrontLiveAction `json:"-"`
-	GuardCount     int
-	StreamSplits   []string
+	Live         bool
+	LastActive   int64
+	UName        string
+	UID          string
+	Area         string
+	Title        string
+	StartAt      string
+	RemainTrying int8
+	Face         string
+	Cover        string
+	LiveRoom     string
+	Fans         int
 }
 
 type Archive struct {
@@ -198,24 +190,6 @@ func CheckConfig() {
 	}
 }
 
-func UpdateGuard() {
-
-}
-func ie() {
-	//var url = "https://www.bilibili.com/correspond/1/" + getCorrespondPath(time.Now().UnixMilli())
-	//_, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").SetHeader("User-Agent", USER_AGENT).Get(url)
-
-}
-func GetDefaultCookie() {
-	resp, err := client.R().Get("https://bilibili.com/")
-	if err != nil {
-		panic(err)
-	}
-	var cookie = resp.Header().Get("Set-Cookie")
-	Cookie = strings.Split(cookie, ";")[0]
-	config.Cookie = Cookie
-}
-
 func PushDynamic(title, msg string) {
 
 	for i := range config.ReportTo {
@@ -258,107 +232,6 @@ func PushDynamic(title, msg string) {
 		var url = fmt.Sprintf(config.ServerPushKey+"?title=%s&desp=%s", url2.QueryEscape(title), url2.QueryEscape(msg))
 		client.R().Get(url)
 	}
-
-}
-func FixPrice() {
-	var actions []LiveAction
-	db.Where("action_name = ? AND gift_price = ?", "gift", 0).Find(&actions)
-
-	for _, action := range actions {
-		action.GiftPrice = sql.NullFloat64{Float64: float64(GiftPrice[action.GiftName] * float32(action.GiftAmount.Int16)), Valid: true}
-		db.Save(&action) // 分别更新每条记录
-	}
-}
-
-func ParseSingleVideo(bv string) (result []Video) {
-	res, _ := client.R().
-		SetHeader("Referer", "https://www.bilibili.com/").
-		SetHeader("Cookie", config.Cookie).
-		Get("https://api.bilibili.com/x/web-interface/view?bvid=" + bv)
-
-	var resObj = VideoResponse{}
-	sonic.Unmarshal(res.Body(), &resObj)
-	fmt.Println(string(res.Body()))
-
-	var array = []Video{}
-
-	for i, item := range resObj.Data.Pages {
-		var video = Video{}
-		video.Author = resObj.Data.Owner.Name
-		video.ParentTitle = resObj.Data.Title
-		video.BV = bv
-		video.Desc = resObj.Data.Desc
-		video.Title = item.Title
-		video.Part = i + 1
-		video.Cid = item.Cid
-		video.Duration = FormatDuration(item.Duration)
-		video.PublishAt = time.Unix(resObj.Data.PublishAt, 0).Format(time.DateTime)
-		video.Img = resObj.Data.Cover
-		video.UID = resObj.Data.Owner.Mid
-		video.AuthorFace = resObj.Data.Owner.Face
-		array = append(array, video)
-		var archive = Archive{}
-		db.Find(&archive, "bili_id = ?", bv)
-		if archive.BiliID == "" {
-			archive.BiliID = bv
-			archive.UID = video.UID
-			archive.UName = video.Author
-			archive.CreatedAt = time.Unix(resObj.Data.PublishAt, 0)
-			archive.Title = video.Title
-			archive.Text = video.Desc
-			archive.Type = "v"
-			archive.Download = false
-			db.Save(&archive)
-		}
-	}
-
-	return array
-}
-
-func ParsePlayList(mid string, session string) []Video {
-	var array []Video
-	var page = 1
-	var user = FetchUser(mid, nil)
-	for true {
-		var url = "https://api.bilibili.com/x/polymer/web-space/seasons_archives_list?mid=" + mid + "&season_id=" + session + "&page_num=" + strconv.Itoa(page) + "&page_size=30"
-		res, _ := client.R().SetHeader("Referer", "https://www.bilibili.com/").SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get(url)
-		var playList = PlayListResponse{}
-		sonic.Unmarshal(res.Body(), &playList)
-		if len(playList.Data.Archives) == 0 {
-			break
-		}
-		for _, archive := range playList.Data.Archives {
-			var video = Video{}
-			video.Cid = 0
-			video.Duration = FormatDuration(archive.Duration)
-			video.Img = archive.Cover
-			video.BV = archive.BV
-			video.Title = archive.Title
-			video.ParentTitle = playList.Data.Meta.Name
-			video.UID = toInt64(mid)
-			video.Part = 1
-			video.Author = user.Name
-			video.AuthorFace = user.Face
-			video.PublishAt = time.Unix(int64(archive.CreateAt), 0).Format(time.DateTime)
-			video.Desc = ""
-			array = append(array, video)
-			var a = Archive{}
-			db.Find(&a, "bili_id = ?", video.BV)
-			if a.BiliID == "" {
-				a.BiliID = video.BV
-				a.UID = video.UID
-				a.UName = video.Author
-				a.CreatedAt = time.Unix(int64(archive.CreateAt), 0)
-				a.Title = video.Title
-				a.Text = video.Desc
-				a.Type = "v"
-				a.Download = false
-				db.Save(&archive)
-			}
-		}
-		page++
-	}
-	return array
 
 }
 
@@ -447,11 +320,7 @@ func CSRF() string {
 var man *SlaverManager
 var consoleLogger = log.New(os.Stdout, "", log.LstdFlags) //用于在控制台输出弹幕信息，不会输出到日志文件里
 
-var tempCount = 0 //临时的弹幕计数。每五分钟从数据库读取弹幕数量，在加上内存里临时的弹幕数量，显示给前端。大大减少数据库压力。
 var tempMutex sync.Mutex
-var msg1 int64 = 0
-var msg5 int64 = 0
-var msg60 int64 = 0
 var queryClient = resty.New()
 
 func loadConfig() {
@@ -702,21 +571,6 @@ func main0() {
 
 	RefreshCookie()
 	time.Sleep(5 * time.Second)
-	c.AddFunc("@every 1m", func() {
-		tempMutex.Lock()
-		msg1 = 0
-		tempMutex.Unlock()
-	})
-	c.AddFunc("@every 5m", func() {
-		tempMutex.Lock()
-		msg5 = 0
-		tempMutex.Unlock()
-	})
-	c.AddFunc("@every 60m", func() {
-		tempMutex.Lock()
-		msg60 = 0
-		tempMutex.Unlock()
-	})
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
@@ -770,8 +624,6 @@ func main0() {
 			}
 		})
 
-		c.AddFunc("@every 1m", FixMoney)
-		c.AddFunc("@every 1m", func() { RefreshCollection(strconv.Itoa(GetCollectionId())) })
 		c.AddFunc("@every 60m", RefreshLivers)
 		c.AddFunc("@every 60m", RefreshMessagePoints)
 		c.AddFunc("@every 120m", RefreshWatcher)
@@ -779,13 +631,10 @@ func main0() {
 		if err != nil {
 			return
 		}
-
 		SortTracing()
-
 		for i := range config.Tracing {
 			man.AddTask(config.Tracing[i])
 		}
-
 	}
 	c.AddFunc("@every 240m", RefreshCookie)
 	c.Start()

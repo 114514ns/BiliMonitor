@@ -13,7 +13,7 @@ import {
 } from "@heroui/react";
 import {CheckIcon} from "../pages/ChatPage";
 import HoverMedals from "./HoverMedals";
-import {useNavigate} from "react-router-dom";
+import {NavLink, useNavigate} from "react-router-dom";
 import axios from "axios";
 
 function ActionTable(props) {
@@ -117,16 +117,14 @@ function ActionTable(props) {
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <div className={'flex hover:scale-105 transition-transform hover:text-gray-500'}         onClick={() => {
-                                    redirect("/liver/" + item.UserID);
-                                }}>
+                                <NavLink className={'flex hover:scale-105 transition-transform hover:text-gray-500'} to={"/liver/" + item.UserID}>
                                     {!isMobile()&&                                 <Avatar
                                         src={`${AVATAR_API}${item.UserID}`}
                                 />}
                                     <span className={'ml-2 mt-2'}>
                                         {item.UserName}
                                     </span>
-                                </div>
+                                </NavLink>
                             </TableCell>
                             <TableCell>{item.CreatedAt}</TableCell>
                             <TableCell>{item.GiftPrice.Float64}</TableCell>

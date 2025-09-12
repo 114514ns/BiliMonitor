@@ -205,10 +205,12 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick}
         onClick={(e) => {
             setOpen(false)
         }}
+        onMouseLeave={() => setOpen(false)}
     >
         {fans.map((f) => (
             <ListboxItem
                 key={f.UID + '-' + f.LiverID}
+
             >
                 <Tooltip content={
                     <div>
@@ -229,7 +231,7 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick}
                         setId(f.UID + '-' + f.LiverID)
                         setOpen(!open);
                     }}>
-                        <p className={'font-medium'}>{f.UName}</p>
+                        <p className={'text-medium'}>{f.UName}</p>
                         {(
                             <div className={'flex flex-row align-middle mt-2'} onClick={() => {
                                 onItemClick(f)
