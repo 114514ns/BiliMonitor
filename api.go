@@ -10,7 +10,6 @@ import (
 	"github.com/jinzhu/copier"
 	"log"
 	"net/http"
-	url2 "net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -107,34 +106,8 @@ func InitHTTP() {
 
 			wg.Wait()
 		}
-		for _, status := range lives {
-			var cpy = Status{}
-			copier.Copy(&cpy, &status)
-			cpy.GuardList = []Watcher{}
-			cpy.OnlineWatcher = []Watcher{}
-			array = append(array, cpy)
-		}
 		c.JSON(http.StatusOK, gin.H{
 			"lives": array,
-		})
-	})
-	r.GET("/monitor/:id", func(c *gin.Context) {
-		id := c.Param("id")
-		if config.Mode == "Master" {
-			add, ok := man.GetNodeByTask(id)
-			if !ok {
-				c.JSON(http.StatusOK, gin.H{
-					"message": "<UNK>",
-				})
-			}
-			if !man.isSelf(add) {
-				r, _ := client.R().Get(add + "/monitor/" + id)
-				c.String(r.StatusCode(), r.String())
-				return
-			}
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"live": lives[id],
 		})
 	})
 	r.GET("/searchLiver", func(c *gin.Context) {
@@ -174,22 +147,6 @@ func InitHTTP() {
 			"result": result,
 		})
 
-	})
-	r.GET("/sendMsg", func(c *gin.Context) {
-		room := c.DefaultQuery("room", "-1")
-		msg := c.DefaultQuery("msg", "-@")
-		if room == "-1" || msg == "-@" {
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "missing params",
-			})
-		} else {
-			i, _ := strconv.Atoi(room)
-			SendMessage(msg, i, func(s string) {
-				c.JSON(http.StatusOK, gin.H{
-					"msg": "success",
-				})
-			})
-		}
 	})
 	r.GET("/live", func(c *gin.Context) {
 		var f []Live
@@ -346,59 +303,6 @@ func InitHTTP() {
 			})
 		}
 	})
-
-	r.GET("/parse", func(context *gin.Context) {
-		id := context.DefaultQuery("bv", "10")
-
-		var videos = ParseSingleVideo(id)
-		for _, video := range videos {
-			videoCache = append(videoCache, video)
-		}
-		context.JSON(http.StatusOK, gin.H{
-			"message": "success",
-			"data":    videos,
-		})
-	})
-
-	r.GET("/parseList", func(context *gin.Context) {
-		id := context.DefaultQuery("mid", "10")
-		listId := context.DefaultQuery("season", "10")
-
-		var found = ParsePlayList(id, listId)
-		for _, video := range found {
-			videoCache = append(videoCache, video)
-		}
-		context.JSON(http.StatusOK, gin.H{
-			"message": "success",
-			"data":    found,
-		})
-	})
-	r.GET("/download", func(context *gin.Context) {
-		bv := context.DefaultQuery("bv", "BV16TP5euE5s")
-		partStr := context.DefaultQuery("part", "1")
-		if partStr == "0" {
-			partStr = "1"
-		}
-		for _, video := range videoCache {
-			if strconv.Itoa(video.Part) == partStr && bv == video.BV {
-				worker.AddTask(func() {
-					UploadArchive(video)
-				})
-				context.JSON(http.StatusOK, gin.H{
-					"message": "success",
-				})
-				return
-			}
-
-		}
-		worker.AddTask(func() {
-			UploadArchive(ParseSingleVideo(bv)[0])
-		})
-		context.JSON(http.StatusOK, gin.H{
-			"message": "success",
-		})
-
-	})
 	r.NoRoute(func(c *gin.Context) {
 		c.File("./Page/dist/index.html")
 	})
@@ -416,82 +320,14 @@ func InitHTTP() {
 		c.Writer.Write(res.Body())
 	})
 
-	//直播间最近的弹幕，用于在前端的实时直播页面显示
-	r.GET("/history", func(context *gin.Context) {
-		last := context.DefaultQuery("last", "")
-		roomStr := context.DefaultQuery("room", "1")
-		if config.Mode == "Master" {
-			add, _ := man.GetNodeByTask(roomStr)
-			if !man.isSelf(add) {
-				r, _ := client.R().Get(add + "/history?room=" + roomStr + "&last=" + last)
-				context.String(r.StatusCode(), r.String())
-				return
-			}
-		}
-
-		var result = []FrontLiveAction{}
-		if lives[roomStr] == nil {
-			context.JSON(http.StatusOK, gin.H{
-				"message": "error",
-				"data":    []string{},
-			})
-			return
-		}
-
-		if last != "" {
-			var match = false
-			for _, action := range lives[roomStr].Danmuku {
-				if action.UUID == last {
-					match = true
-					continue
-				}
-				if match {
-					result = append(result, action)
-				}
-			}
-		} else {
-			result = []FrontLiveAction{}
-			if lives[roomStr] != nil && lives[roomStr].Danmuku != nil {
-				result = lives[roomStr].Danmuku
-			}
-		}
-		context.JSON(http.StatusOK, gin.H{
-			"message": "success",
-			"data":    result,
-		})
-
-	})
-
-	//搜索主播，暂时废弃
-	r.GET("/searchLive", func(context *gin.Context) {
-		url := "https://api.bilibili.com/x/web-interface/wbi/search/type?page=1&page_size=42&order=online&keyword=" + context.Query("keyword") + "&search_type=live_user"
-		obj, _ := url2.Parse((url))
-		now := time.Now()
-		signed, _ := wbi.SignQuery(obj.Query(), now)
-		final := "https://api.bilibili.com/x/web-interface/wbi/search/type?" + signed.Encode()
-		res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).SetHeader("Referer", "https://www.bilibili.com").Get(final)
-		var list = LiveListResponse{}
-		sonic.Unmarshal(res.Body(), &list)
-		for i, s := range list.Data.Result {
-			t := strings.Split(s.UName, "</em>")
-			s.UName = extractTextFromHTML(s.UName)
-			if len(t) == 2 {
-				list.Data.Result[i].UName = s.UName + t[1]
-			}
-
-		}
-		context.JSON(http.StatusOK, gin.H{
-			"message": "success",
-			"data":    list,
-		})
-	})
 	r.GET("/status", func(context *gin.Context) {
 		var wg sync.WaitGroup
-		var t1 = msg1
-		var t2 = msg5
-		var t3 = msg60
+		var t1 = 0
+		var t2 = 0
+		var t3 = 0
 		var l sync.Mutex
 		var bytes int64 = 0
+		var m []interface{}
 		if man == nil || man.Nodes == nil {
 			context.JSON(http.StatusOK, gin.H{
 				"LaunchedAt": launchTime.Format(time.DateTime),
@@ -510,36 +346,35 @@ func InitHTTP() {
 			wg.Add(1)
 			go func(n SlaverNode) {
 				defer wg.Done()
-				res, err := client.R().
-					Get(n.Address + "/count")
-				if err != nil {
-					log.Printf("请求子节点 %s 失败: %v", n.Address, err)
-					return
-				}
-				for i, s := range strings.Split(res.String(), ",") {
-					l.Lock()
-					if i == 0 {
-						t1 = t1 + toInt64(s)
-					}
-					if i == 1 {
-						t2 = t2 + toInt64(s)
-					}
-					if i == 2 {
-						t3 = t3 + toInt64(s)
-					}
-					l.Unlock()
-				}
-
-				res, err = client.R().Get(n.Address + "/status")
+				res, _ := client.R().Get(n.Address + "/status")
 				type S struct {
 					WSBytes int64
+					Rooms   map[string]interface{}
 				}
 				var s = S{}
 				sonic.Unmarshal(res.Body(), &s)
+				l.Lock()
 				bytes += s.WSBytes
+				for _, status := range lives {
+					m = append(m, status)
+				}
+				l.Unlock()
 
 			}(node)
 		}
+		wg.Add(3)
+		go func() {
+			t1 = int(MinuteMessageCount(1))
+			wg.Done()
+		}()
+		go func() {
+			t2 = int(MinuteMessageCount(60))
+			wg.Done()
+		}()
+		go func() {
+			t3 = int(MinuteMessageCount(1440))
+			wg.Done()
+		}()
 
 		wg.Wait()
 
@@ -547,15 +382,14 @@ func InitHTTP() {
 			"Requests":      totalRequests,
 			"Tasks":         guardWorker.QueueLen(),
 			"LaunchedAt":    launchTime.Format(time.DateTime),
-			"Livers":        TotalLiver(),
 			"TotalMessages": TotalMessage(),
 			"Message1":      t1,
-			"Message5":      t2,
-			"MessageHour":   t3,
-			"MessageDaily":  MinuteMessageCount(1440),
+			"MessageHour":   t2,
+			"MessageDaily":  t3,
 			"HTTPBytes":     httpBytes,
 			"WSBytes":       websocketBytes + bytes,
 			"Nodes":         man.Nodes,
+			"Rooms":         m,
 		})
 	})
 
@@ -568,21 +402,6 @@ func InitHTTP() {
 			})
 		}
 		c.Redirect(http.StatusMovedPermanently, GetFace(c.Query("mid")))
-	})
-
-	r.GET("/setCookie", func(c *gin.Context) {
-		var cookie = c.Query("cookie")
-		if SelfUID(cookie) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": "invalid cookie",
-			})
-		} else {
-			config.Cookie = cookie
-			SaveConfig()
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "success",
-			})
-		}
 	})
 
 	//所有在虚拟区开播过的主播
@@ -649,7 +468,7 @@ func InitHTTP() {
 	r.GET("/stream", func(c *gin.Context) {
 		var room = c.Query("room")
 		c.JSON(http.StatusOK, gin.H{
-			"Stream:": GetLiveStream(room),
+			"Stream": GetLiveStream(room),
 		})
 	})
 
@@ -660,9 +479,6 @@ func InitHTTP() {
 		livesMutex.Lock()
 		lives[room] = &Status{RemainTrying: 40}
 		lives[room].LiveRoom = room
-		lives[room].Danmuku = make([]FrontLiveAction, 0)
-		lives[room].OnlineWatcher = make([]Watcher, 0)
-		lives[room].GuardList = make([]Watcher, 0)
 		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
@@ -704,10 +520,6 @@ func InitHTTP() {
 			"list":  result,
 			"total": count,
 		})
-	})
-
-	r.GET("/count", func(context *gin.Context) {
-		context.String(http.StatusOK, fmt.Sprintf("%d,%d,%d", msg1, msg5, msg60))
 	})
 
 	//获取某场直播内发送弹幕或礼物的所有用户
@@ -1225,6 +1037,11 @@ ORDER BY
 	r.GET("/search", func(context *gin.Context) {
 		var typo = context.DefaultQuery("type", "name")
 		var key = context.DefaultQuery("key", "")
+		var api = context.DefaultQuery("api", "")
+		if api == "" {
+			context.File("./Page/dist/index.html")
+			return
+		}
 		type Response struct {
 			UName      string
 			UID        int64

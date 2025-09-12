@@ -42,29 +42,6 @@ func SelfUID(cookie string) int64 {
 	sonic.Unmarshal(res.Body(), &self)
 	return self.Data.Mid
 }
-func FixMoney() {
-	var lives0 []Live
-	db.Where("end_at = 0").Find(&lives0)
-
-	for _, v := range lives0 {
-		if time.Now().Unix()-v.StartAt > 3600*24*5 {
-			continue //如果连续播了5天以上，大概率是直播结束的时候没有检测到，实际已经结束
-		}
-		var sum float64
-		db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? and action_name != 'msg' ", v.ID).Scan(&sum)
-		result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sum), 64)
-		var msgCount int64
-		db.Model(&LiveAction{}).Where("live = ? and action_name = 'msg'", v.ID).Count(&msgCount)
-		v.Money = result
-		v.Message = int(msgCount)
-		var last = LiveAction{}
-		db.Where("live = ?", v.ID).Last(&last)
-		if (time.Now().Unix() + 8*3600 - last.CreatedAt.Unix()) < 0 {
-
-		}
-		db.Save(&v)
-	}
-}
 func UploadLive(live Live) {
 
 	var debug = true
@@ -320,13 +297,6 @@ func GetFansClub(liver string, callback func(g DBGuard)) []DBGuard {
 	return list
 }
 func GetGuardList(room string, liver string) []Watcher {
-	_, ok := lives[room]
-	if ok {
-		if time.Now().Unix()-lives[room].GuardCacheKey < 60*10 {
-			return lives[room].GuardList
-		}
-	}
-
 	var arr = make([]Watcher, 0)
 	var pool = pool2.New().WithMaxGoroutines(8)
 	var mutex sync.Mutex
@@ -796,6 +766,10 @@ func TraceLive(roomId string) {
 
 	time.Sleep(1 * time.Second)
 
+	var areaLiver AreaLiver
+	db.Raw("select fans from area_livers where uid = ?", liverId).Scan(&areaLiver)
+	lives[roomId].Fans = areaLiver.Fans
+
 	type FaceInfo struct {
 		Data struct {
 			Card struct {
@@ -960,11 +934,6 @@ func TraceLive(roomId string) {
 				sonic.Unmarshal(msgData, &text)
 				var front = FrontLiveAction{}
 				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
-					tempMutex.Lock()
-					msg1++
-					msg5++
-					msg60++
-					tempMutex.Unlock()
 					action.ActionName = "msg"
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = int64(text.Info[2].([]interface{})[0].(float64))
@@ -1041,11 +1010,6 @@ func TraceLive(roomId string) {
 					consoleLogger.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
-					tempMutex.Lock()
-					msg1++
-					msg5++
-					msg60++
-					tempMutex.Unlock()
 					var info = GiftInfo{}
 					sonic.Unmarshal(msgData, &info)
 					action.ActionName = "gift"
@@ -1141,12 +1105,15 @@ func TraceLive(roomId string) {
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
-					front.UUID = uuid.New().String()
-					_, ok := lives[roomId]
-					if ok {
-						lives[roomId].Danmuku = AppendElement(lives[roomId].Danmuku, 500, front)
-					}
+					/*
+						front.UUID = uuid.New().String()
+						_, ok := lives[roomId]
+						if ok {
+							lives[roomId].Danmuku = AppendElement(lives[roomId].Danmuku, 500, front)
+						}
 
+
+					*/
 				}
 				if buffer.Len() < 16 {
 					break
@@ -1237,6 +1204,9 @@ func TraceLive(roomId string) {
 					tx := db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
 						"end_at": time.Now().Unix(),
 					})
+					if tx.Error != nil {
+						log.Println(tx.Error)
+					}
 					tx = db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
 						"money": sum,
 					})
@@ -1534,12 +1504,6 @@ type Watched struct {
 	} `json:"data"`
 }
 
-func UpdateGuardList(room string, arr []Watcher) {
-	livesMutex.Lock()
-	defer livesMutex.Unlock()
-	lives[room].GuardCount = len(arr)
-	lives[room].GuardList = arr
-}
 func SafeGoRetry(fn func(), maxRetries int, retryDelay time.Duration) {
 	go func() {
 		for i := 0; i <= maxRetries; i++ {

@@ -1,18 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
 	"github.com/bytedance/sonic"
-	"golang.org/x/net/html"
-	"io"
 	"log"
 	"math/rand"
-	"os"
-	"os/exec"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -80,7 +73,6 @@ func UpdateCommon() {
 	commonDone = true
 }
 
-// 解析服务端返回的动态的json结构
 func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 	var Type = item.Type
 	var orig = Archive{}
@@ -108,7 +100,6 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.Title = item.Modules.ModuleDynamic.Major.Archive.Title
 		if push {
 			PushDynamic("你关注的up主："+userName+"投稿了视频 ", archive.Title)
-			go UploadArchive(ParseSingleVideo(item.Modules.ModuleDynamic.Major.Archive.Bvid)[0])
 		}
 
 	} else if Type == "DYNAMIC_TYPE_DRAW" { //图文
@@ -116,7 +107,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.BiliID = item.IDStr
 		archive.Text = item.Modules.ModuleDynamic.Major.Desc.Text
 		if push {
-			PushDynamic("你关注的up主："+userName+"发布了动态 ", item.Modules.ModuleDynamic.Major.Archive.Title)
+			PushDynamic("你关注的up主："+userName+"发布了动态 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
 		}
 
 	} else if Type == "DYNAMIC_TYPE_WORD" { //文字
@@ -124,7 +115,7 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		archive.BiliID = item.IDStr
 		archive.Text = item.Modules.ModuleDynamic.Major.Opus.Summary.Text
 		if push {
-			PushDynamic("你关注的up主："+userName+"转发了动态 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
+			PushDynamic("你关注的up主："+userName+"发布了动态 ", item.Modules.ModuleDynamic.Major.Opus.Summary.Text)
 		}
 	} else if Type == "DYNAMIC_TYPE_LIVE_RCMD" {
 
@@ -173,42 +164,12 @@ func UpdateSpecial() {
 
 					json := make([]byte, 0)
 					sonic.Unmarshal(json, item)
-					//PushDynamic("动态json", string(json))
-
 				}
 			}
 		}
-
 		time.Sleep(time.Second * 10)
-
 	}
-
 	//log.Printf(RecordedDynamic)
-}
-func FetchArchive(mid string, page int, size int) {
-	var url = "https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=#id&ps=#ps&pn=#pn"
-	url = strings.Replace(url, "#id", mid, 1)
-	url = strings.Replace(url, "#ps", strconv.Itoa(size), 1)
-	url = strings.Replace(url, "#pn", strconv.Itoa(page), 1)
-
-	res, _ := client.R().SetHeader("Cookie", config.Cookie).
-		SetHeader("Referer", "https://www.bilibili.com/").Get(url)
-
-	dynamic := UserDynamic{}
-	sonic.Unmarshal(res.Body(), &dynamic)
-	for _, item := range dynamic.Data.Items {
-		var d, d1 = ParseDynamic(item, false)
-		db.Save(&d)
-		if d1.BiliID != "" {
-			db.Save(&d1)
-		}
-
-	}
-	log.Println(dynamic)
-}
-
-func FetchComments() {
-
 }
 
 // RefreshFollowings 刷新用户关注列表
@@ -253,126 +214,6 @@ func RefreshFollowings() {
 	Special = Special0
 }
 
-// GetCollectionId 获取当前用户的Monitor收藏夹的id
-func GetCollectionId() int {
-	var url = "https://api.bilibili.com/x/v3/fav/folder/created/list?ps=50&pn=1&up_mid=" + config.User
-	res, _ := client.R().Get(url)
-	var list = CollectionList{}
-	sonic.Unmarshal(res.Body(), &list)
-	for _, s := range list.Data.List {
-		if s.Title == "Monitor" {
-			return s.ID
-		}
-	}
-	return 0
-}
-func RefreshCollection(id string) {
-
-	var url = "https://api.bilibili.com/x/v3/fav/resource/list?ps=1&media_id=" + id
-	res, _ := client.R().Get(url)
-	var medias = CollectionMedias{}
-	sonic.Unmarshal(res.Body(), &medias)
-	if len(RecordedMedias) == 0 {
-		for _, media := range medias.Data.Medias {
-			RecordedMedias = append(RecordedMedias, media.BV)
-		}
-	} else {
-		for _, media := range medias.Data.Medias {
-
-			var found = false
-			for i := range RecordedMedias {
-				if RecordedMedias[i] == media.BV {
-					found = true
-				}
-			}
-			if !found {
-				RecordedMedias = append(RecordedMedias, media.BV)
-				go func() {
-					var link = UploadArchive(ParseSingleVideo(media.BV)[0])
-					PushDynamic("你收藏的"+media.Title+"已下载完成", link)
-				}()
-			}
-		}
-	}
-
-}
-
-// 上传稿件到Alist
-func UploadArchive(video Video) string {
-
-	var archive = Archive{}
-	db.Model(&Archive{}).Where("bili_id").Find(&archive)
-	if archive.Download {
-		return ""
-	}
-
-	log.Printf("[%s] 开始下载", video.Title)
-	os.Mkdir("cache", 066)
-	var videolink = "https://bilibili.com/video/" + video.BV + "?p=" + strconv.Itoa(video.Part)
-	vRes, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com").SetHeader("User-Agent", USER_AGENT).Get(videolink)
-	htmlContent := vRes.Body()
-	reader := bytes.NewReader(htmlContent)
-	var bv = video.BV
-	root, _ := html.Parse(reader)
-	find := goquery.NewDocumentFromNode(root).Find("script")
-	var final = ""
-	var err = false
-	var msg = ""
-	find.Each(func(i int, s *goquery.Selection) {
-		if strings.Contains(s.Text(), "m4s") && strings.Contains(s.Text(), "backup_url") {
-			var json = strings.Replace(s.Text(), "window.__playinfo__=", "", 1)
-			var v = Dash{}
-			sonic.Unmarshal([]byte(json), &v)
-			audio, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Link)
-			//defer audio.RawBody().Close()
-			if len(audio.Body()) == 0 {
-				audio, _ = client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Audio[0].Backup[0])
-				if len(audio.Body()) == 0 {
-					err = true
-					msg = json
-					return
-				}
-			}
-			os.WriteFile("cache/"+video.BV+".mp3", audio.Body(), 066)
-			audioFile, _ := os.Create("cache/" + video.BV + ".mp3")
-			//defer audioFile.Close()
-			io.Copy(audioFile, audio.RawBody())
-
-			videoLink, _ := client.R().SetDoNotParseResponse(true).SetHeader("Referer", "https://www.bilibili.com").Get(v.Data.Dash0.Video[0].Link)
-
-			//defer video.RawBody().Close()
-			videoFile, _ := os.Create("cache/" + bv + ".m4s")
-			//defer videoFile.Close()
-			io.Copy(videoFile, videoLink.RawBody())
-			cmd := exec.Command("ffmpeg", "-i", videoFile.Name(), "-i", audioFile.Name(), "-vcodec", "copy", "-acodec", "copy", "cache/"+bv+".mp4")
-			out, _ := cmd.CombinedOutput()
-			log.Println(string(out))
-			cmd.Run() // 执行命令
-
-			if video.ParentTitle != "" {
-				video.ParentTitle = video.ParentTitle + "/"
-			}
-			//log.Println(string(out))
-			final = config.AlistPath + "/Archive/" + video.Author + "/" + video.ParentTitle + "[" + strings.ReplaceAll(video.PublishAt, ":", "-") + "] " + video.Title + ".mp4"
-			if audio.StatusCode() == 200 {
-				UploadFile("cache/"+bv+".mp4", final)
-			} else {
-
-			}
-
-			os.Remove("cache/" + bv + ".mp4")
-			os.Remove("cache/" + bv + ".mp3")
-			os.Remove("cache/" + bv + ".m4s")
-
-		}
-	})
-	if err {
-		return msg
-	}
-	return config.AlistServer + final
-
-}
-
 func GetFace(uid string) string {
 	var obj = FaceCache{}
 	db.Model(&obj).Where("uid = ?", uid).First(&obj)
@@ -413,6 +254,5 @@ func GetFace(uid string) string {
 func GetFansLocal(mid int64) int {
 	var found User
 	db.Model(&User{}).Where("user_id = ?", mid).Last(&found)
-
 	return found.Fans
 }

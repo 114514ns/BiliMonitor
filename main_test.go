@@ -42,7 +42,7 @@ func TestHttp(test *testing.T) {
 
 	setupHTTPClient()
 	go func() {
-		RefreshLivers()
+		//RefreshLivers()
 	}()
 	go func() {
 		//RefreshMessagePoints()
