@@ -13,10 +13,8 @@ import {
     NavbarContent,
     NavbarItem
 } from "@heroui/react";
-import DownloadDialog from "./components/DownloadDialog";
-import PubSub from 'pubsub-js'
 
-import ChatPage from "./pages/ChatPage";
+
 import ListPage from "./pages/ListPage";
 import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
@@ -59,10 +57,6 @@ function BasicLayout() {
 
     const [showNotice, setShowNotice] = React.useState(false);
 
-    PubSub.subscribe('DownloadDialog', (msg, data) => {
-        console.log(msg, data);
-        setShowDownload(false);
-    });
     const [content, setContent] = React.useState("");
     useEffect(() => {
         axios.get("/about.md").then((response) => {
@@ -77,7 +71,6 @@ function BasicLayout() {
             {showNotice && <NoticeDialog onClose={() => {
                 setShowNotice(false);
             }} content={content}></NoticeDialog>}
-            <DownloadDialog isOpen={showDownload}/>
             {showRank && <RankDialog open={showRank} onClose={() => {
                 setShowRank(false)
             }} content={content}/>}
@@ -125,7 +118,7 @@ function BasicLayout() {
                         <Route path="/lives" element={<PageWrapper><LivePage/></PageWrapper>}/>
                         <Route path="/search" element={<PageWrapper><SearchPage/></PageWrapper>}/>
                         <Route path="/lives/:id" element={<PageWrapper><LiveDetailPage/></PageWrapper>}/>
-                        <Route path="/chat" element={<PageWrapper><ChatPage/></PageWrapper>}/>
+                        {/*<Route path="/chat" element={<PageWrapper><ChatPage/></PageWrapper>}/>*/}
                         <Route path="/list" element={<PageWrapper><ListPage/></PageWrapper>}/>
                         <Route path="/stat" element={<PageWrapper><StatusPage/></PageWrapper>}/>
                         <Route path="/liver/:id" element={<PageWrapper><LiverPage/></PageWrapper>}/>

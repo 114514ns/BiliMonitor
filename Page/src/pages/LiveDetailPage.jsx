@@ -18,22 +18,9 @@ import {
 import UserChip from "../components/UserChip";
 import {CheckIcon} from "./ChatPage";
 import HoverMedals from "../components/HoverMedals";
-import ReactPlayer from "react-player";
 import Draggable from "react-draggable";
 
-import {
-    MediaController,
-    MediaControlBar,
-    MediaTimeRange,
-    MediaTimeDisplay,
-    MediaVolumeRange,
-    MediaPlaybackRateButton,
-    MediaPlayButton,
-    MediaSeekBackwardButton,
-    MediaSeekForwardButton,
-    MediaMuteButton,
-    MediaFullscreenButton,
-} from "media-chrome/react";
+
 
 
 function LiveDetailPage(props) {
@@ -413,9 +400,9 @@ function LiveDetailPage(props) {
                         </DropdownMenu>
 
                     </Dropdown>}
-                    <ReactPlayer src={stream} playing={playing} onPlaying={() => {
+{/*                    <ReactPlayer src={stream} playing={playing} onPlaying={() => {
 
-                    }} ref={videoRef}/>
+                    }} ref={videoRef}/>*/}
 
                 </div>
             </Draggable>}
