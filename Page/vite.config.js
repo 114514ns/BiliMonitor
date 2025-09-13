@@ -37,15 +37,7 @@ export default defineConfig({
             output: {
 
 
-                manualChunks(id) {
 
-                    // 判断是否为第三方依赖，将其拆分到 vendor 中
-                    if (id.includes('node_modules')) {
-                        return 'vendor'
-                    } else {
-                        return 'index';
-                    }
-                },
 
 
                 globals: {
