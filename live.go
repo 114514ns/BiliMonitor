@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	_ "runtime"
+	"runtime/debug"
 	"sort"
 	"strconv"
 	"strings"
@@ -733,6 +734,7 @@ func TraceLive(roomId string) {
 
 	defer func() {
 		if r := recover(); r != nil {
+			debug.PrintStack()
 			fmt.Println("Recovered from panic:", r)
 		}
 	}()
