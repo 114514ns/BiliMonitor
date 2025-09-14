@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/andybalholm/brotli"
 	"github.com/bytedance/sonic"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"gorm.io/gorm"
@@ -16,8 +15,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
 	_ "runtime"
 	"runtime/debug"
 	"sort"
@@ -42,51 +39,6 @@ func SelfUID(cookie string) int64 {
 	var self = SelfInfo{}
 	sonic.Unmarshal(res.Body(), &self)
 	return self.Data.Mid
-}
-func UploadLive(live Live) {
-
-	var debug = true
-	time.Sleep(60 * time.Second)
-	var dir = config.MikuPath + "/" + strconv.Itoa(live.RoomId) + "-" + live.UserName
-	var flv, t, _ = Last(dir)
-	os.MkdirAll("cache", 0777)
-	if time.Now().Unix()-t.Unix() < 60000000 {
-		var file = dir + "/" + flv
-		log.Println(config.AlistPath + "Live/" + live.UserName + "/" + time.Now().Format(time.DateTime) + "/")
-		split := strings.Split(file, "-")
-		var ext = "flv"
-		var title = strings.Replace(split[len(split)-1], ".flv", "", 10)
-		var uuid = uuid.New().String() + ".mp4"
-
-		if config.CodeToMP4 {
-			file = dir + "/" + flv
-			cmd := exec.Command("ffmpeg", "-i", file, "-vcodec", "copy", "-acodec", "copy", "cache/"+uuid)
-			cmd.Run()
-			out, _ := cmd.CombinedOutput()
-			if debug {
-				fmt.Println(string(out))
-			}
-			ext = "mp4"
-			file = "cache/" + uuid
-		}
-		var alistName = config.AlistPath + "Live/" + live.UserName + "/" + strings.Replace(time.Now().Format(time.DateTime), ":", "-", 3) + "/" + title + "." + ext
-		if config.SplitAudio {
-			file = dir + "/" + flv
-			var auido = strings.Replace("cache/"+uuid, "."+ext, ".mp3", 1)
-			cmd := exec.Command("ffmpeg", "-i", file, "-vn", auido)
-			cmd.Run()
-			output, _ := cmd.CombinedOutput()
-			if debug {
-				fmt.Println(string(output))
-			}
-			UploadFile(auido, strings.Replace(alistName, "."+ext, ".mp3", 1))
-
-			os.Remove(auido)
-		}
-
-		UploadFile(file, alistName)
-		os.Remove(file)
-	}
 }
 func GetServerState(room string) bool {
 	url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + room
@@ -162,55 +114,6 @@ func GetOnline(room string, liver string) ([]Watcher, int) {
 	}
 	return arr, o.Data.Count
 
-}
-func GetGuardCount(room string, liver string) string {
-	var page = 1
-	var l1 = 0
-	var l2 = 0
-	var l3 = 0
-	var total = 0
-	var entry = false
-	for true {
-		var url = fmt.Sprintf("https://api.live.bilibili.com/xlive/app-room/v2/guardTab/topListNew?roomid=%s&page=%s&ruid=%s&page_size=30", room, strconv.Itoa(page), liver)
-		res, _ := client.R().Get(url)
-		var r = GuardListResponse{}
-		sonic.Unmarshal(res.Body(), &r)
-		total = r.Data.Info.Total
-		if page == 1 {
-			for _, item := range r.Data.Top {
-				level := item.Info.Medal.GuardLevel
-				if level == 1 {
-					l1++
-				}
-				if level == 2 {
-					l2++
-				}
-				if level == 3 {
-					l3++
-					entry = true
-				}
-			}
-		}
-		for _, item := range r.Data.List {
-			level := item.Info.Medal.GuardLevel
-			if level == 1 {
-				l1++
-			}
-			if level == 2 {
-				l2++
-			}
-			if level == 3 {
-				l3++
-				entry = true
-			}
-		}
-		if entry {
-			l3 = total - l1 - l2
-			return fmt.Sprintf("%d,%d,%d", l1, l2, l3)
-		}
-		page++
-	}
-	return ""
 }
 func GetFreeClubCounts(liver string, delay int) int {
 	left := 1
@@ -929,7 +832,7 @@ func TraceLive(roomId string) {
 				var obj = string(msgData)
 				var action = LiveAction{}
 				action.Live = uint(dbLiveId)
-				action.LiveRoom = roomId
+				action.LiveRoom, _ = strconv.Atoi(roomId)
 				action.GiftPrice = sql.NullFloat64{Float64: 0, Valid: false}
 				action.GiftAmount = sql.NullInt16{Int16: 0, Valid: false}
 				var text = LiveText{}
@@ -937,6 +840,7 @@ func TraceLive(roomId string) {
 				var front = FrontLiveAction{}
 				if strings.Contains(obj, "DANMU_MSG") && !strings.Contains(obj, "RECALL_DANMU_MSG") { // 弹幕
 					action.ActionName = "msg"
+					action.ActionType = Message
 					action.FromName = text.Info[2].([]interface{})[1].(string)
 					action.FromId = int64(text.Info[2].([]interface{})[0].(float64))
 					action.Extra = text.Info[1].(string)
@@ -1017,6 +921,7 @@ func TraceLive(roomId string) {
 					action.ActionName = "gift"
 					action.FromName = info.Data.Uname
 					action.GiftName = info.Data.GiftName
+					action.ActionType = Gift
 					action.MedalLevel = int8(info.Data.Medal.Level)
 					action.HonorLevel = info.Data.HonorLevel
 					action.MedalName = info.Data.Medal.Name
@@ -1054,7 +959,7 @@ func TraceLive(roomId string) {
 				} else if text.Cmd == "SUPER_CHAT_MESSAGE" { //SC
 					var sc = SuperChatInfo{}
 					sonic.Unmarshal(msgData, &sc)
-
+					action.ActionType = SuperChat
 					action.ActionName = "sc"
 					action.FromName = sc.Data.UserInfo.Uname
 					action.FromId = sc.Data.Uid
@@ -1072,6 +977,7 @@ func TraceLive(roomId string) {
 				} else if strings.Contains(obj, "GUARD_BUY") { //上舰
 					//GUARD_BUY不返回粉丝牌信息
 					var guard = GuardInfo{}
+					action.ActionType = Guard
 					sonic.Unmarshal(msgData, &guard)
 					action.FromId = guard.Data.Uid
 					action.ActionName = "guard"
@@ -1095,15 +1001,19 @@ func TraceLive(roomId string) {
 					}
 				} else if text.Cmd == "CUT_OFF" {
 					action.ActionName = "cut"
+					action.ActionType = Cut
 					var o = make(map[string]interface{})
 					sonic.Unmarshal(msgData, &o)
 					action.Extra = o["msg"].(string)
+					db.Save(action)
 				} else if text.Cmd == "ROOM_BLOCK_MSG" {
 					action.ActionName = "mute"
 					var o = make(map[string]interface{})
 					sonic.Unmarshal(msgData, &o)
 					action.FromId = toInt64(o["uid"].(string))
 					action.FromName = o["uname"].(string)
+					action.ActionType = Block
+					db.Save(action)
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
@@ -1216,10 +1126,6 @@ func TraceLive(roomId string) {
 						log.Println(tx.Error)
 					}
 					living = false
-					i, _ := strconv.Atoi(roomId)
-					if config.EnableLiveBackup {
-						go UploadLive(Live{RoomId: i, UserName: liver})
-					}
 					log.Printf("[%s] 直播结束，断开连接,live=%d", liver, dbLiveId)
 					c.Close()
 					if !Has(config.Tracing, roomId) {
@@ -1230,26 +1136,22 @@ func TraceLive(roomId string) {
 						return
 					}
 				}
-
+			} else {
+				if rand.Int()%5 == 0 {
+					var sum float64
+					var v Live
+					db.Raw("select * from lives where id = ?", dbLiveId).Scan(&v)
+					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? and action_type != 1 ", v.ID).Scan(&sum)
+					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sum), 64)
+					var msgCount int64
+					db.Model(&LiveAction{}).Where("live = ? and action_type = 1", v.ID).Count(&msgCount)
+					v.Money = result
+					v.Message = int(msgCount)
+					var last = LiveAction{}
+					db.Where("live = ?", v.ID).Last(&last)
+					db.Save(&v)
+				}
 			}
-
-			go func() {
-				/*
-					online, count := GetOnline(roomId, liverId)
-					guard := GetGuardList(roomId, liverId)
-
-					livesMutex.Lock()
-					defer livesMutex.Unlock()
-					if status, ok := lives[roomId]; ok && status != nil {
-						status.GuardCacheKey = time.Now().Unix()
-						status.OnlineCount = count
-						status.OnlineWatcher = online
-						status.GuardList = guard
-						status.GuardCount = len(guard)
-					}
-
-				*/
-			}()
 		}
 	}
 	ticker.Stop()
@@ -1401,14 +1303,25 @@ type GiftBox struct {
 		} `json:"gifts"`
 	} `json:"data"`
 }
+
+const (
+	Message   int = 1
+	Gift      int = 2
+	Guard     int = 3
+	SuperChat int = 4
+	Cut       int = 5
+	Block     int = 6
+)
+
 type LiveAction struct {
 	ID         uint `gorm:"primarykey"`
 	CreatedAt  time.Time
 	Live       uint
 	FromName   string
 	FromId     int64
-	LiveRoom   string
+	LiveRoom   int
 	ActionName string
+	ActionType int
 	GiftName   string
 	GiftPrice  sql.NullFloat64 `gorm:"scale:2;precision:7"`
 	GiftAmount sql.NullInt16
