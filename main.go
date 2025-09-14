@@ -544,7 +544,7 @@ func main0() {
 	wbi.initWbi()
 	db.Table("enter_action").AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&Live{})
-	db.AutoMigrate(&LiveAction{})
+	//db.AutoMigrate(&LiveAction{})
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Archive{})
 	db.AutoMigrate(&AreaLiver{})

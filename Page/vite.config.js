@@ -35,11 +35,6 @@ export default defineConfig({
         sourcemap: true,
         rollupOptions: {
             output: {
-
-
-
-
-
                 globals: {
                   react: 'React',
                   'react-dom': 'ReactDOM',

@@ -126,7 +126,7 @@ function ActionTable(props) {
                                     </span>
                                 </NavLink>
                             </TableCell>
-                            <TableCell>{item.CreatedAt}</TableCell>
+                            <TableCell>{new Date(item.CreatedAt).toLocaleString()}</TableCell>
                             <TableCell>{item.GiftPrice.Float64}</TableCell>
                             <TableCell onClick={() => {
                                 axios.get(`${protocol}://${host}:${port}/api/queryPage?id=${item.ID}&live=${item.Live}`).then((response) => {

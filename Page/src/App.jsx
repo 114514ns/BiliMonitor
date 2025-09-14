@@ -24,6 +24,7 @@ import {AnimatePresence, motion} from "framer-motion";
 import NoticeDialog from "./components/NoticeDialog";
 import axios from "axios";
 import SearchPage from "./pages/SearchPage";
+import RawPage from "./pages/RawPage";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -44,7 +45,7 @@ function BasicLayout() {
         Name: 'Search', Path: '/search'
     }, {
         Name: 'Status', Path: '/stat'
-    }
+    },{Name: "Raw", Path: '/raw'}
     ]
 
     const [ind, setInd] = React.useState(0);
@@ -123,6 +124,7 @@ function BasicLayout() {
                         <Route path="/stat" element={<PageWrapper><StatusPage/></PageWrapper>}/>
                         <Route path="/liver/:id" element={<PageWrapper><LiverPage/></PageWrapper>}/>
                         <Route path="/user/:id" element={<PageWrapper><UserPage/></PageWrapper>}/>
+                        <Route path="/raw" element={<PageWrapper><RawPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 

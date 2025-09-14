@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"github.com/bytedance/sonic"
@@ -105,22 +106,56 @@ func InitHTTP() {
 			}
 
 			wg.Wait()
+		} else {
+			for _, status := range array {
+				if status.Live {
+					array = append(array, status)
+				}
+			}
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"lives": array,
 		})
 	})
 	r.GET("/searchLiver", func(c *gin.Context) {
-		key := c.DefaultQuery("key", "1")
-		var result0 = make([]Live, 0)
-		var result = make([]string, 0)
-		db.Model(&Live{}).Where("user_name like '%" + key + "%'").Find(&result0)
-		for i := range result0 {
-			result = append(result, result0[i].UserName)
+		key := c.DefaultQuery("key", "")
+		type LiverInfo struct {
+			UName string
+			Room  int
+			UID   int64
+			Money float64 `json:"-"`
 		}
-		result = removeDuplicates(result)
+		var results []LiverInfo
+		query := `
+        SELECT 
+            l1.user_name as u_name,
+            l1.room_id as room,
+            CAST(l1.user_id AS SIGNED) as uid,
+            l1.money
+        FROM lives l1
+        INNER JOIN (
+            SELECT room_id, MAX(money) as max_money
+            FROM lives
+            WHERE user_name LIKE ?
+            GROUP BY room_id
+        ) l2 ON l1.room_id = l2.room_id AND l1.money = l2.max_money
+        WHERE l1.user_name LIKE ?
+        ORDER BY l1.money DESC
+        LIMIT 30
+    `
+		searchPattern := "%" + key + "%"
+		err := db.Raw(query, searchPattern, searchPattern).Scan(&results).Error
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "查询失败",
+				"message": err.Error(),
+				"result":  []interface{}{},
+			})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{
-			"result": result,
+			"result": results,
+			"count":  len(results),
 		})
 	})
 	r.GET("/searchAreaLiver", func(c *gin.Context) {
@@ -156,6 +191,7 @@ func InitHTTP() {
 		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
 		order := c.DefaultQuery("order", "id")
+		//var liverStr = c.DefaultQuery("liver", "")
 		var uidStr = c.DefaultQuery("uid", "-1")
 		var noDM = c.DefaultQuery("no_dm", "false")
 
@@ -202,6 +238,11 @@ func InitHTTP() {
 			query = query.Where("user_name = ?", name)
 			query.Find(&f)
 			db.Model(&Live{}).Where("user_name = ?", name).Count(&totalRecords)
+		}
+
+		if toInt64(uidStr) != 0 {
+			query = query.Where("user_id = ?", uidStr)
+			query.Find(&f)
 		}
 
 		var off int64 = 1
@@ -1113,6 +1154,214 @@ ORDER BY
 			"data": dst,
 		})
 
+	})
+
+	// 可配置的超时时间
+	const (
+		QueryTimeout     = 5 * time.Second // 数据查询超时
+		CountTimeout     = 3 * time.Second // 计数查询超时
+		FastCountTimeout = 1 * time.Second // 快速计数超时
+	)
+	r.GET("/raw", func(c *gin.Context) {
+		var room = c.DefaultQuery("room", "")
+		var typo = c.DefaultQuery("type", "")
+		var order = c.DefaultQuery("order", "")
+		var size = c.DefaultQuery("size", "10")
+		var page = c.DefaultQuery("page", "1")
+
+		if toInt64(room) == 0 {
+			room = ""
+		}
+
+		pageSize, err := strconv.Atoi(size)
+		if err != nil || pageSize <= 0 {
+			pageSize = 10
+		}
+		if pageSize > 100 { // 限制最大页面大小
+			pageSize = 100
+		}
+
+		pageNum, err := strconv.Atoi(page)
+		if err != nil || pageNum <= 0 {
+			pageNum = 1
+		}
+		offset := (pageNum - 1) * pageSize
+
+		// SQL 查询语句
+		query := `
+        SELECT la.*, l.user_id, l.user_name 
+        FROM live_actions la
+        LEFT JOIN lives l ON l.id = la.live
+        WHERE 1=1
+    `
+		var args []interface{}
+
+		if room != "" {
+			query += " AND la.live_room = ?"
+			args = append(args, room)
+		}
+		if typo != "" {
+			query += " AND la.action_type = ?"
+			args = append(args, typo)
+		}
+
+		// 添加排序
+		switch order {
+		case "created_at_asc":
+			query += " ORDER BY la.created_at ASC"
+		case "created_at_desc":
+			query += " ORDER BY la.created_at DESC"
+		case "money_desc":
+			query += " ORDER BY la.gift_price DESC"
+		default:
+			// 默认排序可以根据需要添加
+			// query += " ORDER BY la.id DESC"
+		}
+
+		query += " LIMIT ? OFFSET ?"
+		args = append(args, pageSize, offset)
+
+		type ExtendAction struct {
+			LiveAction
+			UserID   int64
+			UserName string
+		}
+		var results []ExtendAction
+		var total int64
+		var wg sync.WaitGroup
+		var queryErr, countErr error
+
+		// 创建一个共享的取消上下文（可选）
+		rootCtx, rootCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer rootCancel()
+
+		wg.Add(2)
+
+		// 查询数据
+		go func() {
+			defer wg.Done()
+
+			// 创建查询超时上下文
+			ctx, cancel := context.WithTimeout(rootCtx, QueryTimeout)
+			defer cancel()
+
+			// 创建一个通道来接收查询结果
+			done := make(chan error, 1)
+
+			go func() {
+				done <- db.WithContext(ctx).Raw(query, args...).Scan(&results).Error
+			}()
+
+			select {
+			case queryErr = <-done:
+				// 查询完成
+			case <-ctx.Done():
+				// 超时
+				if ctx.Err() == context.DeadlineExceeded {
+					queryErr = fmt.Errorf("查询超时（%v），请尝试缩小查询范围或使用更精确的筛选条件", QueryTimeout)
+				} else {
+					queryErr = ctx.Err()
+				}
+			}
+		}()
+
+		// 查询总数
+		go func() {
+			defer wg.Done()
+			// 对于全量查询使用近似值
+			if (typo == "1" || typo == "") && room == "" {
+				// 快速获取最大ID
+				ctx, cancel := context.WithTimeout(rootCtx, FastCountTimeout)
+				defer cancel()
+
+				var maxID int64
+				err := db.WithContext(ctx).Raw("SELECT id FROM live_actions ORDER BY id DESC LIMIT 1").Scan(&maxID).Error
+
+				if err == nil {
+					total = maxID
+				} else if err == context.DeadlineExceeded {
+					// 快速查询超时，尝试缓存或返回估算值
+					total = -1 // 或者使用缓存的值
+					log.Printf("Fast count query timeout: %v", err)
+				} else {
+					// 其他错误，尝试精确计数
+					fallbackCtx, fallbackCancel := context.WithTimeout(rootCtx, CountTimeout)
+					defer fallbackCancel()
+
+					countQuery := "SELECT COUNT(*) FROM live_actions WHERE 1=1"
+					if err := db.WithContext(fallbackCtx).Raw(countQuery).Scan(&total).Error; err != nil {
+						if err == context.DeadlineExceeded {
+							total = -1
+						} else {
+							countErr = err
+						}
+					}
+				}
+			} else {
+				// 带条件的精确计数
+				countQuery := "SELECT COUNT(*) FROM live_actions WHERE 1=1"
+				countArgs := []interface{}{}
+
+				if room != "" {
+					countQuery += " AND live_room = ?"
+					countArgs = append(countArgs, room)
+				}
+				if typo != "" {
+					countQuery += " AND action_type = ?"
+					countArgs = append(countArgs, typo)
+				}
+
+				ctx, cancel := context.WithTimeout(rootCtx, CountTimeout)
+				defer cancel()
+				err := db.WithContext(ctx).Raw(countQuery, countArgs...).Scan(&total).Error
+
+				if err == context.DeadlineExceeded {
+					// 计数超时，使用估算值
+					total = -1
+					log.Printf("Count query timeout for room=%s, type=%s", room, typo)
+				} else if err != nil {
+					countErr = err
+				}
+			}
+		}()
+
+		// 等待所有goroutine完成
+		wg.Wait()
+
+		// 错误处理
+		if queryErr != nil {
+			status := 500
+			if queryErr == context.DeadlineExceeded {
+				status = 504 // Gateway Timeout
+			}
+			c.JSON(status, gin.H{
+				"error":   "查询失败",
+				"message": queryErr.Error(),
+				"data":    []ExtendAction{}, // 返回空数组而不是null
+			})
+			return
+		}
+
+		if countErr != nil {
+			// 计数失败但数据查询成功，可以返回数据但标记总数未知
+			log.Printf("Count error: %v", countErr)
+			total = -1 // 标记为未知
+		}
+
+		// 计算页数
+		pages := int64(-1)
+		if total > 0 {
+			pages = (total + int64(pageSize) - 1) / int64(pageSize)
+		}
+
+		// 返回结果
+		c.JSON(200, gin.H{
+			"data":  results,
+			"page":  pageNum,
+			"size":  pageSize,
+			"total": total,
+			"pages": pages,
+		})
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }

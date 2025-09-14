@@ -1,30 +1,77 @@
 import React, {useEffect} from 'react';
-import {Autocomplete, AutocompleteItem, Avatar, Button, Chip, Input, Select, SelectItem} from "@heroui/react";
+import {
+    Autocomplete,
+    AutocompleteItem,
+    Avatar,
+    Button,
+    Chip,
+    Input,
+    ScrollShadow,
+    Select,
+    SelectItem
+} from "@heroui/react";
 import axios from "axios";
 import {CheckIcon} from "./ChatPage";
+import {NavLink} from "react-router-dom";
+
+
+
+
+
+
+function uniqueByKey(arr, key) {
+    const seen = new Set();
+    return arr.filter(obj => {
+        if (seen.has(obj[key])) {
+            return false;
+        }
+        seen.add(obj[key]);
+        return true;
+    });
+}
 
 
 function SearchPage(props) {
 
-    const [type, setType] = React.useState('name');
+    const [type, setType] = React.useState('name')
 
-    const [items, setItems] = React.useState([]);
+    const [items, setItems] = React.useState([])
 
-    const [text,setText] = React.useState("");
+    const [text,setText] = React.useState("")
 
-    const [avatar,setAvatar] = React.useState("");
+    const [avatar,setAvatar] = React.useState("")
+
+    const [rooms,setRooms] = React.useState([])
+
 
     useEffect(() => {
         setAvatar("https://i1.hdslb.com/bfs/face/5ddddba98f0265265662a8f7d5383e528a98412b.jpg")
+        axios.get("/api/status").then((response) => {
+            setRooms(uniqueByKey(response.data.Rooms.sort((a,b) => a.Fans < b.Fans ? 1 : -1),"UID"));
+        })
     }, []);
 
     return (
+
         <div className={'w-full flex flex-col items-center  h-full'}>
             <Avatar src={avatar}
                     className={'w-[200px] h-[200px] mt-[5vh]'}>
 
             </Avatar>
-            <div className={'flex w-full mt-[20vh] sm:flex-row flex-col'}>
+            <ScrollShadow className={'w-[80vw] sm:w-[50vw] max-h-[20vh] overflow-scroll scrollbar-hide mt-6'}>
+
+                    {rooms.map((room, index) => (
+                        <NavLink to={'/liver/' + room.UID}>
+                            <Chip
+                                avatar={<Avatar name={room.UName} src={room.Face} />}
+                                variant="flat"
+                                className={'ml-2 mt-1'}
+                            >
+                                <p className={'font-bold'}>{room.UName}</p>
+                            </Chip>
+                        </NavLink>))}
+            </ScrollShadow>
+            <div className={'flex w-full mt-[6vh] sm:flex-row flex-col'}>
                 <Select className="sm:max-w-xs sm:mr-4 " onSelectionChange={(e) => {
                     setType(e.currentKey);
                 }} label={'Type'} selectedKeys={['name']}>
@@ -60,8 +107,9 @@ function SearchPage(props) {
                                 setAvatar(`${AVATAR_API}${e.UID}`)
                             }}>
                                 <div className={'flex flex-row'}>
-                                    <div>
+                                    <div className={'flex flex-col'}>
                                         <Avatar src={`${AVATAR_API}${e.UID}`} className={'mr-2'}/>
+
                                     </div>
                                     <div>
                                         <p className={'font-bold'}>{e.UName}</p>
@@ -99,7 +147,6 @@ function SearchPage(props) {
                         <Input label={'Input...'} onChange={(e) => {
                             setText(e.target.value)
                         }}>
-
                         </Input>
                         <Button color={'primary'} onPress={() => {
                             if (type === "room") {

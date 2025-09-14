@@ -130,7 +130,10 @@ func RefreshLivers() {
 	}
 	wg.Wait()
 	for _, livers := range idMap {
-		result = append(result, livers[len(livers)-1])
+		if len(lives) > 0 {
+			result = append(result, livers[len(livers)-1])
+		}
+
 	}
 
 	type DiffStruct struct {
