@@ -71,10 +71,8 @@ function LivePage(props) {
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
         var url = `${protocol}://${host}:${port}/api/live?page=` + page + "&limit=" + size
-        if (name != null) {
-            url = url + `&name=${name}`
-        }else if (liver !== "" && liver !== null) {
-            url = url + `&name=${liver}`
+        if (liver != null && liver !== "") {
+            url = url + "&uid=" + (liver===-1?"":liver)
         }
         url = url + "&order=" + order
         axios.get(url).then(res => {
@@ -99,6 +97,7 @@ function LivePage(props) {
     }, [])
 
     const [filters, setFilters] = useState([]);
+    /*
     useEffect(() => {
         var arr = []
         dataSource.forEach(item => {
@@ -109,6 +108,8 @@ function LivePage(props) {
         })
         setFilters(arr)
     }, [dataSource])
+
+     */
 
     const [currentPage, setCurrentPage] = useState(window.page??1);
 
@@ -139,26 +140,29 @@ function LivePage(props) {
             <div className='sm:flex-row flex mb-4 flex-col'>
                 <Autocomplete
                     className="max-w-xs mt-4 mb-4 ml-4"
-                    defaultItems={filters}
+                    items={filters}
                     label="Liver"
                     onSelectionChange={e => {
                         setCurrentPage(1)
-                        setLiver(e)
-                        setTimeout(() => {
-                            //refreshData(currentPage, pageSize, e)
-                        },50)
+
+                        filters.forEach(filter => {
+                            if (filter.UID === parseInt(e)) {
+                                setLiver(filter.UID)
+                            }
+                        })
                         console.log("onSelectionChange")
                     }}
                     onInputChange={e => {
-                        console.log(e)
-                        axios.get(`${protocol}://${host}:${port}/api/searchLiver?key=` + e).then(res => {
-                            if (!res.data.result) return; // 处理 null/undefined/空数据
-                            const newFilters = res.data.result.map((item) => ({key: item, value: item}));
-                            setFilters(newFilters);
+                        axios.get(`/api/searchLiver?key=` + e).then(res => {
+                            if (!res.data.result) return;
+                            setFilters(res.data.result);
                         })
                     }}
+                    onClear={() => {
+                        setLiver(-1)
+                    }}
                 >
-                    {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
+                    {(f) => <AutocompleteItem key={f.UID}>{f.UName}</AutocompleteItem>}
                 </Autocomplete>
                 <Select
                     className="max-w-xs mt-4 mb-4 ml-4"
