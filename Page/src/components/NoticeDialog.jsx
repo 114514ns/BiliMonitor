@@ -10,7 +10,7 @@ function NoticeDialog(props) {
 
     return (
         <div className={'max-h-1/2'}>
-            <Modal onClose={props.onClose} isOpen={true} size={'md'} className={'max-h-1/2 sm:max-h-2/3'}>
+            <Modal onClose={props.onClose} isOpen={true} size={'md'} className={'max-h-1/2 sm:max-h-2/3'} scrollBehavior={'inside'}>
                 <ModalContent>
                     <ModalHeader>
                         About & Notice
