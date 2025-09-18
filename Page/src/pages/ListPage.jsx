@@ -10,10 +10,10 @@ import {
     Listbox,
     ListboxItem,
     Select,
-    SelectItem, ToastProvider, Tooltip,Code
+    SelectItem, ToastProvider, Tooltip, Code, Autocomplete, AutocompleteItem
 } from "@heroui/react";
 import axios from "axios";
-import {useNavigate} from "react-router-dom";
+
 
 function formatTime(isoString) {
     const date = new Date(isoString);
@@ -64,21 +64,37 @@ function ListPage(props) {
     const [bioFilter, setBioFilter] = React.useState('');
 
 
-    const port = location.port
+    var guildData = []
 
-    const protocol = location.protocol.replace(":", "")
-
-    const redirect = useNavigate();
-
+    const [guildList, setGuildList] = React.useState([]);
 
     var rawSQLRef = React.createRef();
 
+    useEffect(() => {
+        async function fetchData() {
+            const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{
+                referrerPolicy: "no-referrer"
+            });
+            const arrayBuffer = await response.arrayBuffer()
+            var dec = new TextDecoder();
+            guildData = (JSON.parse(dec.decode(arrayBuffer).substring(16569)))
+        }
+        fetchData();
+    },[])
+
 
     useEffect(() => {
-        var url = `${protocol}://${host}:${port}/api/areaLivers`
+        var url = `/api/areaLivers`
         axios.get(url).then((response) => {
+            var memberMap = new Map()
+            guildData.forEach((guild) => {
+                memberMap.set(guild.uid, guild.guild_name);
+            })
             response.data.list.forEach((element, index) => {
                 const parts = element.Guard.split(',');
+                if (memberMap.has(response.data.list[index].UID)) {
+                    response.data.list[index].Guild = memberMap.get(response.data.list[index].UID);
+                }
                 response.data.list[index].GuardCount =
                     parseInt(parts[0]) + parseInt(parts[1]) + parseInt(parts[2]);
             });
@@ -97,6 +113,7 @@ function ListPage(props) {
                     }
 
                 })
+
             })
             var temp = []
             map.forEach((item, i) => {
@@ -110,6 +127,31 @@ function ListPage(props) {
                 temp.push(e[0]);
             })
             setVerify(temp)
+            map.clear()
+            temp = []
+            var map = new Map();
+            guildData.forEach(item => {
+                if (map.has(item.guild_name)) {
+                    map.set(item.guild_name,map.get(item.guild_name)+1);
+                }
+                else {
+                    map.set(item.guild_name,1)
+                }
+            })
+            console.log(map)
+            map.forEach((i, item) => {
+                temp.push({
+                    GuildName:item,
+                    Members:i,
+                })
+            })
+            temp.sort((a, b) => {
+                return b.Members -a.Members;
+            })
+            temp.unshift({
+                GuildName:'Any',
+            });
+            setGuildList(temp);
         })
     }, [])
 
@@ -189,7 +231,7 @@ function ListPage(props) {
                                 setFiltered(prev => [...prev].sort((a, b) => (b.Fans/(b.Fans-b.MonthlyDiff))- a.Fans/(a.Fans-a.MonthlyDiff)))
                                 return;
                             }
-                            var url = `${protocol}://${host}:${port}/api/areaLivers?sort=${item.key}`
+                            var url = `/api/areaLivers?sort=${item.key}`
                             axios.get(url).then((response) => {
                                 setList(response.data.list);
                                 setFiltered(response.data.list);
@@ -203,6 +245,26 @@ function ListPage(props) {
                         <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
                     ))}
                 </Select>
+                <Autocomplete className="max-w-xs mb-4 mr-4" label="Guild filter" defaultItems={guildList} onSelectionChange={e => {
+                    if (e === 'Any') {
+                        setFiltered(list)
+                    } else {
+                        setFiltered(list.filter(item => item.Guild === e))
+                    }
+                }} onClear={() => {
+                    setFiltered(list)
+                }}>
+                    {(item) => {
+                        return (
+                            <AutocompleteItem key={item.GuildName} textValue={item.GuildName} >
+                                <span>
+                                    {item.GuildName}
+                                    {item.Members && <span className={'text-small'}> ({item.Members})  Members </span>}
+                                </span>
+                            </AutocompleteItem>
+                        )
+                    }}
+                </Autocomplete>
                 <Input className='max-w-xs mb-4 mr-4' onChange={event => setBioFilter(event.target.value)}
                        label={'Sign filter'}></Input>
                 <Tooltip content={<Card>
@@ -267,10 +329,12 @@ function ListPage(props) {
                     ></Input>
                 </Tooltip>
             </div>
-            <Listbox
+
+{/*            <Listbox
+
                 virtualization={{
                     maxListboxHeight: calcHeight()-120,
-                    itemHeight: 310,
+                    itemHeight: 325,
                 }}
                 hideSelectedIcon
                 variant={'light'}
@@ -294,10 +358,36 @@ function ListPage(props) {
                             UID={item.UID}
                             Bio={item.Bio}
                             Verify={item.Verify}
+                            Guild={item.Guild}
 
                         />
                     </ListboxItem>))}
-            </Listbox>
+            </Listbox>*/}
+
+            <div style={{height:`${calcHeight()-120}px`}} className={'overflow-scroll'}>
+                {filted.slice(0,2000).map((item, index) => (
+                    <div onClick={() => {
+                        window.open(location.origin + "/liver/" + item.UID)
+                    }} key={item.UID}>
+                        <LiverCard
+                            Rank={index}
+                            Avatar={`${AVATAR_API}${item.UID}`}
+                            UName={item.UName}
+                            Guard={item.Guard}
+                            DailyDiff={item.DailyDiff}
+                            MonthlyDiff={item.MonthlyDiff}
+                            Fans={item.Fans}
+                            LastActive={(item.LastActive)}
+                            UID={item.UID}
+                            Bio={item.Bio}
+                            Verify={item.Verify}
+                            Guild={item.Guild}
+
+                        />
+                    </div>))
+ }
+
+            </div>
 
             <div style={{
                 position: 'fixed',
@@ -314,14 +404,12 @@ function ListPage(props) {
 
         </div>
     );
-
 }
-
 const LiverCard = memo(function LiverCard(props) {
     const up = props.DailyDiff >= 0
     const mup = props.MonthlyDiff >= 0
     return (
-        <Card isHoverable style={{width: "100%", marginTop: "16px"}}>
+        <Card isHoverable style={{width: "100%", marginTop: "16px"}} >
             <CardBody style={{
                 display: "flex",
                 alignItems: "center",
@@ -357,6 +445,7 @@ const LiverCard = memo(function LiverCard(props) {
                     <p style={{margin: 0}}>日增：{<span
                         style={{color: up ? '#00cc00' : '#ff0000'}}>{up ? '▲' : '▼'}</span>}{props.DailyDiff}</p>
                     <p style={{margin: 0}}>大航海：{props.Guard}</p>
+                    {props.Guild && <p style={{margin: 0}}>公会：{props.Guild}</p>}
                     <p style={{margin: 0, color: "#888"}}>上次直播：{formatTime(props.LastActive)}</p>
                     <p>{props.Bio}</p>
                     {props.Verify === '' ? <></> : <p style={{color: 'rgba(190,151,48,1)'}}>{props.Verify}</p>}
