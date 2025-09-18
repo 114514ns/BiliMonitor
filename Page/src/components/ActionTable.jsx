@@ -135,13 +135,12 @@ function ActionTable(props) {
 
                             }}>
                                 <Tooltip content={'点击跳转'}>
-                                    <div className={'hover:scale-105 transition-transform hover:text-gray-500'}>
+                                    <div className={'transition-transform hover:text-gray-500'}>
                                                                             <span>
                                         {item.GiftName || item.Extra }
                                     </span>
                                         {item.ActionName==="gift" && item.GiftAmount.Int16 !== 1 && <span className={'font-bold'}>*{item.GiftAmount.Int16}</span>}
                                     </div>
-
                                 </Tooltip>
                             </TableCell>
                         </TableRow>
