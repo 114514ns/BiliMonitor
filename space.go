@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/bytedance/sonic"
 	"log"
 	"math/rand"
 	"strconv"
 	"time"
+
+	"github.com/bytedance/sonic"
+	pool2 "github.com/sourcegraph/conc/pool"
 )
 
 // 获取up主的粉丝数
@@ -41,6 +43,8 @@ var commonDone = true
 
 // 刷新粉丝数
 func UpdateCommon() {
+	var start = time.Now()
+	var pool = pool2.New().WithMaxGoroutines(8)
 	if commonDone {
 		commonDone = false
 	} else {
@@ -61,15 +65,21 @@ func UpdateCommon() {
 				continue //每三次中有一次的全量更新，剩下的情况只更新1000粉以上的
 			}
 		}
+		pool.Go(func(uid int64) func() {
+			return func() {
+				var user = FetchUser(strconv.FormatInt(uid, 10), nil)
+				user.Face = ""
+				if user.Fans != 0 {
+					db.Save(&user)
+				}
+				time.Sleep(2 * time.Second)
+			}
+		}(id))
 
-		var user = FetchUser(strconv.FormatInt(id, 10), nil)
-		user.Face = ""
-		if user.Fans != 0 {
-			db.Save(&user)
-		}
-
-		time.Sleep(3 * time.Second)
 	}
+
+	pool.Wait()
+	log.Println("[UpdateCommon] finished ", time.Since(start))
 	commonDone = true
 }
 

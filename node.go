@@ -154,7 +154,14 @@ func NewSlaverManager(node []string) *SlaverManager {
 
 			all := man.GetAllTasks(true)
 
+			var tmp []string
 			for _, s := range all {
+				if !Has(config.Tracing, s) {
+					tmp = append(tmp, s)
+				}
+			}
+
+			for _, s := range tmp {
 				var u = "https://api.live.bilibili.com/xlive/web-room/v1/index/getRoomBaseInfo?req_biz=web_room_componet&room_ids=" + s
 				r, err := localClient.R().Get(u)
 				if err != nil {

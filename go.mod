@@ -4,7 +4,6 @@ go 1.24.4
 
 require (
 	github.com/114514ns/BiliClient v0.0.0-00010101000000-000000000000
-	github.com/Pooh-Mucho/go-mysql-stdzlib v0.0.0-20200618055944-52e80a3e5c87
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/andybalholm/brotli v1.1.1
 	github.com/bytedance/sonic v1.13.3
@@ -22,6 +21,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0
 	golang.org/x/net v0.39.0
 	golang.org/x/sync v0.13.0
+	gorm.io/datatypes v1.0.5
 	gorm.io/driver/clickhouse v0.7.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.30.0
@@ -74,6 +74,9 @@ require (
 	golang.org/x/text v0.24.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/postgres v1.2.3 // indirect
+	gorm.io/driver/sqlite v1.6.0 // indirect
+	gorm.io/driver/sqlserver v1.6.1 // indirect
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
 	modernc.org/memory v1.5.0 // indirect

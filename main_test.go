@@ -2,13 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/114514ns/BiliClient"
-	"github.com/bytedance/sonic"
-	pool2 "github.com/sourcegraph/conc/pool"
-	"gorm.io/driver/clickhouse"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"log"
 	"math/rand"
 	"os"
@@ -16,6 +9,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/114514ns/BiliClient"
+	"github.com/bytedance/sonic"
+	pool2 "github.com/sourcegraph/conc/pool"
+	"gorm.io/driver/clickhouse"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func loadDB() {
@@ -64,7 +65,7 @@ func TestGetFansClub(t *testing.T) {
 func TestTraceArea(t *testing.T) {
 	//loadDB()
 	loadConfig()
-	TraceArea(9)
+	TraceArea(9, true)
 }
 
 func TestAnalyzeWatcher(test *testing.T) {
@@ -120,6 +121,25 @@ func TestMerge(test *testing.T) {
 		lastID = int(rows[len(rows)-1].ID)
 		total += len(rows)
 		fmt.Printf("已迁移 %d 行，最后ID=%d\n", total, lastID)
+	}
+}
+
+func TestRefreshLiveCount(test *testing.T) {
+	loadConfig()
+	loadDB()
+	var dst []Live
+	db.Raw("select * from lives order by id desc").Scan(&dst)
+	for _, live := range dst {
+		var msg = 0
+		var money = 0.0
+		var end time.Time
+		db.Raw("select count(*) from live_actions where live = ?", live.ID).Scan(&msg)
+		db.Raw("select sum(gift_price) from live_actions where live = ?", live.ID).Scan(&money)
+		db.Raw("select created_at from live_actions where live = ? order by id desc limit 1", live.ID).Scan(&end)
+		db.Raw("update lives set money = ? where id = ?", money, live.ID).Scan(&msg)
+		db.Raw("update lives set message = ? where id = ?", msg, live.ID).Scan(&msg)
+		db.Raw("update lives set end_at = ? where id = ?", end.Unix(), live.ID)
+
 	}
 }
 

@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {useNavigate, useParams} from "react-router-dom";
 import axios from "axios";
 import {
+    addToast,
     Avatar, Button,
     Card,
     CardBody,
@@ -47,15 +48,30 @@ function LiverPage(props) {
 
     const [stream,setStream] = React.useState({})
 
+    const [guild,setGuild] = React.useState("");
+
 
     let {id} = useParams();
 
     React.useEffect(() => {
+        if (localStorage.getItem("guild")) {
+            JSON.parse(localStorage.getItem("guild")).forEach((item) => {
+                if (item.uid === parseInt(id)) {
+                    setGuild(item.guild_name)
+                }
+            })
+        }
+
+    },[])
+
+    React.useEffect(() => {
+
         axios.get(`${protocol}://${host}:${port}/api/chart/fans?uid=${id}&month=${month}`).then((response) => {
             setFansChart(response.data.data??[]);
         })
         axios.get(`${protocol}://${host}:${port}/api/liver/space?uid=${id}`).then((response) => {
             setSpace(response.data);
+            document.title = response.data.UName + '的直播记录'
         })
         axios.get(`${protocol}://${host}:${port}/api/chart/guard?uid=${id}&month=${month}`).then((response) => {
             var dst = []
@@ -159,9 +175,10 @@ function LiverPage(props) {
                                       fill="white"></path>
                             </svg>
                             <span className={'font-bold ml-2'}>{space.Verify}</span>
+
                         </div>
                     }
-
+                    {guild && <span className={'font-thin text-sm'}>公会：{guild}</span>}
                     <span className={'font-thin text-sm'}>{space.Bio}</span>
                 </div>
             </div>
