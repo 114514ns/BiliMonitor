@@ -37,7 +37,7 @@ window.vwToPx= (vhPercent) =>{
 }
 
 window.AVATAR_API = 'https://workers.vrp.moe/bilibili/avatar/'
-
+document.title = "Vtuber数据台"
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
         config.url = config.url?.replace('/api', '');
@@ -63,15 +63,22 @@ window.getGuardIcon= (level) =>{
 window.isMobile = ()=> {
     return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)  || window.innerWidth <= 768
 }
+const fetchGuild = async () => {
+    if (!localStorage.getItem("guild")) {
+        const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{
+            referrerPolicy: "no-referrer"
+        });
+        const arrayBuffer = await response.arrayBuffer()
+        var dec = new TextDecoder();
+        localStorage.setItem("guild", dec.decode(arrayBuffer).substring(16569));
+    }
 
-
+}
+fetchGuild();
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>
-           
                   <App />
-
-
           </BrowserRouter>
       </HeroUIProvider>
 )

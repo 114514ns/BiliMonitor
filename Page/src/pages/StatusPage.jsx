@@ -1,7 +1,6 @@
 import React, {useEffect} from 'react';
 import axios from "axios";
 import {Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis} from "recharts";
-import {Dropdown, DropdownItem} from "@heroui/react";
 
 function StatusPage(props) {
 
@@ -27,12 +26,25 @@ function StatusPage(props) {
     const color = 'success'
     const [msg, setMsg] = React.useState([]);
     useEffect(() => {
-        var intervalId = setInterval(() => {
-            axios.get('/api/status').then(res => {
-                setOverview(res.data);
-            })
-        }, 500)
-        return () => clearInterval(intervalId);
+        var prefix = 'api'
+        if (import.meta.env.PROD) {
+            prefix = ""
+        }
+        let ws = new WebSocket(`${prefix}/status`);
+        ws.onclose = () => {
+            console.log('WebSocket disconnected');
+        }
+        ws.onmessage = e => {
+            setOverview(JSON.parse(e.data))
+        }
+        var intervalId = 0
+        ws.onopen = () => {
+            intervalId = setInterval(() => {
+                ws.send('鸡你太美')
+            }, 2000)
+        }
+
+        return () => clearInterval(intervalId)
     }, [])
     useEffect(() => {
         axios.get('/api/chart/msg').then(res => {
@@ -94,7 +106,7 @@ function StatusPage(props) {
                         className="font-semibold">{formatNumber(overview.WSBytes)}</span>
                 </div>
             </div>
-            {msg.length > 0 &&
+            {msg && msg.length > 0 && msg[0] &&
                 msg.map((msg, i) => (
                     <div className={'h-[250px]'}>
                         <ResponsiveContainer>
@@ -137,15 +149,17 @@ function StatusPage(props) {
                                 <Tooltip content={({label, payload}) => (
                                     <div>
                                         {payload[0] &&
-                                            <div className="flex h-auto min-w-[120px] items-center gap-x-2 rounded-medium bg-foreground p-2 text-tiny shadow-small">
-                                            <div className="flex w-full flex-col gap-y-0">
-                                                <div className="flex w-full items-center gap-x-2">
-                                                    <div className="flex w-full items-center gap-x-1 text-small text-background">
-                                                        <span>{payload[0].value}</span>
+                                            <div
+                                                className="flex h-auto min-w-[120px] items-center gap-x-2 rounded-medium bg-foreground p-2 text-tiny shadow-small">
+                                                <div className="flex w-full flex-col gap-y-0">
+                                                    <div className="flex w-full items-center gap-x-2">
+                                                        <div
+                                                            className="flex w-full items-center gap-x-1 text-small text-background">
+                                                            <span>{payload[0].value}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </div>}
+                                            </div>}
                                     </div>
                                 )}/>
                                 <YAxis

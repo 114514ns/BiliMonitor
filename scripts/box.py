@@ -3,7 +3,7 @@ import json
 import pymysql
 
 def query():
-    cursor.execute("SELECT * FROM live_actions where action_name = 'gift' and extra like '%盲盒%' order by gift_price desc")
+    cursor.execute("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and extra like '%盲盒%' order by gift_price desc")
     array = cursor.fetchall()
     m = {}
     got = 0
@@ -13,18 +13,18 @@ def query():
     watcher = {}
     for item in array:
         count = count + 1
-        extra = item[10]
+        extra = item[0]
         name = str.split(extra,",")[0]
-        got = got + int(item[8])
+        got = got + int(item[2])
         if str.split(extra,",")[0] in t:
             t[name]["count"] = t[name]["count"] + 1
-            t[name]["diff"] = t[name]["diff"] + int(item[8])-int(int(str.split(extra,",")[1]) * item[9])
+            t[name]["diff"] = t[name]["diff"] + int(item[2])-int(int(str.split(extra,",")[1]) * item[1])
         else:
             t[name] = {}
             t[name]["count"] = 1
             t[name]["returnRate"] = int(str.split(extra,",")[1])
-            t[name]["diff"] = int(item[8])-int(int(str.split(extra,",")[1]) * item[9])
-        spent = spent +int(int(str.split(extra,",")[1]) * item[9])
+            t[name]["diff"] = int(item[2])-int(int(str.split(extra,",")[1]) * item[1])
+        spent = spent +int(int(str.split(extra,",")[1]) * item[1])
 
     for k in t:
         t[k]["percent"] = round(t[k]["count"]/count,2)

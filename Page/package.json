@@ -17,6 +17,7 @@
     "@vitejs/plugin-basic-ssl": "^2.1.0",
     "@vitejs/plugin-react": "^4.3.4",
     "axios": "1.8.2",
+    "framer-motion": "^12.23.18",
     "github-markdown-css": "^5.8.1",
     "react": "^19.1.1",
     "react-compiler-runtime": "^19.1.0-rc.3",
