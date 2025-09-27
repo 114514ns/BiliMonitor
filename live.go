@@ -5,11 +5,6 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
-	"github.com/andybalholm/brotli"
-	"github.com/bytedance/sonic"
-	"github.com/gorilla/websocket"
-	pool2 "github.com/sourcegraph/conc/pool"
-	"gorm.io/gorm"
 	"io"
 	"log"
 	"math/rand"
@@ -22,6 +17,13 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/andybalholm/brotli"
+	"github.com/bytedance/sonic"
+	"github.com/gorilla/websocket"
+	pool2 "github.com/sourcegraph/conc/pool"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type SelfInfo struct {
@@ -51,7 +53,7 @@ func GetServerState(room string) bool {
 	return status.Data.LiveStatus == 1
 }
 func RemoveEmpty() {
-	db.Where("money = 0 and message = 0").Delete(&Live{})
+	//db.Where("money = 0 and message = 0").Delete(&Live{})
 }
 func RecoverLive() {
 	var array []Live
@@ -313,49 +315,19 @@ var guardWorker = NewWorker(1)
 
 var guardWorkerMap = make(map[int64]time.Time)
 
-func addLog(chain []Log, content string) {
-	/*
-		chain = append(chain, Log{Time: time.Now(), Content: content})
-		_, file, line, ok := runtime.Caller(1)
-		if !ok {
-			file = "???"
-			line = 0
-		}
-
-		// 生成完整日志内容
-		timestamp := time.Now().Format("2006/01/02 15:04:05") // 和标准 log 一致
-		fullMsg := fmt.Sprintf("%s %s:%d: %s", timestamp, file, line, content)
-		fmt.Println(fullMsg)
-
-	*/
-}
-func SendMessage(msg string, room int, onResponse func(string)) {
-
-	//u := "https://api.live.bilibili.com/msg/send?"
-	//url3, _ := url.Parse(u)
-	//signed, _ := client.WBI.SignQuery(url3.Query(), time.Now())
-	st := `{"appId":100,"platform":5}`
-	body := fmt.Sprintf("bubble=0&msg=%s&color=16777215&mode=1&room_type=0&jumpfrom=71001&reply_mid=0&reply_attr=0&replay_dmid=&statistics=%s&fontsize=25&rnd=%d&roomid=%d&csrf=%s&csrf_token=%s", msg, st, time.Now().Unix()/1000, room, CSRF(), CSRF())
-	res, _ := client.R().SetHeader("Content-Type", "application/x-www-form-urlencoded").SetHeader("Cookie", config.Cookie).SetBody(body).Post("https://api.live.bilibili.com/msg/send?" /*+ signed.Encode()*/)
-	fmt.Println(res.String())
-	if onResponse != nil {
-		onResponse(res.String())
-	}
-}
-
-var nameMap sync.Map
-
-func TraceArea(parent int) {
+func TraceArea(parent int, full bool) {
 	log.Println("begin TraceArea")
 	var lock sync.Mutex
-	if working {
+	if working && full { //上一个没有爬完，而且不是全的模式，就跳过这次
 		log.Println("TraceArea is still executing,break")
 		return //确保不会重叠执行
 	}
 	var page = 1
 	defer func() {
-		log.Println("set work false")
-		working = false
+		if full {
+			log.Println("set work false")
+			working = false
+		}
 	}()
 	var arr = make([]AreaLiver, 0)
 	for {
@@ -363,7 +335,9 @@ func TraceArea(parent int) {
 			Room string
 			Time int64
 		}
-		working = true
+		if full {
+			working = true
+		}
 		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?area_id=0&build=1001016004&device=win&page=%d&parent_area_id=%d&platform=web&web_location=bilibili-electron", page, parent))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
@@ -396,7 +370,7 @@ func TraceArea(parent int) {
 					}
 					var hour = time.Now().Hour()
 					//白天2500粉丝以上被爬取，晚上8000粉以上，10舰长以上
-					if fans > 8000 {
+					if fans > 4000 {
 						if hour > 19 {
 							var guards = 0
 							for _, i := range strings.Split(o.Guard, ",") {
@@ -427,153 +401,158 @@ func TraceArea(parent int) {
 			}
 		}()
 
-		for _, s2 := range obj.Data.List {
-			t, ok := guardWorkerMap[s2.UID]
-			if !ok || time.Since(t).Hours() > 12 {
-				guardWorkerMap[s2.UID] = time.Now()
-				go func() {
-					guardWorker.AddTask(func() {
-						var fansMap = make(map[int64]DBGuard)
+		if full {
+			for _, s2 := range obj.Data.List {
+				t, ok := guardWorkerMap[s2.UID]
+				if !ok || time.Since(t).Hours() > 12 {
+					guardWorkerMap[s2.UID] = time.Now()
+					go func() {
+						guardWorker.AddTask(func() {
+							var fansMap = make(map[int64]DBGuard)
 
-						i := AreaLiver{}
-						i.UName = s2.UName
-						i.UID = s2.UID
-						i.Room = s2.Room
-						i.Area = s2.Area
-						GetFace(strconv.FormatInt(s2.UID, 10))
-						arr = append(arr, i)
-						var found = AreaLiver{}
-						var live = AreaLive{}
-						var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
-						r, _ := client.R().Get(u0)
-						var info = LiveStreamResponse{}
-						sonic.Unmarshal(r.Body(), &info)
-						db.Model(&AreaLive{}).Where("uid = ?", s2.UID).Last(&live)
-						if live.Time.Unix() != time.Unix(info.Data.Time, 0).Unix() {
+							i := AreaLiver{}
+							i.UName = s2.UName
+							i.UID = s2.UID
+							i.Room = s2.Room
+							i.Area = s2.Area
+							GetFace(strconv.FormatInt(s2.UID, 10))
+							arr = append(arr, i)
+							var found = AreaLiver{}
+							var live = AreaLive{}
+							var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
+							r, _ := client.R().Get(u0)
+							var info = LiveStreamResponse{}
+							sonic.Unmarshal(r.Body(), &info)
+							db.Model(&AreaLive{}).Where("uid = ?", s2.UID).Last(&live)
+							if live.Time.Unix() != time.Unix(info.Data.Time, 0).Unix() {
 
-							var l = AreaLive{}
-							l.UName = s2.UName
-							l.UID = s2.UID
-							l.Room = s2.Room
-							l.Cover = s2.Cover
-							l.Title = s2.Title
-							l.Area = s2.Area
-							l.Watch = s2.Watch.Num
-							l.Time = time.Unix(info.Data.Time, 0)
-							l.LastSeen = time.Now()
-							live.Duration = int(live.LastSeen.Sub(live.Time).Minutes())
-							db.Save(&l)
-						} else {
-							live.Watch = s2.Watch.Num
-							live.LastSeen = time.Now()
-							live.Duration = int(live.LastSeen.Sub(live.Time).Minutes())
-							db.Save(&live)
-						}
-						//log.Printf("current Liver %s", s2.UName)
-						db.Model(&AreaLiver{}).
-							Where("uid = ?", s2.UID).
-							Order("id DESC").
-							First(&found)
-						//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
-						if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*36 {
-							if found.UID == 0 {
-								//如果这个主播在数据库里没有，就获取活跃的粉丝团用户列表，和免费的粉丝团用户是数量
-								GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
-									club := FansClub{}
-									lock.Lock()
-									fansMap[g.UID] = g
-									lock.Unlock()
-									club.DBGuard = g
-									club.Liver = s2.UName
-									club.LiverID = s2.UID
-
-									db.Save(&club)
-								})
-
-								i.FreeClubs = GetFreeClubCounts(strconv.FormatInt(s2.UID, 10), 500)
-
+								var l = AreaLive{}
+								l.UName = s2.UName
+								l.UID = s2.UID
+								l.Room = s2.Room
+								l.Cover = s2.Cover
+								l.Title = s2.Title
+								l.Area = s2.Area
+								l.Watch = s2.Watch.Num
+								l.Time = time.Unix(info.Data.Time, 0)
+								l.LastSeen = time.Now()
+								live.Duration = int(live.LastSeen.Sub(live.Time).Minutes())
+								db.Save(&l)
 							} else {
-								//数据库里已经有这个主播的情况下只要更新活跃的用户就可以了
-								GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
-									club := FansClub{}
-									lock.Lock()
-									fansMap[g.UID] = g
-									lock.Unlock()
-									db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
-									club.DBGuard = g
-									club.Liver = s2.UName
-									club.LiverID = s2.UID
-									if club.Score != 0 {
-										club.Score = g.Score //如何数据库里这名用户没有这位主播的粉丝牌，就插入一条记录
-										db.Save(&club)
-									} else {
+								live.Watch = s2.Watch.Num
+								live.LastSeen = time.Now()
+								live.Duration = int(live.LastSeen.Sub(live.Time).Minutes())
+								db.Save(&live)
+							}
+							//log.Printf("current Liver %s", s2.UName)
+							db.Model(&AreaLiver{}).
+								Where("uid = ?", s2.UID).
+								Order("id DESC").
+								First(&found)
+							//如果这个主播在数据库里没有，或者上次更新超过两天，就更新一下
+							if found.UID == 0 || time.Now().Unix()-found.UpdatedAt.Unix() > 3600*36 {
+								if found.UID == 0 {
+									//如果这个主播在数据库里没有，就获取活跃的粉丝团用户列表，和免费的粉丝团用户是数量
+									GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
+										club := FansClub{}
 										lock.Lock()
 										fansMap[g.UID] = g
 										lock.Unlock()
+										club.DBGuard = g
+										club.Liver = s2.UName
+										club.LiverID = s2.UID
+
 										db.Save(&club)
+									})
+
+									i.FreeClubs = GetFreeClubCounts(strconv.FormatInt(s2.UID, 10), 500)
+
+								} else {
+									//数据库里已经有这个主播的情况下只要更新活跃的用户就可以了
+									GetFansClub(strconv.FormatInt(s2.UID, 10), func(g DBGuard) {
+										club := FansClub{}
+										lock.Lock()
+										fansMap[g.UID] = g
+										lock.Unlock()
+										db.Model(&FansClub{}).Where("uid = ? and liver_id = ?", g.UID, s2.UID).Last(&club)
+										club.DBGuard = g
+										club.Liver = s2.UName
+										club.LiverID = s2.UID
+										if club.Score != 0 {
+											club.Score = g.Score //如何数据库里这名用户没有这位主播的粉丝牌，就插入一条记录
+											db.Save(&club)
+										} else {
+											lock.Lock()
+											fansMap[g.UID] = g
+											lock.Unlock()
+											db.Save(&club)
+										}
+									})
+
+								}
+								log.Printf("[%s] begin fetch guardList", s2.UName)
+								var user = FetchUser(strconv.FormatInt(s2.UID, 10), nil)
+								user.Face = ""
+								var guards = make([]DBGuard, 0)
+								var l1 = 0
+								var l2 = 0
+								var l3 = 0
+								var size = 0
+								for size0, watcher := range GetGuardList(strconv.Itoa(i.Room), strconv.FormatInt(s2.UID, 10)) {
+									size = size0
+									ins := DBGuard{}
+									ins.Type = watcher.Guard
+									ins.UID = watcher.UID
+									ins.UName = watcher.Name
+									ins.Level = watcher.Medal.Level
+									ins.Liver = s2.UName
+									ins.LiverID = s2.UID
+									ins.MedalName = watcher.Medal.Name
+									lock.Lock()
+									ins.Score = fansMap[watcher.UID].Score
+									lock.Unlock()
+									if ins.Score == 0 {
+										var found FansClub
+										db.Model(&FansClub{}).Where("uid = ? and liver_id = ? ", ins.UID, ins.LiverID).Order("id desc").Limit(1).First(&found)
+										ins.Score = found.Score
 									}
-								})
 
+									if ins.Type == 1 {
+										l1++
+									}
+									if ins.Type == 2 {
+										l2++
+									}
+									if ins.Type == 3 {
+										l3++
+									}
+
+									guards = append(guards, ins)
+								}
+								log.Printf("[%s] finish fetch guardList,size=%d", s2.UName, size)
+								i.Guard = fmt.Sprintf("%d,%d,%d", l1, l2, l3)
+								b, _ := sonic.Marshal(guards)
+								i.GuardList = string(b)
+								db.Save(&user)
+								i.Fans = user.Fans
+								time.Sleep(time.Second * 2)
+								db.Save(&i)
+								log.Printf("end %s", s2.UName)
 							}
-							log.Printf("[%s] begin fetch guardList", s2.UName)
-							var user = FetchUser(strconv.FormatInt(s2.UID, 10), nil)
-							user.Face = ""
-							var guards = make([]DBGuard, 0)
-							var l1 = 0
-							var l2 = 0
-							var l3 = 0
-							var size = 0
-							for size0, watcher := range GetGuardList(strconv.Itoa(i.Room), strconv.FormatInt(s2.UID, 10)) {
-								size = size0
-								ins := DBGuard{}
-								ins.Type = watcher.Guard
-								ins.UID = watcher.UID
-								ins.UName = watcher.Name
-								ins.Level = watcher.Medal.Level
-								ins.Liver = s2.UName
-								ins.LiverID = s2.UID
-								ins.MedalName = watcher.Medal.Name
-								lock.Lock()
-								ins.Score = fansMap[watcher.UID].Score
-								lock.Unlock()
-								if ins.Score == 0 {
-									var found FansClub
-									db.Model(&FansClub{}).Where("uid = ? and liver_id = ? ", ins.UID, ins.LiverID).Order("id desc").Limit(1).First(&found)
-									ins.Score = found.Score
-								}
+						})
+					}()
+				}
 
-								if ins.Type == 1 {
-									l1++
-								}
-								if ins.Type == 2 {
-									l2++
-								}
-								if ins.Type == 3 {
-									l3++
-								}
-
-								guards = append(guards, ins)
-							}
-							log.Printf("[%s] finish fetch guardList,size=%d", s2.UName, size)
-							i.Guard = fmt.Sprintf("%d,%d,%d", l1, l2, l3)
-							b, _ := sonic.Marshal(guards)
-							i.GuardList = string(b)
-							db.Save(&user)
-							i.Fans = user.Fans
-							time.Sleep(time.Second * 2)
-							db.Save(&i)
-							log.Printf("end %s", s2.UName)
-						}
-					})
-				}()
+				//log.Printf("finish update %s", s2.UName)
 			}
-
-			//log.Printf("finish update %s", s2.UName)
 		}
 
 		log.Printf("page=%d,More=%d", page, obj.Data.More)
 		if len(obj.Data.List) == 0 {
 			break
+		}
+		if !full && page >= 10 {
+			return
 		}
 		page++
 		time.Sleep(time.Second * 2)
@@ -607,15 +586,15 @@ func BuildAuthMessage(room string) string {
 }
 
 func isLive(roomId string) bool {
-	livesMutex.Lock() // Acquire read lock on the 'lives' map
+	livesMutex.Lock()
 	s, ok := lives[roomId]
-	livesMutex.Unlock() // Release read lock on the 'lives' map
+	livesMutex.Unlock()
 
 	if !ok || s == nil {
 		return false
 	}
 
-	s.RLock() // Acquire read lock on the Status struct
+	s.RLock()
 	defer s.RUnlock()
 	return s.Live
 }
@@ -648,10 +627,16 @@ func TraceLive(roomId string) {
 	var rRes, _ = client.R().Get(roomUrl)
 	var liver string
 	var roomInfo = RoomInfo{}
-	sonic.Unmarshal(rRes.Body(), &roomInfo)
+	err := sonic.Unmarshal(rRes.Body(), &roomInfo)
+	if err != nil {
+		return
+	}
 	FillGiftPrice(roomId, roomInfo.Data.AreaId, roomInfo.Data.ParentAreaId)
 	var dbLiveId = 0
 	var liverId = strconv.FormatInt(roomInfo.Data.UID, 10)
+	if roomInfo.Data.UID == 0 {
+		log.Println(rRes.String())
+	}
 	var startAt = roomInfo.Data.LiveTime
 
 	livesMutex.Lock()
@@ -1112,16 +1097,15 @@ func TraceLive(roomId string) {
 					setLive(roomId, false)
 					var sum float64
 					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
-
 					tx := db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
 						"end_at": time.Now().Unix(),
 					})
-					if tx.Error != nil {
-						log.Println(tx.Error)
-					}
 					tx = db.Model(&Live{}).Where("id= ?", dbLiveId).Updates(map[string]interface{}{
 						"money": sum,
 					})
+					var msg = 0
+					db.Raw("select count(*) from live_actions where live = ?", dbLiveId).Scan(&msg)
+					db.Raw("update lives set message = ? where id = ?", msg, dbLiveId).Scan(&msg)
 					if tx.Error != nil {
 						log.Println(tx.Error)
 					}
@@ -1138,26 +1122,28 @@ func TraceLive(roomId string) {
 				}
 			} else {
 				if rand.Int()%5 == 0 {
-					var sum float64
-					var v Live
-					db.Raw("select * from lives where id = ?", dbLiveId).Scan(&v)
-					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ? and action_type != 1 ", v.ID).Scan(&sum)
-					result, _ := strconv.ParseFloat(fmt.Sprintf("%.2f", sum), 64)
-					var msgCount int64
-					db.Model(&LiveAction{}).Where("live = ? and action_type = 1", v.ID).Count(&msgCount)
-					v.Money = result
-					v.Message = int(msgCount)
-					var last = LiveAction{}
-					db.Where("live = ?", v.ID).Last(&last)
-					db.Save(&v)
+					go func() {
+						var msg = 0
+						var money = 0.0
+						db.Raw("select count(*) from live_actions where live = ?", dbLiveId).Scan(&msg)
+						db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&money)
+						db.Raw("update lives set money = ? where id = ?", money, dbLiveId).Scan(&msg)
+						db.Raw("update lives set message = ? where id = ?", msg, dbLiveId).Scan(&msg)
+					}()
+				}
+				if isLive(roomId) || (ok && e.Live) {
+					_, count := GetOnline(roomId, liverId)
+					var obj = OnlineStatus{
+						Live:  dbLiveId,
+						Count: count,
+						Time:  time.Now(),
+					}
+					db.Save(&obj)
 				}
 			}
 		}
 	}
 	ticker.Stop()
-}
-func TraceStream() {
-
 }
 func BuildMessage(str string, opCode int) []byte {
 	buffer := new(bytes.Buffer)
@@ -1351,19 +1337,30 @@ type RoomInfo struct {
 		Face         string `json:"user_cover"`
 	} `json:"data"`
 }
+type OnlinePoint struct {
+	Time   time.Time
+	Online int
+}
 type Live struct {
 	gorm.Model
-	Title    string
-	StartAt  int64
-	EndAt    int64
-	UserName string
-	UserID   string
-	Area     string
-	RoomId   int
-	Money    float64 //`gorm:"type:decimal(7,2)"`
-	Message  int
-	Watch    int
-	Cover    string
+	Title        string
+	StartAt      int64
+	EndAt        int64
+	UserName     string
+	UserID       string
+	Area         string
+	RoomId       int
+	Money        float64 //`gorm:"type:decimal(7,2)"`
+	Message      int
+	Watch        int
+	Cover        string
+	OnlinePoints datatypes.JSON
+}
+type OnlineStatus struct {
+	ID    int `gorm:"primarykey"`
+	Live  int
+	Count int
+	Time  time.Time
 }
 type EnterLive struct {
 	Cmd  string `json:"cmd"`

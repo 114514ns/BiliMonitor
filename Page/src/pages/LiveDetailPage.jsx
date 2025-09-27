@@ -19,6 +19,7 @@ import UserChip from "../components/UserChip";
 import {CheckIcon} from "./ChatPage";
 import HoverMedals from "../components/HoverMedals";
 import Draggable from "react-draggable";
+import OnlineChart from "../components/OnlineChart";
 
 
 
@@ -193,15 +194,20 @@ function LiveDetailPage(props) {
         }
     }
 
+    const [showOnline, setShowOnline] = useState(false)
+
 
     return (
         <div>
+            {showOnline && <OnlineChart id={id} onClose={() => {
+                setShowOnline(false)
+            }}/>}
             <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
-                            className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
+                            className=" bg-blue-100 p-2 rounded-xl transition-transform transform-duration-500  hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
                             <NavLink className='flex flex-row items-center text-blue-600' to={`/liver/${liveInfo.UserID}`}>
                                 <img src={`${AVATAR_API}${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
@@ -237,7 +243,9 @@ function LiveDetailPage(props) {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3  gap-2 text-sm">
-                        <div className="rounded-xl bg-green-100 p-2 text-green-700 transition-transform duration-200 hover:scale-105 hover:shadow-lg">观众数<br/>{liveInfo.Watch}</div>
+                        <div className="rounded-xl bg-green-100 p-2 text-green-700 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
+                            setShowOnline(true)
+                        }}>观众数<br/>{liveInfo.Watch}</div>
                         <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">弹幕数<br/>{liveInfo.Message}
                         </div>
                         <div className="rounded-xl bg-rose-100 p-2 text-rose-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">流水<br/>{liveInfo.Money}</div>
@@ -245,76 +253,78 @@ function LiveDetailPage(props) {
                 </div>
             </div>
 
-            <Select
-                className="max-w-xs mt-4 mb-4 ml-4"
-                items={[{
-                    key: 'ascend',
-                    value: "Ascend"
-                },
-                    {
-                        key: 'descend',
-                        value: "Descend"
+            <div>
+                <Select
+                    className="max-w-xs mt-4 mb-4 ml-4"
+                    items={[{
+                        key: 'ascend',
+                        value: "Ascend"
+                    },
+                        {
+                            key: 'descend',
+                            value: "Descend"
 
+                        },
+                        {
+                            key: 'Time',
+                            value: "Time"
+                        }
+                    ]}
+                    label="Sort by"
+                    onSelectionChange={e => {
+                        console.log(e)
+                        setOrder(e.currentKey)
+                    }}
+                >
+                    {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                </Select>
+                <Select
+                    className="max-w-xs mt-4 mb-4 ml-4"
+                    items={[{
+                        key: 'msg',
+                        value: "Message"
                     },
-                    {
-                        key: 'Time',
-                        value: "Time"
-                    }
-                ]}
-                label="Sort by"
-                onSelectionChange={e => {
-                    console.log(e)
-                    setOrder(e.currentKey)
-                }}
-            >
-                {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
-            </Select>
-            <Select
-                className="max-w-xs mt-4 mb-4 ml-4"
-                items={[{
-                    key: 'msg',
-                    value: "Message"
-                },
-                    {
-                        key: 'gift',
-                        value: "Gift"
+                        {
+                            key: 'gift',
+                            value: "Gift"
 
-                    },
-                    {
-                        key: 'guard',
-                        value: "Membership"
-                    },
-                    {
-                        key: 'sc',
-                        value: "SuperChat"
-                    }
-                ]}
-                label="Filter by"
-                onSelectionChange={e => {
-                    console.log(e)
-                    setFilter(e.currentKey)
-                }}
-            >
-                {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
-            </Select>
-            <Autocomplete
-                className="max-w-xs mt-4 mb-4 ml-4"
-                items={user}
-                label="Search Watcher"
-                onSelectionChange={e => {
-                    setMid(e)
-                }}
-                onInputChange={e => {
-                    var url = `${protocol}://${host}:${port}/api/liveUser?live=${id}&keyword=${e}`;
-                    axios.get(url).then((response) => {
-                        setUser(response.data.list)
-                    })
-                }}
-            >
-                {(f) => <AutocompleteItem key={f.FromId} textValue={f.FromName}>
-                    <UserChip props={f}></UserChip>
-                </AutocompleteItem>}
-            </Autocomplete>
+                        },
+                        {
+                            key: 'guard',
+                            value: "Membership"
+                        },
+                        {
+                            key: 'sc',
+                            value: "SuperChat"
+                        }
+                    ]}
+                    label="Filter by"
+                    onSelectionChange={e => {
+                        console.log(e)
+                        setFilter(e.currentKey)
+                    }}
+                >
+                    {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                </Select>
+                <Autocomplete
+                    className="max-w-xs mt-4 mb-4 ml-4"
+                    items={user}
+                    label="Search Watcher"
+                    onSelectionChange={e => {
+                        setMid(e)
+                    }}
+                    onInputChange={e => {
+                        var url = `${protocol}://${host}:${port}/api/liveUser?live=${id}&keyword=${e}`;
+                        axios.get(url).then((response) => {
+                            setUser(response.data.list)
+                        })
+                    }}
+                >
+                    {(f) => <AutocompleteItem key={f.FromId} textValue={f.FromName}>
+                        <UserChip props={f}></UserChip>
+                    </AutocompleteItem>}
+                </Autocomplete>
+            </div>
             <Table bottomContent={
                 <div className="flex w-full justify-center">
                     <Pagination

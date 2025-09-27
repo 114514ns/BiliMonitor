@@ -130,7 +130,7 @@ func RefreshLivers() {
 	}
 	wg.Wait()
 	for _, livers := range idMap {
-		if len(lives) > 0 {
+		if len(livers) > 0 {
 			result = append(result, livers[len(livers)-1])
 		}
 
@@ -272,7 +272,7 @@ func RefreshWatcher() {
 func MinuteMessageCount(minute int64) int64 {
 	var count int64
 	db.
-		Raw("SELECT id FROM live_actions  ORDER BY id desc limit 1").
+		Raw("SELECT count(*) FROM live_actions WHERE created_at >= (NOW() + INTERVAL 8 HOUR) - INTERVAL  ? MINUTE ", minute).
 		Scan(&count)
 	return count
 }

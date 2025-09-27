@@ -3,18 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/bytedance/sonic"
-	"github.com/glebarez/sqlite"
-	"github.com/go-resty/resty/v2"
-	"github.com/google/uuid"
-	"github.com/jinzhu/copier"
-	"github.com/resend/resend-go/v2"
-	"github.com/robfig/cron/v3"
-	"golang.org/x/net/html"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"io"
 	"io/ioutil"
 	"log"
@@ -29,6 +17,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/bytedance/sonic"
+	"github.com/glebarez/sqlite"
+	"github.com/go-resty/resty/v2"
+	"github.com/google/uuid"
+	"github.com/jinzhu/copier"
+	"github.com/resend/resend-go/v2"
+	"github.com/robfig/cron/v3"
+	"golang.org/x/net/html"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var client = resty.New()
@@ -235,33 +236,6 @@ func PushDynamic(title, msg string) {
 
 }
 
-func SortTracing() {
-	var m = make(map[string]bool)
-	for _, s := range config.Tracing {
-		var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + s
-		var rRes, _ = client.R().Get(roomUrl)
-		var roomInfo = RoomInfo{}
-		sonic.Unmarshal(rRes.Body(), &roomInfo)
-		if roomInfo.Data.LiveTime == "0000-00-00 00:00:00" {
-			m[s] = false
-		} else {
-			m[s] = true
-		}
-		time.Sleep(400 * time.Millisecond)
-	}
-	config.Tracing = []string{}
-	for s, b := range m {
-		if b {
-			config.Tracing = append(config.Tracing, s)
-		}
-	}
-	for s, b := range m {
-		if !b {
-			config.Tracing = append(config.Tracing, s)
-		}
-	}
-}
-
 func SaveConfig() {
 	var cpy Config
 	copier.Copy(&cpy, &config)
@@ -320,7 +294,6 @@ func CSRF() string {
 var man *SlaverManager
 var consoleLogger = log.New(os.Stdout, "", log.LstdFlags) //用于在控制台输出弹幕信息，不会输出到日志文件里
 
-var tempMutex sync.Mutex
 var queryClient = resty.New()
 
 func loadConfig() {
@@ -463,8 +436,9 @@ func setupHTTPClient() {
 		for {
 			for _, pool := range cPools {
 				pool.R().Get("https://api.bilibili.com/x/web-interface/zone")
+				time.Sleep(2 * time.Second)
 			}
-			time.Sleep(time.Minute * 1)
+			time.Sleep(time.Second * 30)
 		}
 	}()
 
@@ -472,7 +446,7 @@ func setupHTTPClient() {
 
 var localClient = resty.New()
 
-const MAX_TASK = 100
+const MAX_TASK = 125
 
 func main() {
 	for {
@@ -526,7 +500,6 @@ func main0() {
 		dsl = strings.Replace(dsl, "#pass", config.SQLPass, 1)
 		dsl = strings.Replace(dsl, "#server", config.SQLServer, 1)
 		dsl = strings.Replace(dsl, "#name", config.SQLName, 1)
-
 		db, err = gorm.Open(mysql.New(mysql.Config{
 			DSN: dsl, // DSN data source name
 		}), &gorm.Config{Logger: logger.New(
@@ -551,6 +524,7 @@ func main0() {
 	db.AutoMigrate(&AreaLive{})
 	db.AutoMigrate(&FansClub{})
 	db.AutoMigrate(&FaceCache{})
+	db.AutoMigrate(&OnlineStatus{})
 	RemoveEmpty()
 	go InitHTTP()
 
@@ -592,14 +566,14 @@ func main0() {
 				*/
 			}
 		}
-		RecoverLive()
+		//RecoverLive()
 		go func() {
 			RefreshFollowings()
 			UpdateCommon()
 		}()
 		go func() {
 			if config.TraceArea {
-				TraceArea(9)
+				TraceArea(9, true)
 			}
 		}()
 		go func() {
@@ -620,7 +594,12 @@ func main0() {
 		c.AddFunc("@every 720m", UpdateCommon)
 		c.AddFunc("@every 15m", func() {
 			if config.TraceArea {
-				TraceArea(9)
+				TraceArea(9, true)
+			}
+		})
+		c.AddFunc("@every 2m", func() {
+			if config.TraceArea {
+				TraceArea(9, false)
 			}
 		})
 
@@ -631,7 +610,6 @@ func main0() {
 		if err != nil {
 			return
 		}
-		SortTracing()
 		for i := range config.Tracing {
 			man.AddTask(config.Tracing[i])
 		}

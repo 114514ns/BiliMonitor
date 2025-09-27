@@ -72,7 +72,9 @@ function LivePage(props) {
     const refreshData = (page, size, name) => {
         var url = `${protocol}://${host}:${port}/api/live?page=` + page + "&limit=" + size
         if (liver != null && liver !== "") {
-            url = url + "&uid=" + (liver===-1?"":liver)
+            url = url + "&uid=" + (liver===-1?"0":liver)
+        } else {
+            url = url + "&uid=0"
         }
         url = url + "&order=" + order
         axios.get(url).then(res => {
@@ -97,19 +99,6 @@ function LivePage(props) {
     }, [])
 
     const [filters, setFilters] = useState([]);
-    /*
-    useEffect(() => {
-        var arr = []
-        dataSource.forEach(item => {
-            arr.push({
-                key: item.UserName,
-                value: item.UserName
-            })
-        })
-        setFilters(arr)
-    }, [dataSource])
-
-     */
 
     const [currentPage, setCurrentPage] = useState(window.page??1);
 

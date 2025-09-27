@@ -1,14 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
-	"github.com/bytedance/sonic"
-	"github.com/gin-contrib/gzip"
-	"github.com/gin-contrib/static"
-	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/copier"
 	"log"
 	"net/http"
 	"sort"
@@ -16,29 +12,16 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/gin-contrib/gzip"
+	"github.com/gin-contrib/static"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/jinzhu/copier"
 )
 
-var videoCache = []Video{}
 var worker = NewWorker(1)
-
-func removeDuplicates(input []string) []string {
-	// 创建一个空的 map，用于记录已经存在的字符串
-	seen := make(map[string]bool)
-
-	// 存储去重后的结果
-	var result []string
-
-	// 遍历输入数组
-	for _, str := range input {
-		// 如果字符串没有出现过，则添加到结果并在 map 中标记为已存在
-		if !seen[str] {
-			result = append(result, str)
-			seen[str] = true
-		}
-	}
-
-	return result
-}
 
 type FrontAreaLiver struct {
 	AreaLiver
@@ -57,9 +40,7 @@ func InitHTTP() {
 	r.UseH2C = true
 	r.Use(gzip.Gzip(gzip.DefaultCompression))
 	r.Use(CORSMiddleware())
-	//r.Static("/page", "./Page/dist/")
-	//r.Static("/assets", "./Page/dist/assets")
-
+	r.Use(TTLMiddleware())
 	if ENV == "BUILD" {
 		r.Use(static.Serve("/", static.EmbedFolder(distFS, "Page/dist")))
 	} else {
@@ -361,77 +342,127 @@ func InitHTTP() {
 		c.Writer.Write(res.Body())
 	})
 
-	r.GET("/status", func(context *gin.Context) {
-		var wg sync.WaitGroup
-		var t1 = 0
-		var t2 = 0
-		var t3 = 0
-		var l sync.Mutex
-		var bytes int64 = 0
-		var m []interface{}
-		if man == nil || man.Nodes == nil {
-			context.JSON(http.StatusOK, gin.H{
-				"LaunchedAt": launchTime.Format(time.DateTime),
-				"WSBytes":    websocketBytes,
-			})
+	r.GET("/status", func(c *gin.Context) {
+		upgrader := websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool { return true },
+		}
+		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+		if err != nil {
+			log.Printf("upgrade err: %v", err)
 			return
 		}
-		for _, node := range man.Nodes {
-			if !node.Alive {
-				continue
-			}
-			if node.Address == "http://127.0.0.1:"+strconv.Itoa(int(config.Port)) {
-				continue
-			}
-
-			wg.Add(1)
-			go func(n SlaverNode) {
-				defer wg.Done()
-				res, _ := client.R().Get(n.Address + "/status")
-				type S struct {
-					WSBytes int64
-					Rooms   map[string]interface{}
-				}
-				var s = S{}
-				sonic.Unmarshal(res.Body(), &s)
-				l.Lock()
-				bytes += s.WSBytes
-				for _, status := range lives {
-					m = append(m, status)
-				}
-				l.Unlock()
-
-			}(node)
-		}
-		wg.Add(3)
-		go func() {
-			t1 = int(MinuteMessageCount(1))
-			wg.Done()
-		}()
-		go func() {
-			t2 = int(MinuteMessageCount(60))
-			wg.Done()
-		}()
-		go func() {
-			t3 = int(MinuteMessageCount(1440))
-			wg.Done()
-		}()
-
-		wg.Wait()
-
-		context.JSON(http.StatusOK, gin.H{
-			"Requests":      totalRequests,
-			"Tasks":         guardWorker.QueueLen(),
-			"LaunchedAt":    launchTime.Format(time.DateTime),
-			"TotalMessages": TotalMessage(),
-			"Message1":      t1,
-			"MessageHour":   t2,
-			"MessageDaily":  t3,
-			"HTTPBytes":     httpBytes,
-			"WSBytes":       websocketBytes + bytes,
-			"Nodes":         man.Nodes,
-			"Rooms":         m,
+		defer conn.Close()
+		_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+		conn.SetPongHandler(func(appData string) error {
+			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+			return nil
 		})
+
+		go func() {
+			for {
+				_, _, err := conn.ReadMessage()
+				if err != nil {
+					log.Printf("read error (client inactive?): %v", err)
+					conn.Close()
+					return
+				}
+				_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+			}
+		}()
+
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				log.Printf("[StatusResponse]\n")
+				var wg sync.WaitGroup
+				var t1, t2, t3 int
+				var l sync.Mutex
+				var bytes int64
+				var m []interface{}
+
+				wg.Add(3)
+				go func() {
+					t1 = int(MinuteMessageCount(1))
+					wg.Done()
+				}()
+				go func() {
+					t2 = int(MinuteMessageCount(60))
+					wg.Done()
+				}()
+				go func() {
+					t3 = int(MinuteMessageCount(1440))
+					wg.Done()
+				}()
+				wg.Wait()
+
+				if man == nil || man.Nodes == nil {
+					data := gin.H{
+						"LaunchedAt":    launchTime.Format(time.DateTime),
+						"WSBytes":       websocketBytes,
+						"TotalMessages": TotalMessage(),
+						"Message1":      t1,
+						"MessageHour":   t2,
+						"MessageDaily":  t3,
+					}
+					_ = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+					if err := conn.WriteJSON(data); err != nil {
+						log.Printf("write err: %v", err)
+						return
+					}
+					continue
+				}
+
+				for _, node := range man.Nodes {
+					if !node.Alive {
+						continue
+					}
+					if node.Address == "http://127.0.0.1:"+strconv.Itoa(int(config.Port)) {
+						continue
+					}
+					wg.Add(1)
+					go func(n SlaverNode) {
+						defer wg.Done()
+						res, _ := client.R().Get(n.Address + "/status")
+						type S struct {
+							WSBytes int64
+							Rooms   map[string]interface{}
+						}
+						var s S
+						sonic.Unmarshal(res.Body(), &s)
+						l.Lock()
+						bytes += s.WSBytes
+						for _, status := range lives {
+							m = append(m, status)
+						}
+						l.Unlock()
+					}(node)
+				}
+				wg.Wait()
+
+				data := gin.H{
+					"Requests":      totalRequests,
+					"Tasks":         guardWorker.QueueLen(),
+					"LaunchedAt":    launchTime.Format(time.DateTime),
+					"TotalMessages": TotalMessage(),
+					"Message1":      t1,
+					"MessageHour":   t2,
+					"MessageDaily":  t3,
+					"HTTPBytes":     httpBytes,
+					"WSBytes":       websocketBytes + bytes,
+					"Nodes":         man.Nodes,
+					"Rooms":         m,
+				}
+
+				_ = conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
+				if err := conn.WriteJSON(data); err != nil {
+					log.Printf("write err: %v", err)
+					return
+				}
+			}
+		}
 	})
 
 	//获取头像，会302到b站的bfs
@@ -448,60 +479,8 @@ func InitHTTP() {
 	//所有在虚拟区开播过的主播
 
 	r.GET("/areaLivers", func(c *gin.Context) {
-		var dist = make([]FrontAreaLiver, 0)
-		copier.Copy(&dist, &cachedLivers)
-		var sortType = c.Query("sort")
-		if sortType == "guard" {
-			sort.Slice(dist, func(i, j int) bool {
-				var g1 = 0
-				for _, s := range strings.Split(dist[i].Guard, ",") {
-					var n, _ = strconv.ParseInt(s, 10, 64)
-					g1 = g1 + int(n)
-				}
-				var g2 = 0
-				for _, s := range strings.Split(dist[j].Guard, ",") {
-					var n, _ = strconv.ParseInt(s, 10, 64)
-					g1 = g1 + int(n)
-				}
-				return g1 > g2
-			})
-		} else if sortType == "l1-guard" {
-			sort.Slice(dist, func(i, j int) bool {
-				var g1, _ = strconv.ParseInt(strings.Split(dist[i].Guard, ",")[0], 10, 64)
-				var g2, _ = strconv.ParseInt(strings.Split(dist[j].Guard, ",")[0], 10, 64)
-				return g1 > g2
-			})
-		} else if sortType == "diff" {
-			sort.Slice(dist, func(i, j int) bool {
-				return dist[i].DailyDiff > dist[j].DailyDiff
-			})
-		} else if sortType == "diff-desc" {
-			sort.Slice(dist, func(i, j int) bool {
-				return dist[i].DailyDiff < dist[j].DailyDiff
-			})
-		} else if sortType == "guard-equal" {
-			var price = []int{19998, 1998, 168}
-			sort.Slice(dist, func(i, j int) bool {
-				var g1 = 0
-				for i, s := range strings.Split(dist[i].Guard, ",") {
-					var n, _ = strconv.ParseInt(s, 10, 64)
-					g1 = g1 + int(n)*price[i]
-				}
-				var g2 = 0
-				for i, s := range strings.Split(dist[j].Guard, ",") {
-					var n, _ = strconv.ParseInt(s, 10, 64)
-					g2 = g2 + int(n)*price[i] //https://www.bilibili.com/video/BV1QTZdYZEn1/
-				}
-				return g1 > g2
-			})
-		} else {
-			sort.Slice(dist, func(i, j int) bool {
-				return dist[i].Fans > dist[j].Fans
-			})
-		}
-
 		c.JSON(http.StatusOK, gin.H{
-			"list": dist,
+			"list": cachedLivers,
 		})
 
 	})
@@ -757,7 +736,7 @@ func InitHTTP() {
 		offset := (page - 1) * pageSize
 		var dst []CustomLiveAction
 		err := db.Raw(
-			fmt.Sprintf("select *,live_actions.id from live_actions,lives where from_id = ? and lives.id = live_actions.live %s %s limit ? offset ?", typeQuery, queryOrder),
+			fmt.Sprintf("select *,live_actions.id,live_actions.created_at from live_actions,lives where from_id = ? and lives.id = live_actions.live %s %s limit ? offset ?", typeQuery, queryOrder),
 			uid, pageSize, offset,
 		).Scan(&dst).Error
 
@@ -1363,6 +1342,21 @@ ORDER BY
 			"pages": pages,
 		})
 	})
+	r.GET("/online", func(c *gin.Context) {
+		var idStr = c.Query("id")
+		var id = int(toInt64(idStr))
+		if id == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "wrong params",
+			})
+			return
+		}
+		var dst []OnlineStatus
+		db.Raw("select * from online_statuses where live=?", id).Scan(&dst)
+		c.JSON(200, gin.H{
+			"data": dst,
+		})
+	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 
@@ -1378,5 +1372,64 @@ func CORSMiddleware() gin.HandlerFunc {
 			return
 		}
 		c.Next()
+	}
+}
+
+type responseBodyWriter struct {
+	gin.ResponseWriter
+	body *bytes.Buffer
+}
+
+func (r *responseBodyWriter) Write(b []byte) (int, error) {
+	return r.body.Write(b)
+}
+
+func TTLMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		startTime := time.Now()
+
+		writer := &responseBodyWriter{
+			ResponseWriter: c.Writer,
+			body:           bytes.NewBufferString(""),
+		}
+		c.Writer = writer
+
+		c.Next()
+		duration := time.Since(startTime)
+		originalBody := writer.body.Bytes()
+
+		var finalBody []byte
+
+		contentType := writer.Header().Get("Content-Type")
+		if strings.Contains(contentType, "application/json") {
+			var data map[string]interface{}
+			err := sonic.Unmarshal(originalBody, &data)
+
+			if err == nil {
+				// 添加 ttl 字段，单位为毫秒
+				data["ttl"] = duration.Milliseconds()
+
+				// 重新序列化为 JSON
+				newBody, marshalErr := sonic.Marshal(data)
+				if marshalErr == nil {
+					finalBody = newBody
+				} else {
+					// 如果重新序列化失败，则保留原始响应
+					fmt.Println("Error re-marshalling JSON:", marshalErr)
+					finalBody = originalBody
+				}
+			} else {
+				// 如果解析失败（比如响应体是JSON数组或无效JSON），则保留原始响应
+				finalBody = originalBody
+			}
+		} else {
+			// 如果不是 JSON，直接使用原始响应
+			finalBody = originalBody
+		}
+
+		// 6. 更新 Content-Length 并将最终响应写回
+		c.Header("Content-Length", strconv.Itoa(len(finalBody)))
+		// 使用原始的 ResponseWriter 将内容写入网络连接
+		writer.ResponseWriter.Write(finalBody)
 	}
 }
