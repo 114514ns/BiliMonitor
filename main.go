@@ -90,6 +90,7 @@ type Config struct {
 	QueryAlive              int
 	RequestDelay            int
 	ConnectionPoolSize      int
+	ClickServer             string
 }
 
 type User struct {

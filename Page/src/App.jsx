@@ -18,13 +18,14 @@ import {
 import ListPage from "./pages/ListPage";
 import LiverPage from "./pages/LiverPage";
 import StatusPage from "./pages/StatusPage";
-import RankDialog from "./components/RankDialog";
+import RankDialog, {MoneyRankDialog} from "./components/RankDialog";
 import UserPage from "./pages/UserPage";
 import {AnimatePresence, motion} from "framer-motion";
 import NoticeDialog from "./components/NoticeDialog";
 import axios from "axios";
 import SearchPage from "./pages/SearchPage";
 import RawPage from "./pages/RawPage";
+import ComparePage from "./pages/ComparePage";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -41,11 +42,11 @@ function BasicLayout() {
         Path: '/'
     }, {
         Name: 'List', Path: '/list'
-    },{
+    }, {
         Name: 'Search', Path: '/search'
     }, {
         Name: 'Status', Path: '/stat'
-    },{Name: "Raw", Path: '/raw'}
+    }, {Name: "Raw", Path: '/raw'}, {Name: 'PK', Path: '/pk'}
     ]
 
     const [ind, setInd] = React.useState(0);
@@ -59,6 +60,10 @@ function BasicLayout() {
     const [showNotice, setShowNotice] = React.useState(false);
 
     const [content, setContent] = React.useState("");
+
+
+    const [showMoneyRank, setShowMoneyRank] = React.useState(false)
+
     useEffect(() => {
         axios.get("/about.md").then((response) => {
             setContent(response.data);
@@ -74,7 +79,10 @@ function BasicLayout() {
             }} content={content}></NoticeDialog>}
             {showRank && <RankDialog open={showRank} onClose={() => {
                 setShowRank(false)
-            }} content={content}/>}
+            }}/>}
+            {showMoneyRank && <MoneyRankDialog open={showMoneyRank} onClose={() => {
+                setShowMoneyRank(false)
+            }}/>}
             {!hide && <Navbar style={{}}>
                 <NavbarContent style={{display: "flex", justifyContent: "center", "overflow": "scroll"}}
                                className={'scrollbar-hide'}>
@@ -104,7 +112,10 @@ function BasicLayout() {
                             }}>Bili Downloader</DropdownItem>
                             <DropdownItem key="rank" onClick={() => {
                                 setShowRank(true);
-                            }}>Rank</DropdownItem>
+                            }}>Level Rank</DropdownItem>
+                            <DropdownItem key="money-rank" onClick={() => {
+                                setShowMoneyRank(true);
+                            }}>Money Rank</DropdownItem>
                             <DropdownItem key="notice" onClick={() => {
                                 setShowNotice(true);
                             }}>Notice & Changelog</DropdownItem>
@@ -125,6 +136,7 @@ function BasicLayout() {
                         <Route path="/liver/:id" element={<PageWrapper><LiverPage/></PageWrapper>}/>
                         <Route path="/user/:id" element={<PageWrapper><UserPage/></PageWrapper>}/>
                         <Route path="/raw" element={<PageWrapper><RawPage/></PageWrapper>}/>
+                        <Route path="/pk" element={<PageWrapper><ComparePage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 

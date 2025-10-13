@@ -26,6 +26,19 @@ console.warn = (...args) => {
 };
 
  */
+window.formatNumber = (num) => {
+
+    if (num === null || num === undefined || isNaN(num) || num === 0) return '0';
+
+    const units = ['', 'K', 'M', 'G', 'T', 'P'];
+    const tier = Math.floor(Math.log10(Math.abs(num)) / 3);
+
+    if (tier === 0) return num + '';
+
+    const unit = units[tier];
+    const scaled = num / Math.pow(10, tier * 3);
+    return scaled.toFixed(1) + unit + '';
+}
 window.vhToPx = (vhPercent) =>{
     const vh = window.innerHeight;
     return (vhPercent / 100) * vh;
@@ -72,9 +85,26 @@ const fetchGuild = async () => {
         var dec = new TextDecoder();
         localStorage.setItem("guild", dec.decode(arrayBuffer).substring(16569));
     }
-
 }
+const fetchMoney = async () => {
+    if (!localStorage.getItem("money")) {
+        const response = await fetch('https://i0.hdslb.com/bfs/im_new/de4a78b0e06d48d42eddd6f8a0483b1e2.png',{
+            referrerPolicy: "no-referrer"
+        });
+        const arrayBuffer = await response.arrayBuffer()
+        var dec = new TextDecoder();
+        localStorage.setItem("money", dec.decode(arrayBuffer).substring(16569));
+    }
+}
+axios.interceptors.request.use(function (config) {
+    config.url = config.url.replaceAll('%20','').replaceAll(' ','') //UserPage的room不知道为啥，第一次请求的时候room会是一个空格而不是空字符串，先这样吧
+    return config;
+  }, function (error) {
+    return Promise.reject(error);
+  });
+window.SEARCH_LIVER = ""
 fetchGuild();
+fetchMoney();
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>
