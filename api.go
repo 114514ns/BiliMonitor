@@ -5,7 +5,10 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	bili "github.com/114514ns/BiliClient"
+	pool2 "github.com/sourcegraph/conc/pool"
 	"log"
+	"math"
 	"net/http"
 	"sort"
 	"strconv"
@@ -692,16 +695,26 @@ func InitHTTP() {
 		var order = context.DefaultQuery("order", "time")
 		var typo = context.DefaultQuery("type", "")
 		var room = context.DefaultQuery("room", "")
+		var showEnter = context.DefaultQuery("enter", "")
 
 		var total = 0
+		var queryOrder = ""
+		var tableName = "live_actions"
+		if showEnter != "" {
+			tableName = "enter_action"
+		} else {
+			if order == "timeDesc" {
+				queryOrder = "order by live_actions.id desc"
+			}
+			if order == "money" {
+				queryOrder = "order by gift_price desc"
+			}
+		}
 
-		var queryOrder = "order by live_actions.id"
-		if order == "timeDesc" {
-			queryOrder = "order by live_actions.id desc"
+		if queryOrder == "" {
+			queryOrder = "order by " + tableName + ".id"
 		}
-		if order == "money" {
-			queryOrder = "order by gift_price desc"
-		}
+
 		if uidStr == "" {
 			context.JSON(http.StatusOK, gin.H{
 				"message": "invalid uid",
@@ -736,7 +749,7 @@ func InitHTTP() {
 		offset := (page - 1) * pageSize
 		var dst []CustomLiveAction
 		err := db.Raw(
-			fmt.Sprintf("select *,live_actions.id,live_actions.created_at from live_actions,lives where from_id = ? and lives.id = live_actions.live %s %s limit ? offset ?", typeQuery, queryOrder),
+			fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
 			uid, pageSize, offset,
 		).Scan(&dst).Error
 
@@ -747,7 +760,12 @@ func InitHTTP() {
 			})
 			return
 		}
-		db.Raw("select count(*) from live_actions where from_id = ? "+typeQuery, uid).Scan(&total)
+		if showEnter != "" {
+			db.Raw("select count(*) from enter_action where from_id = ?", uid).Scan(&total)
+		} else {
+			db.Raw("select count(*) from live_actions where from_id = ?", uid).Scan(&total)
+		}
+
 		for _, action := range dst {
 			action.ID = action.LiveAction.ID
 		}
@@ -1356,6 +1374,125 @@ ORDER BY
 		c.JSON(200, gin.H{
 			"data": dst,
 		})
+	})
+	r.GET("/reaction", func(c *gin.Context) {
+		var midStr = c.Query("mid")
+		var id = int(toInt64(midStr))
+
+		type ActionItemResponse struct {
+			UName    string
+			UID      int64
+			TargetID int64
+			OID      string
+		}
+
+		if id >= 1 {
+			var dst []bili.ActionItem
+			clickDb.Raw("select * from action_items where uid = ?", id).Scan(&dst)
+			var response []ActionItemResponse
+			for _, item := range dst {
+				response = append(response, ActionItemResponse{
+					UName:    item.UName,
+					UID:      item.UID,
+					TargetID: item.TargetID,
+					OID:      strconv.FormatInt(item.OID, 10),
+				})
+			}
+
+			c.JSON(200, gin.H{
+				"data": response,
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "wrong params",
+			})
+		}
+	})
+	r.GET("/pk", func(c *gin.Context) {
+		var guild = toInt64(c.Query("guild"))
+		var month = toInt(c.DefaultQuery("month", time.Now().Month().String()))
+		type Scanned struct {
+			UserName       string
+			Money          float64
+			Hours          float64
+			BoxDiff        float64
+			SuperChatMoney float64
+			Guard          string
+			Fans           int
+			UserID         int64
+		}
+		if month == 0 {
+			month = int64((time.Now().Month()))
+		}
+		var dst []Scanned
+		if guild == 0 {
+			db.Raw(fmt.Sprintf(`
+SELECT
+    lives.user_name,
+        lives.user_id,
+    SUM(money) AS money,
+    SUM(28800 +lives.end_at - lives.start_at)/3600 AS hours,
+    sum(lives.box_diff) as box_diff,
+    sum(lives.super_chat_money) as super_chat_money
+FROM
+    lives
+WHERE
+    MONTH(lives.created_at) = %d
+    AND end_at != 0
+GROUP BY
+    lives.user_name
+ORDER BY money DESC
+LIMIT 200;
+
+`, month)).Scan(&dst)
+		} else {
+			db.Raw(fmt.Sprintf(`
+SELECT 
+    lives.user_name, 
+    lives.user_id,
+    SUM(money) AS money,
+    SUM(28800 +lives.end_at - lives.start_at)/3600 AS hours,
+    sum(lives.box_diff) as box_diff,
+    sum(lives.super_chat_money) as super_chat_money
+
+FROM 
+    lives
+JOIN 
+    guild_infos ON guild_infos.uid = lives.user_id
+WHERE 
+    guild_infos.guild_id = %d
+    AND MONTH(lives.created_at) = %d
+    AND end_at != 0
+GROUP BY 
+    lives.user_name
+ORDER BY money DESC;
+
+
+`, guild, month)).Scan(&dst)
+		}
+		for i, _ := range dst {
+			dst[i].Money = math.Round(dst[i].Money*100) / 100
+			dst[i].Hours = math.Round(dst[i].Hours*100) / 100
+			dst[i].BoxDiff = math.Round(dst[i].BoxDiff*100) / 100
+			dst[i].SuperChatMoney = math.Round(dst[i].SuperChatMoney*100) / 100
+		}
+
+		var pool = pool2.New().WithMaxGoroutines(6)
+		for j, scanned := range dst {
+			var id = scanned.UserID
+			pool.Go(func() {
+				var obj AreaLiver
+				db.Raw("select guard,fans from area_livers where uid = ? order by id desc limit 1", id).Scan(&obj)
+				dst[j].Fans = obj.Fans
+				dst[j].Guard = obj.Guard
+			})
+		}
+		pool.Wait()
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }

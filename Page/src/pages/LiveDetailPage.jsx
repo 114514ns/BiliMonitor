@@ -1,8 +1,8 @@
-import React, {useEffect, useState} from 'react';
-import {NavLink, useLocation, useParams} from "react-router-dom";
+import React, { useEffect, useState } from 'react';
+import { NavLink, useLocation, useParams } from "react-router-dom";
 import axios from "axios";
 import "./LivePage.css"
-import {useNavigate} from "react-router";
+import { useNavigate } from "react-router";
 import {
     Select,
     AutocompleteItem,
@@ -16,7 +16,7 @@ import {
     TableRow, Tooltip, Avatar, DropdownMenu, DropdownItem, Dropdown
 } from "@heroui/react";
 import UserChip from "../components/UserChip";
-import {CheckIcon} from "./ChatPage";
+import { CheckIcon } from "./ChatPage";
 import HoverMedals from "../components/HoverMedals";
 import Draggable from "react-draggable";
 import OnlineChart from "../components/OnlineChart";
@@ -25,7 +25,7 @@ import OnlineChart from "../components/OnlineChart";
 
 
 function LiveDetailPage(props) {
-    let {id} = useParams();
+    let { id } = useParams();
     const { search } = useLocation();
     const params = new URLSearchParams(search);
     const host = location.hostname;
@@ -34,16 +34,16 @@ function LiveDetailPage(props) {
     const ref = React.createRef();
 
     const redirect = useNavigate();
-    const [mid,setMid] = useState(0);
+    const [mid, setMid] = useState(0);
 
     const videoRef = React.createRef();
     const [playing, setPlaying] = useState(false);
-    const [stream,setStream] = useState('');
+    const [stream, setStream] = useState('');
     useEffect(() => {
         refreshData(currentPage, pageSize)
     }, [])
     const p = parseInt(params.get("page"))
-    const [currentPage, setCurrentPage] = useState(isNaN(p)?1:p)
+    const [currentPage, setCurrentPage] = useState(isNaN(p) ? 1 : p)
 
     const [pageSize, setPageSize] = useState(10);
     const [dataSource, setDatasource] = useState([])
@@ -57,18 +57,18 @@ function LiveDetailPage(props) {
     const [name, setName] = useState(null)
     const [order, setOrder] = useState("undefined")
     const [filters, setFilters] = useState([
-        {text: 'Joe', value: 'Joe'},
-        {text: 'Jim', value: 'Jim'},
-        {text: 'Category 1', value: 'Category 1'},
-        {text: 'Category 2', value: 'Category 2'},
+        { text: 'Joe', value: 'Joe' },
+        { text: 'Jim', value: 'Jim' },
+        { text: 'Category 1', value: 'Category 1' },
+        { text: 'Category 2', value: 'Category 2' },
     ]);
     const [columns, setColumn] = useState([])
 
     const [liveInfo, setLiveInfo] = useState({});
 
-    const [hideStream,setHideStream] = useState(false);
+    const [hideStream, setHideStream] = useState(false);
 
-    const [menu,setMenu] = useState(false)
+    const [menu, setMenu] = useState(false)
 
 
     const [user, setUser] = useState([]);
@@ -88,17 +88,12 @@ function LiveDetailPage(props) {
                 filterSearch: true,
                 filters: filters,
                 render: (text, record) => (
-                    <span style={{cursor: 'pointer'}} onClick={() => {
+                    <span style={{ cursor: 'pointer' }} onClick={() => {
                         window.open("https://space.bilibili.com/" + record.FromId)
                     }}>
-        {text}{console.log(record)}
-      </span>
+                        {text}{console.log(record)}
+                    </span>
                 )
-            },
-            {
-                title: 'Title',
-                dataIndex: 'Liver',
-                key: 'Title',
             },
             {
                 title: 'Time',
@@ -106,7 +101,7 @@ function LiveDetailPage(props) {
                 key: 'StartAt',
             },
             {
-                title: 'Money',
+                title: 'Price',
                 dataIndex: 'GiftPrice',
                 key: 'Money',
                 sorter: true,
@@ -138,7 +133,7 @@ function LiveDetailPage(props) {
                 if (item.GiftName != "") {
                     res.data.records[index].Extra = item.GiftName
                 }
-                res.data.records[index].Liver = res.data.liver
+                //res.data.records[index].Liver = res.data.liver
                 res.data.records[index].GiftPrice = res.data.records[index].GiftPrice.Float64
                 res.data.records[index].CreatedAt = new Date(res.data.records[index].CreatedAt).toLocaleString()
             })
@@ -160,7 +155,7 @@ function LiveDetailPage(props) {
 
 
     useEffect(() => {
-        liveInfo   && liveInfo.RoomId && axios.get("/api/stream?room=" + liveInfo.RoomId).then(res => {
+        liveInfo && liveInfo.RoomId && axios.get("/api/stream?room=" + liveInfo.RoomId).then(res => {
             setStream(res.data['Stream'])
         })
     }, [liveInfo]);
@@ -171,7 +166,7 @@ function LiveDetailPage(props) {
 
     useEffect(() => {
         refreshData(currentPage, pageSize)
-    },[filter,mid])
+    }, [filter, mid, pageSize])
 
 
     const handlePageChange = (page, pageSize, sorter) => {
@@ -201,7 +196,7 @@ function LiveDetailPage(props) {
         <div>
             {showOnline && <OnlineChart id={id} onClose={() => {
                 setShowOnline(false)
-            }}/>}
+            }} />}
             <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
@@ -209,66 +204,69 @@ function LiveDetailPage(props) {
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform-duration-500  hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
-                            <NavLink className='flex flex-row items-center text-blue-600' to={`/liver/${liveInfo.UserID}`}>
-                                <img src={`${AVATAR_API}${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{borderRadius:'50%'}}></img>
-                                <br/>
-                                {liveInfo.UserName}
+                            <NavLink className='' to={`/liver/${liveInfo.UserID}`}>
+                                <div className={'flex flex-row items-center text-blue-600 '}>
+                                    <img src={`${AVATAR_API}${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{ borderRadius: '50%' }}></img>
+                                    {liveInfo.UserName}
+                                </div>
                             </NavLink>
 
                         </div>
                         <div
-                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">房间号<br/>
+                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">房间号<br />
                             <span
-                            className="font-semibold">{liveInfo.RoomId}</span>
+                                className="font-semibold">{liveInfo.RoomId}</span>
                         </div>
                         <div
-                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">分区<br/><span className="font-semibold">{liveInfo.Area}</span>
+                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">分区<br /><span className="font-semibold">{liveInfo.Area}</span>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                         <div
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间<br/><span
-                            className="font-semibold">{new Date(liveInfo.StartAt * 1000-8*3600*1000).toLocaleString()}</span>
+                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间<br /><span
+                                className="font-semibold">{new Date(liveInfo.StartAt * 1000 - 8 * 3600 * 1000).toLocaleString()}</span>
                         </div>
                         <div
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">结束时间<br/>
+                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">结束时间<br />
                             <span className="font-semibold">{new Date(liveInfo.EndAt * 1000).toLocaleString()}</span>
                         </div>
                         <div
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">时长<br/>
+                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">时长<br />
                             <span
-                                className="font-semibold">{formatTimeDiff(liveInfo.StartAt * 1000-8*3600*1000, liveInfo.EndAt * 1000)}</span>
+                                className="font-semibold">{formatTimeDiff(liveInfo.StartAt * 1000 - 8 * 3600 * 1000, liveInfo.EndAt * 1000)}</span>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3  gap-2 text-sm">
                         <div className="rounded-xl bg-green-100 p-2 text-green-700 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
                             setShowOnline(true)
-                        }}>观众数<br/>{liveInfo.Watch}</div>
-                        <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">弹幕数<br/>{liveInfo.Message}
+                        }}>观众数<br />{liveInfo.Watch}</div>
+                        <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">弹幕数<br />{liveInfo.Message}
                         </div>
-                        <div className="rounded-xl bg-rose-100 p-2 text-rose-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">流水<br/>{liveInfo.Money}</div>
+                        <div className="rounded-xl bg-rose-100 p-2 text-rose-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">流水<br />{liveInfo.Money}</div>
                     </div>
                 </div>
             </div>
 
             <div>
                 <Select
-                    className="max-w-xs mt-4 mb-4 ml-4"
+                    isClearable
+                    onClear={() => setOrder('')}
+                    className="max-w-xs mt-4 mb-4 ml-4 sm:ml-0"
                     items={[{
                         key: 'ascend',
                         value: "Ascend"
                     },
-                        {
-                            key: 'descend',
-                            value: "Descend"
+                    {
+                        key: 'descend',
+                        value: "Descend"
 
-                        },
-                        {
-                            key: 'Time',
-                            value: "Time"
-                        }
+                    },
+                    {
+                        key: 'Time',
+                        value: "Time"
+                    }
                     ]}
                     label="Sort by"
                     onSelectionChange={e => {
@@ -279,24 +277,26 @@ function LiveDetailPage(props) {
                     {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
                 </Select>
                 <Select
+                    isClearable
+                    setFilter={() => setFilter('')}
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={[{
                         key: 'msg',
                         value: "Message"
                     },
-                        {
-                            key: 'gift',
-                            value: "Gift"
+                    {
+                        key: 'gift',
+                        value: "Gift"
 
-                        },
-                        {
-                            key: 'guard',
-                            value: "Membership"
-                        },
-                        {
-                            key: 'sc',
-                            value: "SuperChat"
-                        }
+                    },
+                    {
+                        key: 'guard',
+                        value: "Membership"
+                    },
+                    {
+                        key: 'sc',
+                        value: "SuperChat"
+                    }
                     ]}
                     label="Filter by"
                     onSelectionChange={e => {
@@ -306,7 +306,23 @@ function LiveDetailPage(props) {
                 >
                     {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
                 </Select>
+                <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={['10']}>
+                    <SelectItem onClick={e => { setPageSize(10); setCurrentPage(1) }} key={'10'}>
+                        10
+                    </SelectItem>
+                    <SelectItem onClick={e => { setPageSize(50); setCurrentPage(1) }}>
+                        50
+                    </SelectItem>
+                    <SelectItem onClick={e => { setPageSize(200); setCurrentPage(1) }}>
+                        200
+                    </SelectItem>
+                    <SelectItem onClick={e => { setPageSize(500); setCurrentPage(1) }}>
+                        500
+                    </SelectItem>
+                </Select>
                 <Autocomplete
+                    isClearable
+                    setUser={() => setOrder('')}
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={user}
                     label="Search Watcher"
@@ -324,6 +340,7 @@ function LiveDetailPage(props) {
                         <UserChip props={f}></UserChip>
                     </AutocompleteItem>}
                 </Autocomplete>
+
             </div>
             <Table bottomContent={
                 <div className="flex w-full justify-center">
@@ -337,11 +354,13 @@ function LiveDetailPage(props) {
                         onChange={(page) => handlePageChange(page, pageSize)}
                     />
                 </div>
-            } isStriped>
+            }
+                   isStriped
+            >
 
                 <TableHeader>
                     {columns.map((col, index) => (
-                        <TableColumn key={index}>{col.title}</TableColumn>
+                        <TableColumn key={index} maxWidth={9999}>{col.title}</TableColumn>
 
                     ))}
                 </TableHeader>
@@ -352,43 +371,46 @@ function LiveDetailPage(props) {
 
                         }}>
                             <TableCell>
-                                    <NavLink className={'flex sm:flex-row items-center'} to={"/user/" +item.FromId}>
-                                        <Avatar src={AVATAR_API + item.FromId} className={'mr-2'}/>
-                                        <span className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.FromName}</span>
-                                        {item.MedalLevel != 0 ?
-                                            <Tooltip content={<HoverMedals mid={item.FromId}/>}>
-                                                <Chip
-                                                    className={'basis-64'}
-                                                    startContent={item.MedalLevel != 0 ?<img src={getGuardIcon(item.GuardLevel)}/>:<CheckIcon size={18}/> }
+                                <NavLink className={'flex sm:flex-row items-center'} to={"/user/" + item.FromId}>
+                                    <img
+                                        className={'w-[40px] h-[40px] rounded-full mr-2'}
+                                        src={`${AVATAR_API}${item.FromId}`}
+                                    />
+                                    <span className={'hover:scale-105 transition-transform hover:text-gray-500'}>{item.FromName}</span>
+                                    {item.MedalLevel != 0 ?
+                                        <Tooltip content={<HoverMedals mid={item.FromId} />}>
+                                            <Chip
+                                                className={'basis-64'}
+                                                startContent={item.MedalLevel != 0 ? <img src={getGuardIcon(item.GuardLevel)} /> : <CheckIcon size={18} />}
 
-                                                    variant="faded"
-                                                    onClick={() => {
+                                                variant="faded"
+                                                onClick={() => {
 
-                                                    }}
-                                                    style={{background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px'}}
-                                                >
-                                                    {item.MedalName}
-                                                    <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
-                                                            {item.MedalLevel}
-                                                        </span>
-                                                </Chip>
-                                            </Tooltip>
-                                           :<></>}
-                                    </NavLink>
+                                                }}
+                                                style={{ background: getColor(item.MedalLevel), color: 'white', marginLeft: '8px' }}
+                                            >
+                                                {item.MedalName}
+                                                <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
+                                                    {item.MedalLevel}
+                                                </span>
+                                            </Chip>
+                                        </Tooltip>
+                                        : <></>}
+                                </NavLink>
                             </TableCell>
-                            <TableCell>{item.Liver}</TableCell>
+                            {/*<TableCell>{item.Liver}</TableCell>*/}
                             <TableCell>{item.CreatedAt}</TableCell>
                             <TableCell>{item.GiftPrice}</TableCell>
                             <TableCell className={
                                 (item.ActionName === "gift" ? "font-bold" : "") +
                                 (item.ID == highLight ? "bg-yellow-200" : "")
-                            }>{item.Extra}{item.ActionName==="gift" && <span>*{item.GiftAmount.Int16}</span>}</TableCell>
+                            }>{item.Extra}{item.ActionName === "gift" && <span>*{item.GiftAmount.Int16}</span>}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
             </Table>
             {stream && stream !== '' && <Draggable nodeRef={ref}>
-                <div ref={ref}  className={'fixed bottom-3 right-3'} onContextMenu={e => {
+                <div ref={ref} className={'fixed bottom-3 right-3'} onContextMenu={e => {
                     e.preventDefault()
                     setMenu(!menu)
                 }} onMouseLeave={() => {
@@ -410,7 +432,7 @@ function LiveDetailPage(props) {
                         </DropdownMenu>
 
                     </Dropdown>}
-{/*                    <ReactPlayer src={stream} playing={playing} onPlaying={() => {
+                    {/*                    <ReactPlayer src={stream} playing={playing} onPlaying={() => {
 
                     }} ref={videoRef}/>*/}
 

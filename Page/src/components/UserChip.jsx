@@ -6,13 +6,14 @@ function UserChip(props) {
     return (
         <div className={'mt-2 w-full'}>
                 <div >
-                    <p className={'font-medium w-full'} >{props.props.FromName}</p>
+                    <p className={'font-semibold w-full'} >{props.props.FromName}</p>
                     {(
-                        <div className={'flex flex-row align-middle'}>
+                        <div className={'flex flex-row align-middle  mb-2  items-center'}>
                             <Avatar
                                 src={`${AVATAR_API}${props.props.FromId}`}
                                 onClick={() => {
-                                    toSpace(props.props.FromId);
+                                    //toSpace(props.props.FromId);
+                                    window.open("/user/" + props.props.UID)
                                 }}/>
 
                             {props.props.MedalLevel ?              <Chip
@@ -23,11 +24,12 @@ function UserChip(props) {
                                 }}
                                 style={{background: getColor(props.props.MedalLevel), color: 'white', marginLeft: '8px',marginTop:'4px'}}
                             >
-                                {props.props.MedalName}
+                                <span>{props.props.MedalName}</span>
                                 <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
                                                             {props.props.MedalLevel}
                                                         </span>
                             </Chip>:<></>}
+                            {props.props.Amount&& <span className='ml-auto font-bold'>{parseInt(props.props.Amount).toLocaleString()}</span>}
                         </div>
                     )}
                 </div>

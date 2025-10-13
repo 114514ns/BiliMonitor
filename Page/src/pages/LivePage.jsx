@@ -66,12 +66,13 @@ function LivePage(props) {
 
     const [chart, setChart] = useState(false)
     const [chartId, setChartId] = useState(0)
-    const [liver,setLiver] = useState("")
+    const [liver,setLiver] = useState(window.SEARCH_LIVER)
 
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
         var url = `${protocol}://${host}:${port}/api/live?page=` + page + "&limit=" + size
         if (liver != null && liver !== "") {
+            window.SEARCH_LIVER = liver
             url = url + "&uid=" + (liver===-1?"0":liver)
         } else {
             url = url + "&uid=0"
@@ -130,6 +131,8 @@ function LivePage(props) {
                 <Autocomplete
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={filters}
+                    isClearable
+                    defaultInputValue={window.LIVER_NAME??''}
                     label="Liver"
                     onSelectionChange={e => {
                         setCurrentPage(1)
@@ -137,6 +140,7 @@ function LivePage(props) {
                         filters.forEach(filter => {
                             if (filter.UID === parseInt(e)) {
                                 setLiver(filter.UID)
+                                window.LIVER_NAME = filter.UName
                             }
                         })
                         console.log("onSelectionChange")
@@ -154,6 +158,7 @@ function LivePage(props) {
                     {(f) => <AutocompleteItem key={f.UID}>{f.UName}</AutocompleteItem>}
                 </Autocomplete>
                 <Select
+                    isClearable
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={[{
                         key: 'Time',

@@ -551,7 +551,7 @@ func TraceArea(parent int, full bool) {
 		if len(obj.Data.List) == 0 {
 			break
 		}
-		if !full && page >= 10 {
+		if !full && page >= 25 {
 			return
 		}
 		page++
@@ -704,6 +704,8 @@ func TraceLive(roomId string) {
 			new.Title = roomInfo.Data.Title
 			new.Area = roomInfo.Data.Area
 			new.Cover = roomInfo.Data.Face
+			new.ParentAreaID = int16(roomInfo.Data.ParentAreaId)
+			new.AreaID = int16(roomInfo.Data.AreaId)
 			//new.UserName = roomInfo.Data
 
 			var i, _ = strconv.Atoi(roomId)
@@ -1047,6 +1049,8 @@ func TraceLive(roomId string) {
 			sonic.Unmarshal(res.Body(), &status)
 
 			if status.Data.LiveStatus == 1 && !isLive(roomId) {
+				rRes, _ = client.R().Get(roomUrl)
+				sonic.Unmarshal(rRes.Body(), &roomInfo)
 				log.Printf("[%s] 直播开始，连接ws服务器,id=%d", liver, dbLiveId)
 				//var sum float64
 				//db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
@@ -1343,18 +1347,23 @@ type OnlinePoint struct {
 }
 type Live struct {
 	gorm.Model
-	Title        string
-	StartAt      int64
-	EndAt        int64
-	UserName     string
-	UserID       string
-	Area         string
-	RoomId       int
-	Money        float64 //`gorm:"type:decimal(7,2)"`
-	Message      int
-	Watch        int
-	Cover        string
-	OnlinePoints datatypes.JSON
+	Title          string
+	StartAt        int64
+	EndAt          int64
+	UserName       string
+	UserID         string
+	Area           string
+	RoomId         int
+	Money          float64 //`gorm:"type:decimal(7,2)"`
+	Message        int
+	Watch          int
+	Cover          string
+	AreaID         int16
+	ParentAreaID   int16
+	OnlinePoints   datatypes.JSON
+	SuperChatMoney float64
+	GuardMoney     float64
+	BoxDiff        float64
 }
 type OnlineStatus struct {
 	ID    int `gorm:"primarykey"`

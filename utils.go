@@ -97,6 +97,10 @@ func toInt64(s string) int64 {
 	i64, _ := strconv.ParseInt(s, 10, 64)
 	return i64
 }
+func toInt(s string) int64 {
+	i64, _ := strconv.ParseInt(s, 10, 64)
+	return i64
+}
 func AppendElement[T any](queue []T, maxSize int, element T) []T {
 	if len(queue) >= maxSize {
 		queue = queue[1:]
