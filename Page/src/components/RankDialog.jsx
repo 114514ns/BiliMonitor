@@ -197,7 +197,7 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick}
         ref={ref}
         virtualization={
             {
-                maxListboxHeight: height??400,
+                maxListboxHeight: height??600,
                 itemHeight: 80
             }
 
@@ -233,7 +233,7 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick}
                     }}>
                         <p className={'text-medium'}>{f.UName}</p>
                         {(
-                            <div className={'flex flex-row align-middle mt-2'} onClick={() => {
+                            <div className={'flex flex-row align-middle '} onClick={() => {
                                 onItemClick(f)
                             }}>
                                 <UserChip props={convert(f)}/>
@@ -260,3 +260,57 @@ const convert = (item) => {
 
 
 export default RankDialog;
+
+
+export const MoneyRankDialog = (props) => {
+
+
+    const array = JSON.parse(localStorage.getItem("money"))
+
+    const PAGE_SIZE = 100
+    
+    const [page,setPage] = React.useState(1)
+
+    const [data,setData] = React.useState([])
+
+
+    const totalPage = array.length/PAGE_SIZE
+
+
+    useEffect(() => {
+
+        const start = (page-1)*PAGE_SIZE
+
+        var tmp = []
+
+        for(var i = start;i<start+PAGE_SIZE;i++) {
+            tmp.push(array[i])
+        }
+        setData(tmp)
+    },[page])
+    
+
+    return (
+        <div>
+            <Modal isOpen={props.open} onClose={() => {
+                setData([])
+
+                props.onClose();
+            }} size="md">
+                <ModalContent>
+                    <ModalHeader className="flex flex-col gap-1">Money Rank</ModalHeader>
+                    <ModalBody>
+
+                        <div className="flex flex-col">
+                            <FansList fans={data} onClose={props.onClose} height={isMobile()?600:900}/>
+                        </div>
+
+                        <Pagination initialPage={1} total={totalPage} className='content-center' onChange={e => {
+                            setPage(e)
+                        }}/>
+                    </ModalBody>
+                </ModalContent>
+            </Modal>
+        </div>
+    );
+}

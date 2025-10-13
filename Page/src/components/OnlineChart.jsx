@@ -50,7 +50,7 @@ function OnlineChart(props) {
             <ModalContent  className={'w-[1200px] h-[600px]'}>
                 <ModalBody >
                     <ModalHeader>
-                        <h2>Online Status</h2>
+                        <h2>Online Trending</h2>
                     </ModalHeader>
                     <ResponsiveContainer  >
                         <AreaChart

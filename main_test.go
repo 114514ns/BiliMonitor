@@ -5,13 +5,15 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/114514ns/BiliClient"
+	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
+	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
@@ -20,6 +22,7 @@ import (
 )
 
 func loadDB() {
+
 	content, _ := os.ReadFile("config.json")
 	sonic.Unmarshal(content, &config)
 	config.Port = 8081
@@ -35,6 +38,7 @@ func loadDB() {
 	if err != nil {
 
 	}
+	//clickDb, _ = gorm.Open(clickhouse.Open(config.ClickServer))
 
 }
 func TestHttp(test *testing.T) {
@@ -47,7 +51,58 @@ func TestHttp(test *testing.T) {
 	go func() {
 		//RefreshMessagePoints()
 	}()
+	//clickDb = clickDb.Debug()
 	InitHTTP()
+
+}
+
+func TestGenMoneyRankList(test *testing.T) {
+	loadDB()
+	var dst []LiveAction
+	var m = make(map[int64]float64)
+	type Struct struct {
+		UID       int64
+		UName     string
+		Amount    float64
+		Liver     string
+		MedalName string
+		Level     int
+		LiverID   int64
+	}
+	var array []Struct
+	db.Raw("SELECT from_id,gift_price from live_actions WHERE action_type > 1").Scan(&dst)
+	for i := range dst {
+		_, ok := m[dst[i].FromId]
+		if ok {
+			m[dst[i].FromId] = m[dst[i].FromId] + dst[i].GiftPrice.Float64
+		} else {
+			m[dst[i].FromId] = dst[i].GiftPrice.Float64
+		}
+	}
+	for i := range m {
+		array = append(array, Struct{
+			UID:    i,
+			Amount: m[i],
+		})
+	}
+	sort.Slice(array, func(i, j int) bool {
+		return array[i].Amount > array[j].Amount
+	})
+
+	array = array[:10000]
+
+	for i := range array {
+		var obj DBGuard
+		db.Raw("select * from fans_clubs where uid = ? order by level desc limit 1", array[i].UID).Scan(&obj)
+		var amount = array[i].Amount
+		copier.Copy(&array[i], &obj)
+		array[i].Amount = amount
+	}
+
+	bytes, _ := sonic.Marshal(&array)
+	os.WriteFile("rank.json", bytes, 666)
+
+	time.Now()
 
 }
 
@@ -113,7 +168,6 @@ func TestMerge(test *testing.T) {
 			break
 		}
 
-		// 写入 db2
 		if err := click.Create(&rows).Error; err != nil {
 			log.Fatalf("写入失败: %v", err)
 		}
@@ -128,18 +182,25 @@ func TestRefreshLiveCount(test *testing.T) {
 	loadConfig()
 	loadDB()
 	var dst []Live
-	db.Raw("select * from lives order by id desc").Scan(&dst)
+	db.AutoMigrate(&Live{})
+	db.Raw("select * from lives where lives.end_at != 0 order by id desc").Scan(&dst)
 	for _, live := range dst {
-		var msg = 0
-		var money = 0.0
-		var end time.Time
-		db.Raw("select count(*) from live_actions where live = ?", live.ID).Scan(&msg)
-		db.Raw("select sum(gift_price) from live_actions where live = ?", live.ID).Scan(&money)
-		db.Raw("select created_at from live_actions where live = ? order by id desc limit 1", live.ID).Scan(&end)
-		db.Raw("update lives set money = ? where id = ?", money, live.ID).Scan(&msg)
-		db.Raw("update lives set message = ? where id = ?", msg, live.ID).Scan(&msg)
-		db.Raw("update lives set end_at = ? where id = ?", end.Unix(), live.ID)
-
+		var sc = 0.0
+		var guard = 0.0
+		//var diff = 0.0
+		db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 4", live.ID).Scan(&sc)
+		db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 3", live.ID).Scan(&guard)
+		var boxes []LiveAction
+		db.Raw("select extra,gift_price from live_actions where live = ? and action_type = 2 and extra like '%盲盒%'", live.ID).Scan(&boxes)
+		var diff = 0.0
+		for _, box := range boxes {
+			var spent = float64(toInt(strings.Split(box.Extra, ",")[1]))
+			var d = box.GiftPrice.Float64 - spent
+			diff = diff + d
+		}
+		db.Exec("update lives set box_diff = ? where id = ?", diff, live.ID)
+		db.Exec("update lives set super_chat_money = ? where id = ?", sc, live.ID)
+		db.Exec("update lives set guard_money = ? where id = ?", guard, live.ID)
 	}
 }
 

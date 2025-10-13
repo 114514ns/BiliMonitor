@@ -4,21 +4,7 @@ import {Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAx
 
 function StatusPage(props) {
 
-    function formatNumber(num, {
-        decimals = 1,
-        suffix = '',
-    } = {}) {
-        if (num === null || num === undefined || isNaN(num)) return '0';
 
-        const units = ['', 'K', 'M', 'G', 'T', 'P'];
-        const tier = Math.floor(Math.log10(Math.abs(num)) / 3);
-
-        if (tier === 0) return num + suffix;
-
-        const unit = units[tier];
-        const scaled = num / Math.pow(10, tier * 3);
-        return scaled.toFixed(decimals) + unit + suffix;
-    }
 
 
     const [overview, setOverview] = React.useState({});
@@ -91,17 +77,17 @@ function StatusPage(props) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm mt-4">
                 <div
-                    className="rounded-xl bg-orange-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">HTTP请求书<br/>
+                    className="rounded-xl bg-orange-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">HTTP请求<br/>
                     <span
                         className="font-semibold">{formatNumber(overview.Requests)}</span>
                 </div>
                 <div
-                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">HTTP字节数<br/>
+                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">HTTP流量<br/>
                     <span
                         className="font-semibold">{formatNumber(overview.HTTPBytes)}</span>
                 </div>
                 <div
-                    className="rounded-xl bg-purple-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">Websocket字节数<br/>
+                    className="rounded-xl bg-purple-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">Websocket流量<br/>
                     <span
                         className="font-semibold">{formatNumber(overview.WSBytes)}</span>
                 </div>
@@ -154,8 +140,9 @@ function StatusPage(props) {
                                                 <div className="flex w-full flex-col gap-y-0">
                                                     <div className="flex w-full items-center gap-x-2">
                                                         <div
-                                                            className="flex w-full items-center gap-x-1 text-small text-background">
+                                                            className="flex w-full items-center gap-x-1 text-small text-background flex-col">
                                                             <span>{payload[0].value}</span>
+                                                            <span>{label}</span>
                                                         </div>
                                                     </div>
                                                 </div>

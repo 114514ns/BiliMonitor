@@ -82,7 +82,9 @@ function LiverPage(props) {
                     Guard: element.Guard.split(",").reduce((a, b) => parseInt(a) + parseInt(b)),
                     ID: element.ID,
                 })
+                
             })
+            dst.sort((a,b) => a.Level > b.Level)
             setGuardChart(dst??[])
         })
         axios.get(`${protocol}://${host}:${port}/api/live?uid=${id}&limit=1000&no_dm=${noDM}`).then((response) => {
@@ -97,7 +99,7 @@ function LiverPage(props) {
         <div>
             <Modal isOpen={open} onOpenChange={() => {
                 setOpen(!open)
-            }} size={'sm'}   className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            }}    className={`grid transition-[grid-template-rows] duration-300 ease-out ${
                 diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] h-[70vh]'
             }`}>
                 <ModalContent>
@@ -164,7 +166,7 @@ function LiverPage(props) {
                 <div className={'ml-4 flex flex-col items-center'}>
                     <span className={'font-bold'}>{space.UName}</span>
                     {space.Verify &&
-                        <div className={'flex '}>
+                        <div className={'flex items-center'}>
                             <svg style={{color: '#ffcc00'}} width="16" height="16" viewBox="0 0 16 16" fill="none"
                                  xmlns="http://www.w3.org/2000/svg">
                                 <path

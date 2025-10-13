@@ -28,7 +28,7 @@ export default defineConfig({
             },
             "/api/status": {
                 target: "ws://127.0.0.1:8081",
-                ws:true,
+                ws: true,
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, '')
             }
@@ -41,16 +41,20 @@ export default defineConfig({
         sourcemap: true,
         rollupOptions: {
             output: {
-                globals: {
-                  react: 'React',
-                  'react-dom': 'ReactDOM',
+                manualChunks(id) {
+                    // 按依赖路径分组
+                    if (id.includes('node_modules')) {
+                        if (id.includes('react') || id.includes('heroui') || id.includes('rechart')) {
+                            return 'react-vendor'
+                        }
+                    }
                 },
-                external: ['react', 'react-dom']
-              }
-
-
             }
-        },
+
+
+
+        }
+    },
     esbuild: {
         sourcemap: true,
     },
