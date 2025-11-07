@@ -2,11 +2,7 @@ import React, {useEffect, useState} from 'react';
 import axios from "axios";
 import {useNavigate} from "react-router";
 import "./LivePage.css"
-import {
-    Autocomplete,
-    AutocompleteItem, Button,
-    Pagination, Select, SelectItem,
-} from "@heroui/react";
+import {Autocomplete, AutocompleteItem, Pagination, Select, SelectItem,} from "@heroui/react";
 import LiveStatisticCard from "../components/LiveStatisticCard";
 
 const VerticalDotsIcon = ({size = 24, width, height, ...props}) => {
@@ -37,7 +33,8 @@ const RefreshIcon = (props) => (
         fill="#1f1f1f"
         {...props}
     >
-        <path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z" />
+        <path
+            d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z"/>
     </svg>
 );
 
@@ -66,14 +63,14 @@ function LivePage(props) {
 
     const [chart, setChart] = useState(false)
     const [chartId, setChartId] = useState(0)
-    const [liver,setLiver] = useState(window.SEARCH_LIVER)
+    const [liver, setLiver] = useState(window.SEARCH_LIVER)
 
     const redirect = useNavigate()
     const refreshData = (page, size, name) => {
         var url = `${protocol}://${host}:${port}/api/live?page=` + page + "&limit=" + size
         if (liver != null && liver !== "") {
             window.SEARCH_LIVER = liver
-            url = url + "&uid=" + (liver===-1?"0":liver)
+            url = url + "&uid=" + (liver === -1 ? "0" : liver)
         } else {
             url = url + "&uid=0"
         }
@@ -101,7 +98,7 @@ function LivePage(props) {
 
     const [filters, setFilters] = useState([]);
 
-    const [currentPage, setCurrentPage] = useState(window.page??1);
+    const [currentPage, setCurrentPage] = useState(window.page ?? 1);
 
     const [pageSize, setPageSize] = useState(20);
 
@@ -117,7 +114,7 @@ function LivePage(props) {
 
     useEffect(() => {
         refreshData(currentPage, pageSize)
-    },[liver,order])
+    }, [liver, order])
     useEffect(() => {
         if (chartId !== null && chartId !== 0) {
             setChart(true);
@@ -132,7 +129,7 @@ function LivePage(props) {
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={filters}
                     isClearable
-                    defaultInputValue={window.LIVER_NAME??''}
+                    defaultInputValue={window.LIVER_NAME ?? ''}
                     label="Liver"
                     onSelectionChange={e => {
                         setCurrentPage(1)
@@ -200,7 +197,7 @@ function LivePage(props) {
                 initialPage={1}
                 onChange={(page) => handlePageChange(page, pageSize)}
                 classNames={{
-                    wrapper:'w-full mx-4',
+                    wrapper: 'w-full mx-4',
                 }}
             />
         </div>

@@ -13,13 +13,15 @@ import {
     TableCell,
     TableColumn,
     TableHeader,
-    TableRow, Tooltip, Avatar, DropdownMenu, DropdownItem, Dropdown
+    TableRow, Tooltip, Avatar, DropdownMenu, DropdownItem, Dropdown, ModalHeader, ModalContent, ModalBody, Modal,
+    ModalFooter, Button
 } from "@heroui/react";
 import UserChip from "../components/UserChip";
 import { CheckIcon } from "./ChatPage";
 import HoverMedals from "../components/HoverMedals";
 import Draggable from "react-draggable";
 import OnlineChart from "../components/OnlineChart";
+import {LiveMessageChart} from "../components/LineChart";
 
 
 
@@ -62,6 +64,8 @@ function LiveDetailPage(props) {
         { text: 'Category 1', value: 'Category 1' },
         { text: 'Category 2', value: 'Category 2' },
     ]);
+
+    const [showMinuteChart,setShowMinuteChart] = useState(false)
     const [columns, setColumn] = useState([])
 
     const [liveInfo, setLiveInfo] = useState({});
@@ -69,7 +73,7 @@ function LiveDetailPage(props) {
     const [hideStream, setHideStream] = useState(false);
 
     const [menu, setMenu] = useState(false)
-
+    const [msgData,setMsgData] = useState([])
 
     const [user, setUser] = useState([]);
     useEffect(() => {
@@ -192,11 +196,16 @@ function LiveDetailPage(props) {
     const [showOnline, setShowOnline] = useState(false)
 
 
+
+
     return (
         <div>
             {showOnline && <OnlineChart id={id} onClose={() => {
                 setShowOnline(false)
             }} />}
+            {showMinuteChart &&                          <LiveMessageChart data={msgData} onClose={() => {
+            setShowMinuteChart(false)
+        }} id={id}/>}
             <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
@@ -242,7 +251,12 @@ function LiveDetailPage(props) {
                         <div className="rounded-xl bg-green-100 p-2 text-green-700 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
                             setShowOnline(true)
                         }}>观众数<br />{liveInfo.Watch}</div>
-                        <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">弹幕数<br />{liveInfo.Message}
+                        <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
+                            axios.get("/api/minute?id=" + id).then(res => {
+                                setMsgData(res.data.data)
+                                setShowMinuteChart(true)
+                            })
+                        }}>弹幕数<br />{liveInfo.Message}
                         </div>
                         <div className="rounded-xl bg-rose-100 p-2 text-rose-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">流水<br />{liveInfo.Money}</div>
                     </div>

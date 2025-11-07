@@ -28,7 +28,13 @@ console.warn = (...args) => {
  */
 window.formatNumber = (num) => {
 
+
+
     if (num === null || num === undefined || isNaN(num) || num === 0) return '0';
+
+    if (num < 1) {
+        return num
+    }
 
     const units = ['', 'K', 'M', 'G', 'T', 'P'];
     const tier = Math.floor(Math.log10(Math.abs(num)) / 3);
@@ -76,6 +82,16 @@ window.getGuardIcon= (level) =>{
 window.isMobile = ()=> {
     return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)  || window.innerWidth <= 768
 }
+window.getOpacity = ()=> {
+    var op = localStorage.getItem("opacity")
+    if (op === null) {
+        localStorage.setItem("opacity","100")
+        return 100
+    } else {
+        return op
+    }
+}
+
 const fetchGuild = async () => {
     if (!localStorage.getItem("guild")) {
         const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{
@@ -105,6 +121,15 @@ axios.interceptors.request.use(function (config) {
 window.SEARCH_LIVER = ""
 fetchGuild();
 fetchMoney();
+var html = document.querySelector('html')
+var item = localStorage.getItem("background")
+if (item != null) {
+    html.style.backgroundImage = `url("${item}")`
+    html.style.backgroundSize = 'cover'
+    html.style.backgroundAttachment = 'fixed'
+    html.style.backgroundPosition = 'center'
+}
+
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>

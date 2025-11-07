@@ -161,7 +161,7 @@ function RankDialog(props) {
                                 >Active Only</Switch>
                             </div>
 
-                            <FansList fans={fans} onClose={props.onClose} />
+                            <FansList fans={fans} onClose={props.onClose} inspect={props.inspect} />
 
                         </div>
 
@@ -175,7 +175,7 @@ function RankDialog(props) {
     );
 }
 
-export const FansList = memo(function FansList({fans,onClose,height,onItemClick}) {
+export const FansList = memo(function FansList({fans,onClose,height,onItemClick,inspect}) {
 
     const [open, setOpen] = React.useState(false);
     const [id,setId] = React.useState(0);
@@ -214,7 +214,7 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick}
             >
                 <Tooltip content={
                     <div>
-                        <Dropdown>
+                        {inspect!==true? <Dropdown>
                             <DropdownMenu aria-label="Static Actions">
                                 <DropdownItem key="new" onClick={() => {
                                     window.open("https://space.bilibili.com/" + f.UID)
@@ -223,9 +223,9 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick}
                                     window.open("/user/" + f.UID)
                                 }}>KUN</DropdownItem>
                             </DropdownMenu>
-                        </Dropdown>
+                        </Dropdown>:<></>}
                     </div>
-                } isOpen={open && (id === f.UID + '-' + f.LiverID)}>
+                } isOpen={inspect===true?undefined:(open && (id === f.UID + '-' + f.LiverID))}>
                     <div className={getStyle(f.Label)} onContextMenu={(e) => {
                         e.preventDefault();
                         setId(f.UID + '-' + f.LiverID)

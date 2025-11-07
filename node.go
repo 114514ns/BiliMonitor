@@ -1,12 +1,13 @@
 package main
 
 import (
-	"github.com/bytedance/sonic"
 	"log"
 	"math/rand"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/bytedance/sonic"
 )
 
 type SlaverManager struct {
@@ -36,6 +37,12 @@ func (man *SlaverManager) AddTask(task string) {
 	if Has(config.BlackTracing, task) {
 		log.Printf("[%s] skip because task is in black list", task)
 		return
+	}
+
+	if Has(config.Tracing, task) {
+		if config.Mode != "Master" { //特别关注的直播间只应在主节点运行
+			return
+		}
 	}
 
 	var aliveNodes []*SlaverNode

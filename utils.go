@@ -10,14 +10,15 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/go-resty/resty/v2"
-	"golang.org/x/net/html"
 	mathRand "math/rand"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-resty/resty/v2"
+	"golang.org/x/net/html"
 )
 
 func substr(input string, start int, length int) string {
@@ -97,9 +98,9 @@ func toInt64(s string) int64 {
 	i64, _ := strconv.ParseInt(s, 10, 64)
 	return i64
 }
-func toInt(s string) int64 {
+func toInt(s string) int {
 	i64, _ := strconv.ParseInt(s, 10, 64)
-	return i64
+	return int(i64)
 }
 func AppendElement[T any](queue []T, maxSize int, element T) []T {
 	if len(queue) >= maxSize {

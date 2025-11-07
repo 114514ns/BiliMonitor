@@ -27,6 +27,7 @@ import (
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
+	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -231,10 +232,13 @@ func PushDynamic(title, msg string) {
 	}
 
 	if config.EnableServerPush {
-		var url = fmt.Sprintf(config.ServerPushKey+"?title=%s&desp=%s", url2.QueryEscape(title), url2.QueryEscape(msg))
-		client.R().Get(url)
+		PushServerHime(title, msg)
 	}
 
+}
+func PushServerHime(title, msg string) {
+	var url = fmt.Sprintf(config.ServerPushKey+"?title=%s&desp=%s", url2.QueryEscape(title), url2.QueryEscape(msg))
+	client.R().Get(url)
 }
 
 func SaveConfig() {
@@ -447,7 +451,7 @@ func setupHTTPClient() {
 
 var localClient = resty.New()
 
-const MAX_TASK = 125
+const MAX_TASK = 1250
 
 func main() {
 	for {
@@ -467,7 +471,7 @@ func main() {
 func main0() {
 	loadConfig()
 	setupHTTPClient()
-
+	clickDb, _ = gorm.Open(clickhouse.Open(config.ClickServer))
 	if config.UID == 0 {
 		config.UID = SelfUID(config.Cookie)
 		SaveConfig()

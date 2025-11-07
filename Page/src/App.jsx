@@ -26,6 +26,9 @@ import axios from "axios";
 import SearchPage from "./pages/SearchPage";
 import RawPage from "./pages/RawPage";
 import ComparePage from "./pages/ComparePage";
+import GeoPage from "./pages/GeoPage";
+import ReactionPage from "./pages/ReactionPage";
+import SettingDialog from "./components/SettingDialog";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -61,8 +64,12 @@ function BasicLayout() {
 
     const [content, setContent] = React.useState("");
 
+    const [showSetting,setShowSettings] = React.useState(false)
+
 
     const [showMoneyRank, setShowMoneyRank] = React.useState(false)
+
+    const [opacity,setOpacity] = React.useState(window.getOpacity())
 
     useEffect(() => {
         axios.get("/about.md").then((response) => {
@@ -82,6 +89,11 @@ function BasicLayout() {
             }}/>}
             {showMoneyRank && <MoneyRankDialog open={showMoneyRank} onClose={() => {
                 setShowMoneyRank(false)
+            }}/>}
+            {showSetting && <SettingDialog onOpacityChange={(e) => {
+                setOpacity(e)
+            }} onClose={() => {
+                setShowSettings(false)
             }}/>}
             {!hide && <Navbar style={{}}>
                 <NavbarContent style={{display: "flex", justifyContent: "center", "overflow": "scroll"}}
@@ -119,13 +131,22 @@ function BasicLayout() {
                             <DropdownItem key="notice" onClick={() => {
                                 setShowNotice(true);
                             }}>Notice & Changelog</DropdownItem>
+                            <DropdownItem key="setting" onClick={() => {
+                                setShowSettings(true);
+                            }}>Setting</DropdownItem>
+                            <DropdownItem key="reaction" onClick={() => {
+                                window.open("/reactions")
+                            }}>Reaction</DropdownItem>
+                            <DropdownItem key="geo" onClick={() => {
+                                redirect("/geo")
+                            }}>Geo</DropdownItem>
                         </DropdownMenu>
                     </Dropdown>
                 </NavbarContent>
             </Navbar>}
-            <div className="site-layout-background" style={{padding: 24, width: '100%', height: `${calcHeight()}px`}}>
+            <div className={`site-layout-background`} style={{padding: 24, width: '100%', height: `${calcHeight()}px`,opacity:parseInt(opacity)/100}}>
                 <AnimatePresence mode="wait">
-                    <Routes location={location} key={location.pathname}>
+                    <Routes location={location} key={location.pathname} >
                         <Route path="/" element={<PageWrapper><LivePage/></PageWrapper>}/>
                         <Route path="/lives" element={<PageWrapper><LivePage/></PageWrapper>}/>
                         <Route path="/search" element={<PageWrapper><SearchPage/></PageWrapper>}/>
@@ -137,6 +158,8 @@ function BasicLayout() {
                         <Route path="/user/:id" element={<PageWrapper><UserPage/></PageWrapper>}/>
                         <Route path="/raw" element={<PageWrapper><RawPage/></PageWrapper>}/>
                         <Route path="/pk" element={<PageWrapper><ComparePage/></PageWrapper>}/>
+                        <Route path="/geo" element={<PageWrapper><GeoPage/></PageWrapper>}/>
+                        <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 

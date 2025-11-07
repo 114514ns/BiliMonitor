@@ -338,7 +338,7 @@ func InitHTTP() {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "url is empty"})
 			return
 		}
-		res, _ := client.R().SetHeader("Referer", "https://www.bilibili.com/").Get(url)
+		res, _ := queryClient.R().SetHeader("Referer", "https://www.bilibili.com/").Get(url)
 		c.Writer.Header().Set("Content-Type", res.Header().Get("Content-Type"))
 		c.Writer.Header().Set("Cache-Control", "public, max-age=31536000")
 		c.Writer.WriteHeader(res.StatusCode())
@@ -505,7 +505,7 @@ func InitHTTP() {
 		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
-			time.Sleep(20 * time.Second)
+			time.Sleep(10 * time.Second)
 		})
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
@@ -1379,26 +1379,117 @@ ORDER BY
 		var midStr = c.Query("mid")
 		var id = int(toInt64(midStr))
 
+		var sizeStr = c.Query("size")
+		var pageStr = c.Query("page")
+		var page = int(toInt64(pageStr))
+		var size = int(toInt64(sizeStr))
+		if page == 0 {
+			page = 1
+		}
+		if size == 0 {
+			size = 3000
+		}
+
 		type ActionItemResponse struct {
-			UName    string
-			UID      int64
-			TargetID int64
-			OID      string
+			UName      string
+			UID        int64
+			TargetID   int64
+			OID        string
+			Text       string
+			CreatedAt  time.Time
+			Title      string
+			Type       string
+			TargetName string
+			Images     string
+			Like       int
+			Comments   int
+			BV         string
+		}
+
+		type Dynamic struct {
+			Text      string
+			CreatedAt time.Time
+			Title     string
+			Type      string
+			ID        int64
+			CreateAt  time.Time
+			UName     string
+			Images    string
+			Like      int
+			Comments  int
+			BV        string
 		}
 
 		if id >= 1 {
 			var dst []bili.ActionItem
-			clickDb.Raw("select * from action_items where uid = ?", id).Scan(&dst)
+			clickDb.Raw("select * from action_items where uid = ?  limit ? offset ?", id, size, (size * (page - 1))).Scan(&dst)
+			var m0 = make(map[int64][]int64)
+			seen := make(map[int64]bool)
+			var result []bili.ActionItem
+			for _, u := range dst {
+				_, ok := seen[u.OID]
+				if !ok {
+					seen[u.OID] = true
+					result = append(result, u)
+				}
+			}
+			dst = []bili.ActionItem{}
+			for i := range result {
+				dst = append(dst, result[i])
+			}
+			for i := range dst {
+				m0[dst[i].TargetID] = append(m0[dst[i].TargetID], dst[i].OID)
+			}
+			var m = make(map[int64]Dynamic)
+
+			var pool = pool2.New().WithMaxGoroutines(128)
+			var mutex = sync.Mutex{}
+			for i := range m0 {
+				pool.Go(func() {
+					var query = "select u_name,id,title,text,type,create_at,images,like,comments,bv from dynamics where uid = " + strconv.FormatInt(i, 10)
+					query = query + " and (id = "
+					var array = m0[i]
+					for i2 := range array {
+						query = query + strconv.FormatInt(array[i2], 10)
+						if i2 != len(array)-1 {
+							query = query + " or id = "
+						}
+					}
+					query = query + ")"
+					var dst0 []Dynamic
+					clickDb.Raw(query).Scan(&dst0)
+					mutex.Lock()
+					for i2 := range dst0 {
+						m[dst0[i2].ID] = dst0[i2]
+					}
+					mutex.Unlock()
+				})
+			}
+			pool.Wait()
+
 			var response []ActionItemResponse
 			for _, item := range dst {
+				var id = strconv.FormatInt(item.OID, 10)
 				response = append(response, ActionItemResponse{
-					UName:    item.UName,
-					UID:      item.UID,
-					TargetID: item.TargetID,
-					OID:      strconv.FormatInt(item.OID, 10),
+					UName:      item.UName,
+					UID:        item.UID,
+					TargetID:   item.TargetID,
+					OID:        id,
+					Text:       m[item.OID].Text,
+					CreatedAt:  m[item.OID].CreateAt,
+					Title:      m[item.OID].Title,
+					Type:       m[item.OID].Type,
+					TargetName: m[item.OID].UName,
+					Like:       m[item.OID].Like,
+					Images:     m[item.OID].Images,
+					Comments:   m[item.OID].Comments,
+					BV:         m[item.OID].BV,
 				})
 			}
 
+			sort.Slice(response, func(i, j int) bool {
+				return time.Since(response[i].CreatedAt).Seconds() < time.Since(response[j].CreatedAt).Seconds()
+			})
 			c.JSON(200, gin.H{
 				"data": response,
 			})
@@ -1420,9 +1511,12 @@ ORDER BY
 			Guard          string
 			Fans           int
 			UserID         int64
+			GuardLiveMoney float64 //直播捕获到的上舰事件的金额，由于存在自动续舰的情况，在前端显示的总流水应去除捕获到的上舰金额，再加上当月或当前舰长列表里计算所得金额
+			Gift           float64
+			Guild          string
 		}
 		if month == 0 {
-			month = int64((time.Now().Month()))
+			month = int((time.Now().Month()))
 		}
 		var dst []Scanned
 		if guild == 0 {
@@ -1433,7 +1527,9 @@ SELECT
     SUM(money) AS money,
     SUM(28800 +lives.end_at - lives.start_at)/3600 AS hours,
     sum(lives.box_diff) as box_diff,
-    sum(lives.super_chat_money) as super_chat_money
+    sum(lives.super_chat_money) as super_chat_money,
+    sum(lives.guard_money) as guard_live_money,
+    sum(lives.money-lives.super_chat_money-guard_money) as gift
 FROM
     lives
 WHERE
@@ -1442,7 +1538,7 @@ WHERE
 GROUP BY
     lives.user_name
 ORDER BY money DESC
-LIMIT 200;
+LIMIT 400;
 
 `, month)).Scan(&dst)
 		} else {
@@ -1453,7 +1549,9 @@ SELECT
     SUM(money) AS money,
     SUM(28800 +lives.end_at - lives.start_at)/3600 AS hours,
     sum(lives.box_diff) as box_diff,
-    sum(lives.super_chat_money) as super_chat_money
+    sum(lives.super_chat_money) as super_chat_money,
+    sum(lives.guard_money) as guard_live_money,
+    sum(lives.money-lives.super_chat_money-guard_money) as gift
 
 FROM 
     lives
@@ -1475,14 +1573,21 @@ ORDER BY money DESC;
 			dst[i].Hours = math.Round(dst[i].Hours*100) / 100
 			dst[i].BoxDiff = math.Round(dst[i].BoxDiff*100) / 100
 			dst[i].SuperChatMoney = math.Round(dst[i].SuperChatMoney*100) / 100
+			dst[i].Gift = math.Round(dst[i].Gift*100) / 100
 		}
 
+		var currentMonth = int(time.Now().Month())
 		var pool = pool2.New().WithMaxGoroutines(6)
 		for j, scanned := range dst {
 			var id = scanned.UserID
 			pool.Go(func() {
 				var obj AreaLiver
-				db.Raw("select guard,fans from area_livers where uid = ? order by id desc limit 1", id).Scan(&obj)
+				if month == currentMonth {
+					db.Raw("select guard,fans from area_livers where uid = ? order by id desc limit 1", id).Scan(&obj)
+				} else {
+					db.Raw("select guard,fans from area_livers where uid = ? and MONTH(updated_at) = ? order by id desc limit 1", id, month).Scan(&obj)
+				}
+				db.Raw("select guild_name from guild_infos where uid = ?", id).Scan(&dst[j].Guild)
 				dst[j].Fans = obj.Fans
 				dst[j].Guard = obj.Guard
 			})
@@ -1493,6 +1598,107 @@ ORDER BY money DESC;
 			"data": dst,
 		})
 
+	})
+	r.GET("/api/geo", func(c *gin.Context) {
+		type Location struct {
+			UID      string
+			Location string
+		}
+		var dst []Location
+		db.Raw("select * from locations where location is not null ").Scan(&dst)
+		var m = make(map[string]int)
+		for i := range dst {
+			dst[i].Location = strings.Replace(dst[i].Location, "中国", "", 99)
+			_, ok := m[dst[i].Location]
+			if dst[i].Location == "" {
+				continue
+			}
+			if !ok {
+				m[dst[i].Location] = 1
+			} else {
+				m[dst[i].Location] = m[dst[i].Location] + 1
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": m,
+		})
+	})
+	type ProvinceResponse struct {
+		UID  int64
+		Name string
+		Fans int
+	}
+	var cacheProvince = make(map[string][]ProvinceResponse)
+
+	r.GET("/api/geo/province", func(c *gin.Context) {
+		province := c.DefaultQuery("name", "")
+		if province == "香港" || province == "澳门" || province == "台湾" {
+			province = "中国" + province
+		}
+
+		if data, ok := cacheProvince[province]; ok {
+			c.JSON(http.StatusOK, gin.H{
+				"data": data,
+			})
+			return
+		}
+
+		var dst []ProvinceResponse
+		db.Raw(`
+        SELECT u.user_id AS uid, MAX(u.fans) AS fans, u.name
+        FROM users u
+        JOIN locations l ON u.user_id = l.uid
+        WHERE l.location = ?
+        GROUP BY u.user_id
+        ORDER BY fans DESC
+        LIMIT 1000;
+    `, province).Scan(&dst)
+
+		cacheProvince[province] = dst
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+	r.GET("/minute", func(c *gin.Context) {
+		var id = c.Query("id")
+		type LiveActionCount struct {
+			MinuteTime  string `gorm:"column:minute_time"`
+			RecordCount int    `gorm:"column:record_count"`
+		}
+
+		var results []LiveActionCount
+
+		db.Raw(`
+    SELECT 
+        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS minute_time, 
+        COUNT(*) AS record_count
+    FROM live_actions
+    WHERE live = ?
+    GROUP BY minute_time
+    ORDER BY minute_time;
+`, id).Scan(&results)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
+			"data":    results,
+		})
+	})
+
+	r.GET("/living", func(c *gin.Context) {
+		tasks := man.GetAllTasks(false)
+		var dst []AreaLiver
+		var pool = pool2.New().WithMaxGoroutines(32)
+		for _, task := range tasks {
+			pool.Go(func() {
+				var d AreaLiver
+				db.Raw(`select fans,u_name from area_livers where room = ? limit 1`, task).Scan(&d)
+				dst = append(dst, d)
+			})
+		}
+		pool.Wait()
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }

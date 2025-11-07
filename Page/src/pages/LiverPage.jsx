@@ -95,6 +95,8 @@ function LiverPage(props) {
 
 
     const [diffMode,setDiffMode] = React.useState(false);
+
+    const [inspectMode,setInspectMode] = React.useState(false);
     return (
         <div>
             <Modal isOpen={open} onOpenChange={() => {
@@ -108,12 +110,17 @@ function LiverPage(props) {
                     </ModalHeader>
                     <ModalBody>
                         <div>
-                            <Switch isSelected={diffMode}  onValueChange={(e => {
-                                setDiffMode(e)
-                                if (!e) {
-                                    setGuard(orig)
-                                }
-                            })}>Diff</Switch>
+                            <div className={'flex flex-col'}>
+                                <Switch isSelected={diffMode}  onValueChange={(e => {
+                                    setDiffMode(e)
+                                    if (!e) {
+                                        setGuard(orig)
+                                    }
+                                })}>Diff</Switch>
+                                <Switch isSelected={inspectMode}  onValueChange={(e => {
+                                    setInspectMode(e)
+                                })} className={'mt-2'}>Inspect</Switch>
+                            </div>
                             <AnimatePresence>
                                 {diffMode && (
                                     <motion.div
@@ -154,7 +161,7 @@ function LiverPage(props) {
                         <FansList fans={guard} height={800} onItemClick={(e) => {
                             console.log(e)
                             redirect('/user/' + e.UID)
-                        }}/>
+                        }} inspect={inspectMode}/>
                     </ModalBody>
                 </ModalContent>
             </Modal>
@@ -218,8 +225,10 @@ function LiverPage(props) {
                     <GuardChart data={guardChart} onClick={(index) => {
                         setGuardTime(new Date(guardChart[index].UpdatedAt).toLocaleString())
                         axios.get(`/api/guard?id=${guardChart[index].ID}`).then((response) => {
-                            setGuard(response.data.data);
-                            setOrig(response.data.data)
+                            var t = response.data.data
+                            t.sort((a,b) => b.Level-a.Level)
+                            setGuard(t)
+                            setOrig(t)
                             setOpen(true)
                         })
                     }}/>
