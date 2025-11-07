@@ -1,5 +1,5 @@
 import React, {useEffect} from 'react';
-import {addToast, Autocomplete, AutocompleteItem, Avatar, ToastProvider} from "@heroui/react";
+import {addToast, Autocomplete, AutocompleteItem, Avatar, Select, SelectItem, ToastProvider} from "@heroui/react";
 import ActionTable from "../components/ActionTable";
 import axios from "axios";
 
@@ -17,6 +17,8 @@ function RawPage(props) {
     const [data,setData] = React.useState([]);
 
     const [total,setTotal] = React.useState(0);
+
+    const [pageSize, setPageSize] = React.useState(10);
     useEffect(() => {
         axios.get("/api/searchLiver?key=" + input).then((response) => {
             setRoomList(response.data.result??[])
@@ -26,7 +28,7 @@ function RawPage(props) {
         console.log(roomList);
     }, [roomList]);
     useEffect(() => {
-        axios.get(`/api/raw?room=${room}&type=${filter}&page=${page}&order=${order}`).then((response) => {
+        axios.get(`/api/raw?room=${room}&type=${filter}&page=${page}&order=${order}&size=${pageSize}`).then((response) => {
             setData(response.data.data);
             setTotal(response.data.total);
         }).catch((err,res) => {
@@ -36,7 +38,7 @@ function RawPage(props) {
                 hideIcon: true,
             });
         })
-    },[order,filter,room])
+    },[order,filter,room,pageSize])
     return (<div>
         <ToastProvider/>
             <div className={'mt-4'}>
@@ -93,10 +95,24 @@ function RawPage(props) {
                             </div>
                         </AutocompleteItem>}
                     </Autocomplete>
+                    <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={['10']}>
+                        <SelectItem onClick={e => { setPageSize(10) }} key={'10'}>
+                            10
+                        </SelectItem>
+                        <SelectItem onClick={e => { setPageSize(50)}}>
+                            50
+                        </SelectItem>
+                        <SelectItem onClick={e => { setPageSize(200)}}>
+                            200
+                        </SelectItem>
+                        <SelectItem onClick={e => { setPageSize(500)}}>
+                            500
+                        </SelectItem>
+                    </Select>
                 </div>
-                <ActionTable dataSource={data} handlePageChange={(page0, pageSize) => {
+                <ActionTable dataSource={data} handlePageChange={(page0, pageSiz) => {
                     page = page0
-                    axios.get(`/api/raw?room=${room}&type=${filter}&page=${page0}&order=${order}`).then((response) => {
+                    axios.get(`/api/raw?room=${room}&type=${filter}&page=${page0}&order=${order}&size=${pageSize}`).then((response) => {
                         setData(response.data.data);
                         setTotal(response.data.total);
                     })

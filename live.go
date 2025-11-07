@@ -12,7 +12,6 @@ import (
 	"net/url"
 	_ "runtime"
 	"runtime/debug"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -357,10 +356,6 @@ func TraceArea(parent int, full bool) {
 			}
 			for _, s2 := range obj.Data.List {
 				if sum <= MAX_TASK*len(man.Nodes) {
-					var u0 = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + strconv.Itoa(s2.Room)
-					r, _ := client.R().Get(u0)
-					var info = LiveStreamResponse{}
-					sonic.Unmarshal(r.Body(), &info)
 					o := AreaLiver{}
 					db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&o)
 					var fans = o.Fans
@@ -377,25 +372,21 @@ func TraceArea(parent int, full bool) {
 								guards += int(toInt64(i))
 							}
 							if guards > 10 {
-								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
 							}
 						} else {
-							m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+							m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
 						}
 
 					} else {
 						if hour > 1 && hour < 17 {
 							if fans > 2500 {
-								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room), Time: info.Data.Time})
+								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
 							}
 						}
 					}
-					time.Sleep(800 * time.Millisecond)
 				}
 			}
-			sort.Slice(m, func(i, j int) bool {
-				return m[i].Time > m[j].Time
-			})
 			for _, info := range m {
 				man.AddTask(info.Room)
 			}
@@ -555,7 +546,7 @@ func TraceArea(parent int, full bool) {
 			return
 		}
 		page++
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 1)
 	}
 	working = false
 }
@@ -961,7 +952,7 @@ func TraceLive(roomId string) {
 					if action.FromId != 0 {
 						db.Create(&action)
 					}
-				} else if strings.Contains(obj, "GUARD_BUY") { //上舰
+				} else if text.Cmd == ("GUARD_BUY") { //上舰
 					//GUARD_BUY不返回粉丝牌信息
 					var guard = GuardInfo{}
 					action.ActionType = Guard
@@ -1001,6 +992,8 @@ func TraceLive(roomId string) {
 					action.FromName = o["uname"].(string)
 					action.ActionType = Block
 					db.Save(action)
+				} else if text.Cmd == "ANCHOR_LOT_START" {
+					PushServerHime(liver+"直播间发起了天选抽奖", "")
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
