@@ -1056,19 +1056,73 @@ ORDER BY
 			"message": "ok",
 		})
 	})
-	r.GET("/guard", func(context *gin.Context) {
-		var idStr = context.Query("id")
+	r.GET("/guard", func(c *gin.Context) {
+		var idStr = c.Query("id")
+		var inspect = c.Query("inspect")
 		if toInt64(idStr) <= 0 {
-			context.JSON(http.StatusOK, gin.H{
+			c.JSON(http.StatusOK, gin.H{
 				"message": "invalid id",
 			})
 			return
 		}
-		var dst []DBGuard
+		type ExtendGuard struct {
+			DBGuard
+			MessageCount int
+			GiftCount    int
+			GuardCount   int
+			TimeOut      bool
+			OverEnter    bool //满足最低进房次数要求
+		}
+		var dst []ExtendGuard
 		var str = ""
 		db.Raw("select guard_list from area_livers where  id = ?", toInt64(idStr)).Scan(&str)
 		sonic.Unmarshal([]byte(str), &dst)
-		context.JSON(http.StatusOK, gin.H{
+		if inspect == "true" {
+			var pool = pool2.New().WithMaxGoroutines(32)
+			for i, guard := range dst {
+
+				var id = guard.UID
+				pool.Go(func() {
+					dst[i].TimeOut = false
+					ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+					defer cancel()
+
+					var guardCount = 0
+					e := db.WithContext(ctx).Raw("select count(*) from live_actions where from_id = ? and action_type = 3", id).Scan(&guardCount)
+
+					var msgCount = 0
+					e1 := db.WithContext(ctx).Raw("select count(*) from live_actions where from_id = ? and action_type = 1", id).Scan(&msgCount)
+
+					if e.Error == context.DeadlineExceeded || e1.Error == context.DeadlineExceeded {
+						dst[i].TimeOut = true
+					}
+
+					var d []LiveAction
+					c0 := db.Raw("select id,created_at from enter_action where from_id = ? limit 25", id).Scan(&d)
+					if c0.Error != nil {
+						log.Println(c0.Error)
+					}
+
+					if len(d) >= 20 {
+						dst[i].OverEnter = true
+					} else {
+						dst[i].OverEnter = false
+					}
+
+					dst[i].MessageCount = msgCount
+					dst[i].GuardCount = guardCount
+
+					if id == 447689051 {
+						time.Now()
+					}
+				})
+			}
+			pool.Wait()
+			sort.Slice(dst, func(i, j int) bool {
+				return dst[i].Level > dst[j].Level
+			})
+		}
+		c.JSON(http.StatusOK, gin.H{
 			"data": dst,
 		})
 	})

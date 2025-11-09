@@ -92,6 +92,43 @@ window.getOpacity = ()=> {
     }
 }
 
+window.inspectGuard = (obj) => {
+
+    //返回true表示是刷的舰长
+
+    if (obj.MessageCount > 20) return false
+
+    if (obj.MessageCount === 0 && obj.GuardCount === 0 && obj.Level > 21) {
+        return false
+    }
+
+    if (obj.Level > 24) {
+        return false
+    }
+
+    if (obj.OverEnter === true) {
+        return false
+    }
+
+    if (obj.MessageCount === 0) {
+        return true
+    }
+
+    if (obj.TimeOut === false) {
+        return true
+    }
+
+    if (obj.GuardCount / (obj.MessageCount + obj.GuardCount) > 0.5) {
+        return true
+    }
+
+
+
+
+
+    return false
+
+}
 const fetchGuild = async () => {
     if (!localStorage.getItem("guild")) {
         const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{

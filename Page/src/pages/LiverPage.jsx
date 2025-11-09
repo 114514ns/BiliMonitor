@@ -20,7 +20,16 @@ import LiveStatisticCard from "../components/LiveStatisticCard";
 import {AnimatePresence,motion} from "framer-motion";
 import {FansChart, GuardChart} from "../components/LineChart";
 
+function calcValid(array) {
+    var count = 0
+    array.forEach(element => {
+        if (!inspectGuard(element)) {
+            count++
+        }
+    })
 
+    return count
+}
 
 function LiverPage(props) {
     const [fansChart, setFansChart] = React.useState([]);
@@ -49,6 +58,10 @@ function LiverPage(props) {
     const [stream,setStream] = React.useState({})
 
     const [guild,setGuild] = React.useState("");
+
+    const [guardId,setGuardId]  = React.useState('')
+
+    const [load,setLoad] = React.useState(false)
 
 
     let {id} = useParams();
@@ -92,21 +105,40 @@ function LiverPage(props) {
         })
     }, [noDM,month])
 
-
-
     const [diffMode,setDiffMode] = React.useState(false);
 
     const [inspectMode,setInspectMode] = React.useState(false);
+
+    React.useEffect(() => {
+        axios.get(`/api/guard?id=${guardId}&inspect=true`).then((response) => {
+            var t = response.data.data
+            t.sort((a,b) => b.Level-a.Level)
+            setGuard(t)
+            setOrig(t)
+            if (inspectMode) {
+                setLoad(true)
+            }
+        })
+    },[inspectMode])
+
+
+
+
     return (
         <div>
             <Modal isOpen={open} onOpenChange={() => {
+                if (open === true) {
+                    setInspectMode(false);
+                    setLoad(false)
+                }
                 setOpen(!open)
-            }}    className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+            }}    className={` grid transition-[grid-template-rows] duration-300 ease-out ${
                 diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] h-[70vh]'
             }`}>
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">
-                        {guardTime}
+                        <span>{guardTime}</span>
+                        {inspectMode &&  load && <span>{inspectMode && `${calcValid(guard)} / ${guard.length}`}</span>}
                     </ModalHeader>
                     <ModalBody>
                         <div>
@@ -158,7 +190,7 @@ function LiverPage(props) {
                                 )}
                             </AnimatePresence>
                         </div>
-                        <FansList fans={guard} height={800} onItemClick={(e) => {
+                        <FansList fans={guard} height={600} onItemClick={(e) => {
                             console.log(e)
                             redirect('/user/' + e.UID)
                         }} inspect={inspectMode}/>
@@ -230,6 +262,7 @@ function LiverPage(props) {
                             setGuard(t)
                             setOrig(t)
                             setOpen(true)
+                            setGuardId(guardChart[index].ID)
                         })
                     }}/>
                 </div>
