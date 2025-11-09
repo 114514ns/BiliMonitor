@@ -83,7 +83,7 @@ function SearchPage(props) {
                 {(type === 'name' || type === 'watcher-name') &&
                     <Autocomplete className="sm:ml-4 sm:mt-0 mt-4" label="Select..." onInputChange={(e) => {
                         if (e !== '') {
-                            axios.get(`/api/search?type=${type}&key=${e}`).then((response) => {
+                            axios.get(`/api/search?type=${type}&key=${e}&api=1`).then((response) => {
                                 if (response.data.data != null) {
                                     if (response.data.data.length >= 1) {
                                         if (response.data.data[0].UName !== '') {
@@ -150,7 +150,7 @@ function SearchPage(props) {
                         </Input>
                         <Button color={'primary'} onPress={() => {
                             if (type === "room") {
-                                axios.get(`/api/search?type=${type}&key=${text}`).then((response) => {
+                                axios.get(`/api/search?type=${type}&key=${text}&api=1`).then((response) => {
                                     if (response.data.data != null) {
                                         if (response.data.data.length >= 1) {
                                             if (response.data.data[0].UName !== '') {
