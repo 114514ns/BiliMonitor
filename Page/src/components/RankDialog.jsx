@@ -116,7 +116,7 @@ function RankDialog(props) {
                 setData([])
 
                 props.onClose();
-            }} size="md">
+            }} size="md" >
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">Rank</ModalHeader>
                     <ModalBody>
@@ -210,11 +210,10 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick,
         {fans.map((f) => (
             <ListboxItem
                 key={f.UID + '-' + f.LiverID}
-
             >
                 <Tooltip content={
                     <div>
-                        {inspect!==true? <Dropdown>
+                        {<Dropdown>
                             <DropdownMenu aria-label="Static Actions">
                                 <DropdownItem key="new" onClick={() => {
                                     window.open("https://space.bilibili.com/" + f.UID)
@@ -223,15 +222,15 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick,
                                     window.open("/user/" + f.UID)
                                 }}>KUN</DropdownItem>
                             </DropdownMenu>
-                        </Dropdown>:<></>}
+                        </Dropdown>}
                     </div>
-                } isOpen={inspect===true?undefined:(open && (id === f.UID + '-' + f.LiverID))}>
+                } isOpen={(open && (id === f.UID + '-' + f.LiverID))}>
                     <div className={getStyle(f.Label)} onContextMenu={(e) => {
                         e.preventDefault();
                         setId(f.UID + '-' + f.LiverID)
                         setOpen(!open);
                     }}>
-                        <p className={'text-medium'}>{f.UName}</p>
+                        <p className={`text-medium ${(inspectGuard(f) && inspect)?'line-through':''}`}>{f.UName}</p>
                         {(
                             <div className={'flex flex-row align-middle '} onClick={() => {
                                 onItemClick(f)
