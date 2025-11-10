@@ -763,7 +763,12 @@ func InitHTTP() {
 		if showEnter != "" {
 			db.Raw("select count(*) from enter_action where from_id = ?", uid).Scan(&total)
 		} else {
-			db.Raw("select count(*) from live_actions where from_id = ?", uid).Scan(&total)
+			if room != "" {
+				db.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0",
+					uid, room).Scan(&total)
+			} else {
+				db.Raw("select count(*) from live_actions where from_id = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0", uid).Scan(&total)
+			}
 		}
 
 		for _, action := range dst {
