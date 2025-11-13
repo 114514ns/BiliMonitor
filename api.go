@@ -6,6 +6,7 @@ import (
 	"embed"
 	"fmt"
 	bili "github.com/114514ns/BiliClient"
+	"github.com/google/uuid"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"log"
 	"math"
@@ -1759,6 +1760,115 @@ ORDER BY money DESC;
 			"data": dst,
 		})
 	})
+
+	r.GET("/dynamics", func(c *gin.Context) {
+		var midStr = c.Query("mid")
+		var mid = toInt64(midStr)
+
+		var dst []Dynamic
+		db.Raw("select * from dynamics where uid = ? ", mid).Scan(&dst)
+		type ExtendDynamic struct {
+			Dynamic
+			IDStr string
+		}
+		var d []ExtendDynamic
+		copier.Copy(&d, &dst)
+		for i := range d {
+			d[i].IDStr = toString(dst[i].ID)
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": d,
+		})
+	})
+	r.GET("/dynamics/count", func(c *gin.Context) {
+		var midStr = c.Query("mid")
+		var mid = toInt64(midStr)
+
+		if mid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid mid",
+			})
+			return
+		}
+
+		var count = 0
+		db.Raw("select count(*) from dynamics where uid = ? order by create_at desc", mid).Scan(&count)
+		c.JSON(http.StatusOK, gin.H{
+			"count": count,
+		})
+	})
+
+	r.POST("/comments/send", func(c *gin.Context) {
+		_, e := uuid.Parse(c.DefaultPostForm("session", ""))
+		text := c.DefaultPostForm("text", "")
+
+		if e != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid session",
+			})
+			return
+		}
+
+		if len(text) <= 0 || len(text) > 200 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid text",
+			})
+			return
+		}
+
+		db.Save(&Comment{
+			Text:      text,
+			CreatedAt: time.Now(),
+			Session:   c.PostForm("session"),
+		})
+
+	})
+
+	r.GET("/comments/list", func(c *gin.Context) {
+		var page = c.DefaultQuery("page", "1")
+		var size = c.DefaultQuery("size", "10")
+
+		var session = c.DefaultQuery("session", "")
+		pageInt, err := strconv.Atoi(page)
+		if err != nil || pageInt < 1 {
+			pageInt = 1
+		}
+		sizeInt, err := strconv.Atoi(size)
+		if err != nil || sizeInt < 1 {
+			sizeInt = 10
+		}
+		if sizeInt > 100 {
+			sizeInt = 100
+		}
+		offset := (pageInt - 1) * sizeInt
+		var comments []Comment
+		result := db.Raw("select * from comments order by created_at desc limit ? offset ?",
+			sizeInt, offset).Scan(&comments)
+		if result.Error != nil {
+			c.JSON(500, gin.H{
+				"msg":     "error",
+				"message": result.Error.Error(),
+			})
+			return
+		}
+		var total int64
+		db.Model(&Comment{}).Count(&total)
+
+		for i := range comments {
+			if comments[i].Session != session {
+				comments[i].Session = ""
+			}
+		}
+
+		c.JSON(200, gin.H{
+			"data":        comments,
+			"page":        pageInt,
+			"size":        sizeInt,
+			"total":       total,
+			"total_pages": (total + int64(sizeInt) - 1) / int64(sizeInt),
+		})
+	})
+
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 

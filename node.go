@@ -29,7 +29,7 @@ func (man *SlaverManager) AddTask(task string) {
 	for _, node := range man.Nodes {
 		for _, t := range node.Tasks {
 			if t == task {
-				log.Printf("[%s] task is running already", task)
+				//log.Printf("[%s] task is running already", task)
 				return
 			}
 		}
@@ -180,9 +180,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 					if o["data"] != nil {
 						for _, i := range o["data"].(map[string]interface{})["by_room_ids"].(map[string]interface{}) {
 							if i.(map[string]interface{})["live_status"].(float64) != 1 {
-								if !Has(config.Tracing, s) {
-									man.RemoveTasks([]string{s})
-								}
+								man.RemoveTasks([]string{s})
 							}
 						}
 					}
@@ -192,6 +190,17 @@ func NewSlaverManager(node []string) *SlaverManager {
 				time.Sleep(500 * time.Millisecond)
 			}
 
+		}
+	}()
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		for range ticker.C {
+			for i := range config.Tracing {
+				if GetServerState(config.Tracing[i]) {
+					man.AddTask(config.Tracing[i])
+				}
+				time.Sleep(500 * time.Millisecond)
+			}
 		}
 	}()
 

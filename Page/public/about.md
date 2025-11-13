@@ -8,16 +8,27 @@
 <a classname="ml-2" href="https://github.com/114514ns/BiliMonitor" target="_blank">github</a>
 </div>
 <div style="display: flex ;justify-content: center" class="mt-2">
-<img src="/alist.svg" style="width:24px;height:24px"></img>
-<a classname="ml-2" href="https://storage.ikun.dev/d/139/Database/database/mariadb/mariadb/bili/db_bili_20250830023000gl5um.sql.gz?sign=JOPoAN8ie1kgIJAHC7le5duc8nSysd4cDUpddf0klfI=:0" target="_blank">数据库</a>
+<a classname="ml-2" href="mailto:admin@ikun.dev" target="_blank">邮箱</a>
 </div>
 </div>
 
 ## Notice
-- 请不要公开宣传本站
+- 不建议公开宣传本站
 - 有任何建议，问题，想要的功能，欢迎反馈
 
 ## Changelog
+
+### 25.11.14
+
+* 添加留言功能
+* 添加历史动态查询
+* 优化用户成分图表显示
+* 优化移动端表格显示
+
+### 25.11.11
+
+* 添加大航海水分查询
+* 修复部分情况下分页页数错误返回
 
 ### 25.10.5
 * 修复前端页面部分元素没有对齐

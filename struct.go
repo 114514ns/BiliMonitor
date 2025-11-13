@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type Dash struct {
 	Data struct {
 		Dash0 struct {
@@ -304,4 +306,36 @@ type UserMapping struct {
 	Hash  string
 	UID   int64
 	UName string
+}
+
+type Dynamic struct {
+	Top         bool
+	UName       string
+	UID         int64
+	Face        string
+	Type        string
+	Title       string
+	Text        string
+	ID          int64 `gorm:"primaryKey"`
+	BV          string
+	Comments    int
+	Like        int
+	Forward     int
+	CommentID   int64
+	CommentType int
+	CreateAt    time.Time
+	ForwardFrom int64
+	RawResponse string
+	Forwarded   bool
+	Images      string
+}
+
+// 留言
+type Comment struct {
+	Text        string
+	Session     string
+	CreatedAt   time.Time
+	DisplayName string
+	Self        bool
+	ID          uint `gorm:"primaryKey"`
 }

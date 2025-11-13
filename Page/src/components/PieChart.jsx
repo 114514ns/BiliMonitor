@@ -121,7 +121,7 @@ export const HeroUIPieChart = ({
                                    data,
                                    dataKey = 'value',
                                    nameKey = 'name',
-                                   height = 400,
+                                   height =isMobile()?400:400*(innerWidth/1366),
                                    showLegend = true,
                                    showTooltip = true,
                                    innerRadius = 0,

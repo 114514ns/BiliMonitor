@@ -19,6 +19,7 @@ import {FansList} from "../components/RankDialog";
 import LiveStatisticCard from "../components/LiveStatisticCard";
 import {AnimatePresence,motion} from "framer-motion";
 import {FansChart, GuardChart} from "../components/LineChart";
+import DynamicCard from "../components/DynamicCard";
 
 function calcValid(array) {
     var count = 0
@@ -63,6 +64,8 @@ function LiverPage(props) {
 
     const [load,setLoad] = React.useState(false)
 
+    const [dynCount,setDynCount] = React.useState(0)
+
 
     let {id} = useParams();
 
@@ -103,11 +106,19 @@ function LiverPage(props) {
         axios.get(`${protocol}://${host}:${port}/api/live?uid=${id}&limit=1000&no_dm=${noDM}`).then((response) => {
             setLives(response.data.lives);
         })
+
+        axios.get("/api//dynamics/count?mid=" + id).then((response) => {
+            setDynCount(response.data.count)
+        })
     }, [noDM,month])
 
     const [diffMode,setDiffMode] = React.useState(false);
 
     const [inspectMode,setInspectMode] = React.useState(false);
+
+    const [showDyn,setShowDyn] = React.useState(false);
+
+    const [dynList,setDynList] = React.useState([])
 
     React.useEffect(() => {
         axios.get(`/api/guard?id=${guardId}&inspect=true`).then((response) => {
@@ -148,10 +159,10 @@ function LiverPage(props) {
                                     if (!e) {
                                         setGuard(orig)
                                     }
-                                })}>Diff</Switch>
+                                })} isDisabled={inspectMode}>Diff</Switch>
                                 <Switch isSelected={inspectMode}  onValueChange={(e => {
                                     setInspectMode(e)
-                                })} className={'mt-2'}>Inspect</Switch>
+                                })} className={'mt-2'} isDisabled={diffMode}>Inspect</Switch>
                             </div>
                             <AnimatePresence>
                                 {diffMode && (
@@ -194,6 +205,26 @@ function LiverPage(props) {
                             console.log(e)
                             redirect('/user/' + e.UID)
                         }} inspect={inspectMode}/>
+                    </ModalBody>
+                </ModalContent>
+            </Modal>
+            <Modal isOpen={showDyn} onOpenChange={() => {
+                setShowDyn(!showDyn)
+            }}    className={'overflow-x-hidden'} scrollBehavior={'inside'}>
+                <ModalContent>
+                    <ModalHeader className="flex flex-col gap-1">
+                        <span>{space.UName}的历史动态</span>
+                    </ModalHeader>
+                    <ModalBody className={'overflow-x-hidden'}>
+                        <div>
+                            {dynList.map((item,i)=>{
+                                return (
+                                    <DynamicCard item={item} key={i} onClick={() => {
+                                        window.open("https://t.bilibili.com/" + item.IDStr)
+                                    }}/>
+                            )
+                            })}
+                        </div>
                     </ModalBody>
                 </ModalContent>
             </Modal>
@@ -243,6 +274,23 @@ function LiverPage(props) {
                             className="font-semibold">{space.Medal}</span>
                     </div>
                 </Tooltip>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mt-4">
+                <div
+                    onClick={() => {
+                        setShowDyn(true)
+                        axios.get("/api/dynamics?mid=" + id).then(res=>{
+                            setDynList(res.data.data)
+                        })
+                    }}
+                    className="rounded-xl bg-blue-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
+                    <span className="font-semibold">{parseInt(dynCount).toLocaleString()}</span>
+                </div>
+                <div
+                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">流水<br/>
+                    <span
+                        className="font-semibold">{0}</span>
+                </div>
             </div>
             <div>
                 <Button onClick={e => {
