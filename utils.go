@@ -10,8 +10,10 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"math"
 	mathRand "math/rand"
 	"os"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +22,17 @@ import (
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/net/html"
 )
+
+type JsonType struct {
+	s     string
+	i     int
+	i64   int64
+	f32   float32
+	f64   float64
+	array []interface{}
+	v     bool
+	m     map[string]interface{}
+}
 
 func substr(input string, start int, length int) string {
 	asRunes := []rune(input)
@@ -213,4 +226,82 @@ func RandomPick[T any](arr []T) T {
 	mathRand.Seed(time.Now().UnixNano()) // 初始化随机种子
 	index := mathRand.Intn(len(arr))
 	return arr[index]
+}
+
+func getInt(obj interface{}, path string) int {
+	return getObject(obj, path, "int").i
+}
+func getInt64(obj interface{}, path string) int64 {
+	return getObject(obj, path, "int64").i64
+}
+func getString(obj interface{}, path string) string {
+	return getObject(obj, path, "string").s
+}
+func getArray(obj interface{}, path string) []interface{} {
+	return getObject(obj, path, "array").array
+}
+func getBool(obj interface{}, path string) bool {
+	return getObject(obj, path, "bool").v
+}
+func getObject(obj interface{}, path string, typo string) JsonType {
+	var array = strings.Split(path, ".")
+	inner, ok := obj.(map[string]interface{})
+	if !ok {
+		return JsonType{}
+	}
+	var st = JsonType{}
+	for i, s := range array {
+		if i == len(array)-1 {
+
+			value := inner[s]
+			if value != nil {
+				var t = reflect.TypeOf(value)
+				if t.Kind() == reflect.String {
+					st.s = value.(string)
+				}
+				if t.Kind() == reflect.Int {
+					st.i, _ = value.(int)
+				}
+				if t.Kind() == reflect.Int64 {
+					if value.(int64) > math.MaxInt {
+						st.i64 = value.(int64)
+					} else {
+						st.i = value.(int)
+					}
+
+				}
+				if t.Kind() == reflect.Float64 {
+					if typo == "int" {
+						st.i = int(value.(float64))
+					}
+					if typo == "int64" {
+						st.i64 = int64(value.(float64))
+					}
+				}
+				if t.Kind() == reflect.Slice {
+					if typo == "array" {
+						st.array = value.([]interface{})
+					}
+				}
+				if t.Kind() == reflect.Bool {
+					st.v = value.(bool)
+				}
+				if t.Kind() == reflect.Map {
+					st.m = value.(map[string]interface{})
+				}
+			}
+
+			return st
+		} else {
+
+			if inner[s] == nil {
+				return st
+			}
+			inner = inner[s].(map[string]interface{})
+		}
+	}
+	return st
+}
+func toString(i int64) string {
+	return strconv.FormatInt(i, 10)
 }

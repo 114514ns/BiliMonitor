@@ -1109,13 +1109,11 @@ func TraceLive(roomId string) {
 					living = false
 					log.Printf("[%s] 直播结束，断开连接,live=%d", liver, dbLiveId)
 					c.Close()
-					if !Has(config.Tracing, roomId) {
-						log.Println("不在关注列表，结束")
-						livesMutex.Lock()
-						delete(lives, roomId)
-						livesMutex.Unlock()
-						return
-					}
+					livesMutex.Lock()
+					delete(lives, roomId)
+					livesMutex.Unlock()
+					ticker.Stop()
+					return
 				}
 			} else {
 				if rand.Int()%5 == 0 {
@@ -1437,4 +1435,40 @@ func SafeGoRetry(fn func(), maxRetries int, retryDelay time.Duration) {
 			}
 		}
 	}()
+}
+
+func RefreshLiver(room int) {
+	var liver AreaLiver
+	var obj interface{}
+	res, _ := queryClient.R().Get("https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + toString(int64(room)))
+	sonic.Unmarshal(res.Body(), &obj)
+	var uid = getInt64(obj, "data.uid")
+	liver.UID = uid
+
+	list := GetGuardList(toString(int64(int(room))), toString(uid))
+	marshal, _ := sonic.Marshal(list)
+	liver.GuardList = string(marshal)
+	res, _ = queryClient.R().Get("https://api.live.bilibili.com/xlive/custom-activity-interface/baseActivity/GeneralGetUserInfo?uids=" + toString(uid))
+	sonic.Unmarshal(res.Body(), &obj)
+	var uname = getString(obj, "data.data."+toString(uid)+".uname")
+	liver.UName = uname
+	var l1 = 0
+	var l2 = 0
+	var l3 = 0
+
+	for i := range list {
+		if list[i].Guard == 1 {
+			l1++
+		}
+		if list[i].Guard == 2 {
+			l2++
+		}
+		if list[i].Guard == 3 {
+			l3++
+		}
+	}
+
+	liver.Guard = fmt.Sprintf("%d,%d,%d", l1, l2, l3)
+	db.Save(&liver)
+
 }

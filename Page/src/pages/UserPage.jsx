@@ -45,7 +45,7 @@ function UserPage(props) {
 
     return (
         <div>
-            <div className={'flex flex-col sm:flex-row  h-full'}>
+            <div className={'flex flex-col sm:flex-row  h-[88vh] ]'}>
                 <HeroUIPieChart
                     width={isMobile() ? vwToPx(90) : vwToPx(35)}
                     data={getPieData(space.Rooms)}
@@ -54,7 +54,7 @@ function UserPage(props) {
                         setRoom(data.payload.id)
                     }}
                 />
-                <div className={'sm:w-[75vw]'}>
+                <div className={'sm:w-[75vw] lg:overflow-x-hidden scrollbar-hide'}>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
@@ -106,8 +106,8 @@ function UserPage(props) {
 
                     </div>
 
-                    <div className={'mt-4'}>
-                        <div className='flex  items-center flex-col sm:flex-row'>
+                    <div className={'mt-4 ' }>
+                        <div className='flex  items-center flex-col sm:flex-row '>
                             <Autocomplete
                                 isClearable
                                 onClear={() => setFilter('')}
