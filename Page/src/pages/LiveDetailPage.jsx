@@ -370,6 +370,7 @@ function LiveDetailPage(props) {
                 </div>
             }
                    isStriped
+                   className={'min-w-[800px]'}
             >
 
                 <TableHeader>

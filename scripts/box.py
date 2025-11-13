@@ -3,7 +3,7 @@ import json
 import pymysql
 
 def query():
-    cursor.execute("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and extra like '%盲盒%' order by gift_price desc")
+    cursor.execute("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and extra like '%盲盒%' and live_room = 23174842 order by gift_price desc")
     array = cursor.fetchall()
     m = {}
     got = 0

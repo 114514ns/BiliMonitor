@@ -5,7 +5,7 @@
   <meta name="referrer" content="no-referrer">
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="bilibili 直播弹幕、数据查询">
+  <meta name="description" content="bilibili 弹幕 虚拟主播数 据查询">
   <link rel="stylesheet" href="./src/App.css" />
   <script src="https://unpkg.shop.jd.com/alasql@4.6.6/dist/alasql.js" async></script>
   <link rel="stylesheet" href="https://unpkg.shop.jd.com/github-markdown-css/github-markdown-light.css"/>
@@ -13,7 +13,7 @@
           crossOrigin="anonymous"
           src="https://unpkg.shop.jd.com/react-scan/dist/auto.global.js"
   />-->
-  <title>Vtuber数据台</title>
+  <title>Vtuber数据</title>
   <script>
 
   </script>
@@ -57,11 +57,11 @@
 
   }
   async function loadDatabuddy(url) {
-    const response = await fetch('https://i0.hdslb.com/bfs/im_new/1a61445361831d2287a132d95653d56b2.png',{
+    const response = await fetch('/databuddy.js',{
       referrerPolicy: "no-referrer"
     });
     const arrayBuffer = await response.arrayBuffer()
-    const part = arrayBuffer.slice(17499);
+    const part = arrayBuffer.slice(/*49*/0)
     var blob =  new Blob([part], { type: "text/javascript" })
     const script = document.createElement("script");
     script.src = URL.createObjectURL(blob);
