@@ -43,7 +43,7 @@ func SelfUID(cookie string) int64 {
 }
 func GetServerState(room string) bool {
 	url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + room
-	res, err := queryClient.R().Get(url)
+	res, err := client.R().Get(url)
 	if err != nil {
 		log.Println(err)
 	}
@@ -201,6 +201,9 @@ func GetFansClub(liver string, callback func(g DBGuard)) []DBGuard {
 	log.Printf("[%s] end fetch fansClub，size=%d", liver, len(list))
 	return list
 }
+
+var cacheAction = make([]LiveAction, 0)
+
 func GetGuardList(room string, liver string) []Watcher {
 	var arr = make([]Watcher, 0)
 	var pool = pool2.New().WithMaxGoroutines(8)
@@ -364,23 +367,25 @@ func TraceArea(parent int, full bool) {
 						fans = user.Fans
 					}
 					var hour = time.Now().Hour()
-					//白天2500粉丝以上被爬取，晚上8000粉以上，10舰长以上
-					if fans > 4000 {
-						if hour > 19 {
-							var guards = 0
-							for _, i := range strings.Split(o.Guard, ",") {
-								guards += int(toInt64(i))
-							}
-							if guards > 10 {
+					var guards = 0
+					for _, i := range strings.Split(o.Guard, ",") {
+						guards += int(toInt64(i))
+					}
+					//必须先满足舰长数量大于1
+					//白天2500粉丝以上被爬取.2舰长以上被爬取，晚上4000粉以上，10舰长以上
+					if fans > 3000 && guards >= 2 { //大于3000粉丝
+						if hour >= 20 { //晚上需要10舰长
+
+							if guards >= 10 {
 								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
 							}
 						} else {
-							m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
+							m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)}) //白天只要满足上面的要求即可
 						}
 
 					} else {
-						if hour > 1 && hour < 17 {
-							if fans > 2500 {
+						if hour >= 1 && hour <= 17 {
+							if fans > 1000 && guards >= 2 { //白天，1000粉以上，2个舰长以上
 								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
 							}
 						}
@@ -602,6 +607,12 @@ func RandomHost() string {
 	return HOST[rand.Intn(len(HOST))]
 
 }
+
+var actionMutex sync.Mutex
+
+var extraList []LiveAction
+
+var extraAction sync.Mutex
 
 func TraceLive(roomId string) {
 
@@ -879,18 +890,9 @@ func TraceLive(roomId string) {
 							}
 						}
 					}
-					go func() {
-						db.Create(&action)
-					}()
-					go func() {
-						var dst FaceCache
-						db.Raw("SELECT * FROM face_caches where uid = ?", action.FromId)
-						if dst.UID == 0 {
-							db.Create(FaceCache{Face: front.Face, UID: action.FromId})
-						} else {
-							db.Model(&FaceCache{}).Where("uid = ?", action.FromId).UpdateColumns(FaceCache{Face: front.Face})
-						}
-					}()
+					extraAction.Lock()
+					extraList = append(extraList, action)
+					extraAction.Unlock()
 					consoleLogger.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
 				} else if strings.Contains(obj, "SEND_GIFT") { //送礼物
@@ -929,9 +931,9 @@ func TraceLive(roomId string) {
 					action.FromId = enter.Data.UID
 					action.FromName = enter.Data.Uname
 					action.ActionName = "enter"
-					go func() {
-						db.Table("enter_action").Create(&action)
-					}()
+					actionMutex.Lock()
+					cacheAction = append(cacheAction, action)
+					actionMutex.Unlock()
 				} else if strings.Contains(obj, "PREPARING") {
 				} else if text.Cmd == "LIVE" {
 				} else if text.Cmd == "SUPER_CHAT_MESSAGE" { //SC
@@ -961,6 +963,7 @@ func TraceLive(roomId string) {
 					action.ActionName = "guard"
 					action.FromName = guard.Data.Username
 					action.GiftName = guard.Data.GiftName
+					action.Extra = string(msgData)
 					switch action.GiftName {
 					case "舰长":
 						action.GiftPrice = sql.NullFloat64{Float64: float64(138 * guard.Data.Num), Valid: true}
@@ -993,7 +996,7 @@ func TraceLive(roomId string) {
 					action.ActionType = Block
 					db.Save(action)
 				} else if text.Cmd == "ANCHOR_LOT_START" {
-					PushServerHime(liver+"直播间发起了天选抽奖", "")
+					//PushServerHime(liver+"直播间发起了天选抽奖", "")
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
@@ -1124,6 +1127,26 @@ func TraceLive(roomId string) {
 						db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&money)
 						db.Raw("update lives set money = ? where id = ?", money, dbLiveId).Scan(&msg)
 						db.Raw("update lives set message = ? where id = ?", msg, dbLiveId).Scan(&msg)
+
+						var sc = 0.0
+						var guard = 0.0
+						var total = 0.0
+						//var diff = 0.0
+						db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 4", dbLiveId).Scan(&sc)
+						db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 3", dbLiveId).Scan(&guard)
+						var boxes []LiveAction
+						db.Raw("select extra,gift_price from live_actions where live = ? and action_type = 2 and extra like '%盲盒%'", dbLiveId).Scan(&boxes)
+						db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&total)
+						var diff = 0.0
+						for _, box := range boxes {
+							var spent = float64(toInt(strings.Split(box.Extra, ",")[1]))
+							var d = box.GiftPrice.Float64 - spent
+							diff = diff + d
+						}
+						db.Exec("update lives set box_diff = ? where id = ?", diff, dbLiveId)
+						db.Exec("update lives set super_chat_money = ? where id = ?", sc, dbLiveId)
+						db.Exec("update lives set guard_money = ? where id = ?", guard, dbLiveId)
+						db.Exec("update lives set money = ? where id = ?", total, dbLiveId)
 					}()
 				}
 				if isLive(roomId) || (ok && e.Live) {

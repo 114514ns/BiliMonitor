@@ -22,7 +22,7 @@ function UserChip(props) {
                                 onClick={() => {
                                     toSpace(props.props.LiverID);
                                 }}
-                                style={{background: getColor(props.props.MedalLevel), color: 'white', marginLeft: '8px',marginTop:'4px'}}
+                                style={{background: (new Date().getTime() - new Date(props.props.UpdatedAt))>168*2*3600*1000?'#5762A799':getColor(props.props.Level), color: 'white', marginLeft: '8px',marginTop:'4px'}}
                             >
                                 <span>{props.props.MedalName}</span>
                                 <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">

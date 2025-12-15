@@ -56,7 +56,7 @@ window.vwToPx= (vhPercent) =>{
 }
 
 window.AVATAR_API = 'https://workers.vrp.moe/bilibili/avatar/'
-document.title = "Vtuber数据台"
+document.title = "Vtuber 数据"
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
         config.url = config.url?.replace('/api', '');
@@ -131,22 +131,22 @@ window.inspectGuard = (obj) => {
 }
 const fetchGuild = async () => {
     if (!localStorage.getItem("guild")) {
-        const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{
+        const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/bili_guild_infos.json?sign=Jgd-iZ5deklFU3Jbjq4lp2-TVdD1h44aNA5XUsi79n4=:0',{
             referrerPolicy: "no-referrer"
         });
         const arrayBuffer = await response.arrayBuffer()
         var dec = new TextDecoder();
-        localStorage.setItem("guild", dec.decode(arrayBuffer).substring(16569));
+        localStorage.setItem("guild", dec.decode(arrayBuffer).substring(0));
     }
 }
 const fetchMoney = async () => {
     if (!localStorage.getItem("money")) {
-        const response = await fetch('https://i0.hdslb.com/bfs/im_new/de4a78b0e06d48d42eddd6f8a0483b1e2.png',{
+        const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/rank.json?sign=bOejKONpD3-QV8TtS64DwgtZEwbZy2yt3uCkNn2yolc=:0',{
             referrerPolicy: "no-referrer"
         });
         const arrayBuffer = await response.arrayBuffer()
         var dec = new TextDecoder();
-        localStorage.setItem("money", dec.decode(arrayBuffer).substring(16569));
+        localStorage.setItem("money", dec.decode(arrayBuffer).substring(0));
     }
 }
 axios.interceptors.request.use(function (config) {
@@ -165,6 +165,35 @@ if (item != null) {
     html.style.backgroundSize = 'cover'
     html.style.backgroundAttachment = 'fixed'
     html.style.backgroundPosition = 'center'
+}
+
+var session = localStorage.getItem("session")
+if (session === null || session === undefined || session === '') {
+    function UUID() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === "x" ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+        });
+    }
+
+    localStorage.setItem("session", UUID())
+
+}
+
+if (localStorage.getItem("defaultPageSize") === null) {
+    localStorage.setItem("defaultPageSize", "10");
+}
+
+window.prefetch = (url) => {
+    const link = document.createElement("link");
+    link.rel = "prefetch";
+    if (import.meta.env.PROD) {
+        url = url?.replace('/api', '');
+        //config.url = config.url?.replace('live.ikun.dev', 'live-api.ikun.dev');
+    }
+    link.href = url;
+    document.head.appendChild(link);
 }
 
 createRoot(document.getElementById('root')).render(

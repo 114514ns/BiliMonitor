@@ -7,7 +7,9 @@ export default function LiveStatisticCard(props) {
     const redirect = useNavigate()
     var item = props.item
     return (
-        <NavLink to={`/lives/${item.ID}`}>
+        <NavLink to={`/lives/${item.ID}`} onMouseEnter={() => {
+            prefetch("/api/liver/space?uid=" + item.UserID)
+        }}>
             <Card className={'my-4 mx-2'} isHoverable >
                 <CardHeader className="flex-col items-start">
                     <p className="text-large uppercase font-bold">{item.Title}</p>
