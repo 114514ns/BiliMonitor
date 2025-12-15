@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jinzhu/copier"
-	"github.com/sourcegraph/conc/pool"
 	"log"
+
+	"github.com/jinzhu/copier"
+	pool2 "github.com/sourcegraph/conc/pool"
+
 	"sort"
 	"strconv"
 	"strings"
@@ -18,7 +20,7 @@ type MessagePoint struct {
 	Count int
 }
 
-var cachedMessagesPoint [][]MessagePoint = make([][]MessagePoint, 3)
+var cachedMessagesPoint = make([][]MessagePoint, 3)
 var cachedFans = make(map[int][][]MessagePoint)
 var cachedWatcher []FansClub //搜索那边用的
 func reverse[T any](arr []T) []T {
@@ -38,7 +40,7 @@ func TotalGuards() [3]int {
 
 	var l = len(result)
 	reverse(result)
-	for i, _ := range result {
+	for i := range result {
 		var item = result[l-1-i]
 		if id[item["uid"].(int64)] != true {
 			split := strings.Split(item["guard"].(string), ",")
@@ -104,14 +106,80 @@ func TotalLiver() int {
 	db.Raw("SELECT COUNT(DISTINCT uid) FROM area_livers").Scan(&count)
 	return count
 }
+
+type FlowLiver struct {
+	FrontAreaLiver
+	Type string
+}
+
+var cachedFlowLiver []FlowLiver
+
+func RefreshFlow() {
+	var mutex sync.Mutex
+	var pool = pool2.New().WithMaxGoroutines(32)
+	for i := range cachedLivers {
+		var item = cachedLivers[i]
+		pool.Go(func() {
+			if item.Fans > 300 {
+				var currentMonth = time.Now().Month()
+				var currentYear = time.Now().Year()
+
+				if time.Now().Day() < 7 {
+					currentMonth--
+				}
+				var dst []int //当月
+				db.Raw("select id from area_lives where uid = ? and year(time) = ? and month(time) = ? limit 5", item.UID, currentYear, currentMonth).Scan(&dst)
+
+				var dst2 []int //上月
+				db.Raw("select id from area_lives where uid = ? and year(time) = ? and month(time) = ? limit 5", item.UID, currentYear, currentMonth-1).Scan(&dst2)
+
+				if dst == nil {
+					dst = append(dst, currentYear)
+				}
+				if (dst2) == nil {
+					dst2 = append(dst2, currentYear)
+				}
+
+				if item.UID == 3690970457573801 {
+					time.Now()
+				}
+
+				if len(dst) < 5 && len(dst2) == 5 {
+					//Leave
+
+					mutex.Lock()
+					cachedFlowLiver = append(cachedFlowLiver, FlowLiver{
+						FrontAreaLiver: item,
+						Type:           "Leave",
+					})
+					mutex.Unlock()
+				}
+				if len(dst2) < 5 && len(dst) == 5 {
+					mutex.Lock()
+					cachedFlowLiver = append(cachedFlowLiver, FlowLiver{
+						FrontAreaLiver: item,
+						Type:           "Enter",
+					})
+					mutex.Unlock()
+				}
+
+			}
+		})
+	}
+	pool.Wait()
+}
+
+var listRef = ""
+
 func RefreshLivers() {
+
 	var start = time.Now()
 	log.Println("[RefreshLivers] Start")
 	var result []FrontAreaLiver
 	var ids []int64
 	var idMap = make(map[int64][]FrontAreaLiver)
 	db.Raw(`SELECT uid FROM area_livers GROUP BY uid`).Find(&ids)
-	var wg = pool.New().WithMaxGoroutines(6)
+	var wg = pool2.New().WithMaxGoroutines(6)
 	var mutex sync.Mutex
 	for _, id := range ids {
 		id := id
@@ -131,7 +199,11 @@ func RefreshLivers() {
 	wg.Wait()
 	for _, livers := range idMap {
 		if len(livers) > 0 {
-			result = append(result, livers[len(livers)-1])
+			if livers[len(livers)-1].Fans > 1000 {
+				if !Has(config.BlackAreaLiver, livers[len(livers)-1].UID) {
+					result = append(result, livers[len(livers)-1])
+				}
+			}
 		}
 
 	}
@@ -146,26 +218,26 @@ func RefreshLivers() {
 	for _, s := range order {
 		var dst []DiffStruct
 		db.Raw(`
-WITH ranked AS (
-  SELECT user_id, name, fans, created_at,
-         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)  AS rn_asc,
-         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn_desc
-  FROM users
-  WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)   -- 最近1个月内的数据
-)
-SELECT e.user_id,
-       e.name,
-       e.fans AS start_fans,
-       e.created_at AS start_time,
-       l.fans AS end_fans,
-       l.created_at AS end_time,
-       l.fans - e.fans AS diff,
-       TIMESTAMPDIFF(DAY, e.created_at, l.created_at) AS days_span,
-       (l.fans - e.fans) / NULLIF(TIMESTAMPDIFF(DAY, e.created_at, l.created_at) / 30.4375, 0) AS monthly_growth
-FROM ranked e
-JOIN ranked l ON e.user_id = l.user_id
-WHERE e.rn_asc = 1 AND l.rn_desc = 1
-ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
+		WITH ranked AS (
+		  SELECT user_id, name, fans, created_at,
+		         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at ASC)  AS rn_asc,
+		         ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) AS rn_desc
+		  FROM users
+		  WHERE created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)   -- 最近1个月内的数据
+		)
+		SELECT e.user_id,
+		       e.name,
+		       e.fans AS start_fans,
+		       e.created_at AS start_time,
+		       l.fans AS end_fans,
+		       l.created_at AS end_time,
+		       l.fans - e.fans AS diff,
+		       TIMESTAMPDIFF(DAY, e.created_at, l.created_at) AS days_span,
+		       (l.fans - e.fans) / NULLIF(TIMESTAMPDIFF(DAY, e.created_at, l.created_at) / 30.4375, 0) AS monthly_growth
+		FROM ranked e
+		JOIN ranked l ON e.user_id = l.user_id
+		WHERE e.rn_asc = 1 AND l.rn_desc = 1
+		ORDER BY monthly_growth ` + s + " limit 400;").Scan(&dst)
 		for _, diffStruct := range dst {
 			m[diffStruct.UserID] = diffStruct
 		}
@@ -176,7 +248,7 @@ ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
 		liverMap[liver.Room] = liver
 		var dst User
 		db.Raw("select * from users where user_id=? order by id desc limit 1", liver.UID).Scan(&dst)
-		if dst.ID != 0 && dst.Fans > 300 {
+		if dst.ID != 0 && dst.Fans > 1000 {
 			result[i].Bio = dst.Bio
 			result[i].Verify = dst.Verify
 			result[i].Fans = dst.Fans
@@ -205,6 +277,23 @@ ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
 		return result[i].Fans > result[j].Fans
 	})
 	copier.Copy(&cachedLivers, &result)
+
+	type Temp struct {
+		List []FrontAreaLiver `json:"list"`
+	}
+
+	bytes, _ := json.Marshal(Temp{
+		List: cachedLivers,
+	})
+
+	UploadBytes(bytes, "/Microsoft365/static/areaLivers.json")
+
+	ListFile("/Microsoft365/static/")
+
+	time.Sleep(5 * time.Second)
+
+	//listRef = GetFile("/139/Msic/areaLivers.json")
+
 }
 func RefreshWatchers() {
 	var month = 7

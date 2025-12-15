@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/flate"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -10,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"math"
 	mathRand "math/rand"
 	"os"
@@ -114,6 +116,10 @@ func toInt64(s string) int64 {
 func toInt(s string) int {
 	i64, _ := strconv.ParseInt(s, 10, 64)
 	return int(i64)
+}
+func toFloat64(s string) float64 {
+	i64, _ := strconv.ParseFloat(s, 64)
+	return (i64)
 }
 func AppendElement[T any](queue []T, maxSize int, element T) []T {
 	if len(queue) >= maxSize {
@@ -304,4 +310,49 @@ func getObject(obj interface{}, path string, typo string) JsonType {
 }
 func toString(i int64) string {
 	return strconv.FormatInt(i, 10)
+}
+
+func getColor(level int) string {
+	if level <= 10 {
+		return "#727BB5"
+	}
+	if level <= 20 {
+		return "#CF86B2"
+	}
+	if level <= 30 {
+		return "#5EC0F7"
+	}
+	if level <= 40 {
+		return "#6992FF"
+	}
+	if level <= 50 {
+		return "#AA78F1"
+	}
+	if level <= 60 {
+		return "#ED5674"
+	}
+	if level <= 70 {
+		return "#F58737"
+	}
+	if level <= 80 {
+		return "#F58837"
+	}
+	if level <= 90 {
+		return "#F58837"
+	}
+
+	return ""
+
+}
+
+func DeflateDecompress(data []byte) ([]byte, error) {
+	r := flate.NewReader(bytes.NewReader(data))
+	defer r.Close()
+
+	var out bytes.Buffer
+	_, err := io.Copy(&out, r)
+	if err != nil {
+		return nil, err
+	}
+	return out.Bytes(), nil
 }

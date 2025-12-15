@@ -239,7 +239,6 @@ function ChatPage(props) {
 
                             <WatcherList room={room} type={'online'}/>
                         </Tab>
-
                         <Tab title={`大航海：${monitor.filter((e) =>e.LiveRoom == room)[0]?.GuardCount}`} >
                             <WatcherList room={room} type={'guard'}/>
                         </Tab>

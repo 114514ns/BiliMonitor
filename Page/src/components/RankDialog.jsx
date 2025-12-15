@@ -116,7 +116,7 @@ function RankDialog(props) {
                 setData([])
 
                 props.onClose();
-            }} size="md" >
+            }} size="lg" >
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">Rank</ModalHeader>
                     <ModalBody>
@@ -161,7 +161,7 @@ function RankDialog(props) {
                                 >Active Only</Switch>
                             </div>
 
-                            <FansList fans={fans} onClose={props.onClose} inspect={props.inspect} />
+                            <FansList fans={fans} onClose={props.onClose} inspect={props.inspect} height={520}/>
 
                         </div>
 
@@ -181,10 +181,10 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick,
     const [id,setId] = React.useState(0);
     const getStyle = (e) => {
         if (e === "add") {
-            return 'bg-green-200 rounded-lg px-2'
+            return 'bg-green-200 rounded-lg px-2 py-2'
         }
         if (e === "remove") {
-            return 'bg-red-200 rounded-lg px-2'
+            return 'bg-red-200 rounded-lg px-2 py-2'
         }
         return ""
     }
@@ -210,6 +210,7 @@ export const FansList = memo(function FansList({fans,onClose,height,onItemClick,
         {fans.map((f) => (
             <ListboxItem
                 key={f.UID + '-' + f.LiverID}
+                classNames={'py-2'}
             >
                 <Tooltip content={
                     <div>

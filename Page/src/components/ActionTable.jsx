@@ -23,7 +23,7 @@ function ActionTable(props) {
 
     const redirect = useNavigate();
 
-    const pageSize = 10
+    const pageSize = parseInt(localStorage.getItem("defaultPageSize"))
 
     useEffect(() => {
         props.handlePageChange(currentPage)
@@ -66,8 +66,10 @@ function ActionTable(props) {
         }
     ]
 
+    const tableRef = React.createRef();
+
     return (
-        <div>
+        <div className={''}>
             <Table bottomContent={
                 <div className="flex w-full justify-center">
                     <Pagination
@@ -78,10 +80,13 @@ function ActionTable(props) {
                         page={currentPage}
                         initialPage={window.USER_PAGE ? window.USER_PAGE : 1}
                         total={Math.ceil(props.total / pageSize)}
-                        onChange={(page) => props.handlePageChange(page, pageSize)}
+                        onChange={(page) => {
+                            props.handlePageChange(page, pageSize)
+
+                        }}
                     />
                 </div>
-            } isStriped>
+            } isStriped ref={tableRef}>
 
                 <TableHeader>
                     {columns.map((col, index) => (

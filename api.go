@@ -3,13 +3,14 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
 	"embed"
+	"encoding/hex"
+	"encoding/xml"
 	"fmt"
-	bili "github.com/114514ns/BiliClient"
-	"github.com/google/uuid"
-	pool2 "github.com/sourcegraph/conc/pool"
 	"log"
 	"math"
+	"math/rand"
 	"net/http"
 	"sort"
 	"strconv"
@@ -17,12 +18,16 @@ import (
 	"sync"
 	"time"
 
+	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/copier"
+	pool2 "github.com/sourcegraph/conc/pool"
+	"github.com/xuri/excelize/v2"
 )
 
 var worker = NewWorker(1)
@@ -42,9 +47,11 @@ var distFS embed.FS
 func InitHTTP() {
 	r := gin.Default()
 	r.UseH2C = true
-	r.Use(gzip.Gzip(gzip.DefaultCompression))
+	//r.Use(gzip.Gzip(gzip.DefaultCompression))
+	r.Use(gzip.Gzip(gzip.BestCompression))
 	r.Use(CORSMiddleware())
 	r.Use(TTLMiddleware())
+
 	if ENV == "BUILD" {
 		r.Use(static.Serve("/", static.EmbedFolder(distFS, "Page/dist")))
 	} else {
@@ -262,11 +269,15 @@ func InitHTTP() {
 
 		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
+
+		if strings.Contains(c.Request.Header.Get("X-Provider"), "google.com") {
+			limit = 500
+		}
 		offset := (page - 1) * limit
 
 		orderStr := c.DefaultQuery("order", "ascend")
 
-		query := db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id)
+		query := db.Model(&LiveAction{}).Where("live = ? ", id)
 
 		if Type != "" {
 			query = query.Where("action_name = ?", Type)
@@ -282,7 +293,7 @@ func InitHTTP() {
 		}
 
 		var records []LiveAction
-		query = db.Model(&LiveAction{}).Where("live = ? and action_name != 'enter'", id)
+		query = db.Model(&LiveAction{}).Where("live = ? ", id)
 
 		if Type != "" {
 			query = query.Where("action_name = ?", Type)
@@ -483,9 +494,25 @@ func InitHTTP() {
 	//所有在虚拟区开播过的主播
 
 	r.GET("/areaLivers", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"list": cachedLivers,
-		})
+
+		/*
+			var filter = make([]FrontAreaLiver, 0)
+			for i := range cachedLivers {
+				var item = cachedLivers[i]
+
+				if item.Fans > 1000 {
+					if !Has(config.BlackAreaLiver, item.UID) {
+						filter = append(filter, item)
+					}
+				}
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"list": filter,
+			})
+
+		*/
+
+		c.Redirect(http.StatusTemporaryRedirect, GetFile("/Microsoft365/static/areaLivers.json"))
 
 	})
 	//获取直播流
@@ -506,7 +533,7 @@ func InitHTTP() {
 		livesMutex.Unlock()
 		worker.AddTask(func() {
 			go TraceLive(room)
-			time.Sleep(10 * time.Second)
+			time.Sleep(7 * time.Second)
 		})
 		c.JSON(http.StatusOK, gin.H{
 			"message": "success",
@@ -530,7 +557,7 @@ func InitHTTP() {
 		var countQuery = db.Model(&FansClub{})
 		var s = ""
 		if active == "true" {
-			s = "and TO_DAYS(NOW()) -TO_DAYS(updated_at) <7"
+			//s = "and TO_DAYS(NOW()) -TO_DAYS(updated_at) <7"
 		}
 		if liver != "" {
 			query.Where("liver_id = ? "+s, liver)
@@ -540,6 +567,11 @@ func InitHTTP() {
 		var count int64
 		query.Count(&count)
 		query.Offset(sizeInt * (pageInt - 1)).Limit(sizeInt).Order("level desc").Find(&result)
+
+		sort.Slice(result, func(i, j int) bool {
+			return result[i].Level > result[j].Level
+		})
+
 		context.JSON(http.StatusOK, gin.H{
 			"list":  result,
 			"total": count,
@@ -599,6 +631,12 @@ func InitHTTP() {
 		sort.Slice(dst, func(i, j int) bool {
 			return dst[i].Score > dst[j].Score
 		})
+		for i := range dst {
+			var item = dst[i]
+			if time.Now().After(item.UpdatedAt.Add(time.Hour * 720)) {
+				dst[i].Type = 0
+			}
+		}
 		context.JSON(http.StatusOK, gin.H{
 			"list": dst,
 		})
@@ -669,6 +707,7 @@ func InitHTTP() {
 			db.Raw("select level from fans_clubs where uid = ? order by level desc limit 1", uid).Scan(&topMedal)
 			wg.Done()
 		}()
+
 		wg.Wait()
 
 		context.JSON(http.StatusOK, gin.H{
@@ -746,6 +785,10 @@ func InitHTTP() {
 		}
 		if pageSize <= 0 {
 			pageSize = 10
+		}
+
+		if context.Request.Header.Get("X-Provider") == "google.com" {
+			pageSize = 500
 		}
 		offset := (page - 1) * pageSize
 		var dst []CustomLiveAction
@@ -981,7 +1024,7 @@ ORDER BY
 		var l AreaLiver
 		var wg sync.WaitGroup
 		var medal = ""
-		wg.Add(3)
+		wg.Add(4)
 		go func() {
 
 			db.Raw("select u_name,fans,guard,updated_at,area from area_livers where uid = ?  order by id desc", mid).Scan(&l)
@@ -998,7 +1041,44 @@ ORDER BY
 			wg.Done()
 		}()
 
+		var sum = 0.0
+		go func() {
+
+			var dst []Live
+			db.Raw("SELECT * FROM lives WHERE user_id = ? and created_at >= (NOW() + INTERVAL 8 HOUR) - INTERVAL 720 HOUR", mid).Scan(&dst)
+			var wgInner sync.WaitGroup
+			wgInner.Add(len(dst))
+			var m1 sync.Mutex
+			for _, live := range dst {
+				go func() {
+					var t = live.Money
+					var sub = 0.0
+					db.Raw("select sum(gift_price) from live_actions where live = ? and action_type = 3", live.ID).Scan(&sub)
+					m1.Lock()
+					sum = t - sub + sum
+					m1.Unlock()
+					wgInner.Done()
+				}()
+			}
+			wgInner.Wait()
+			wg.Done()
+		}()
 		wg.Wait()
+		var area = ""
+		db.Raw("select guard from area_livers where uid = ? order by id desc limit 1", mid).Scan(&area)
+		var index = 0
+		for _, i := range strings.Split(area, ",") {
+			if index == 0 {
+				sum = sum + 19998.0*float64(toInt(i))
+			}
+			if index == 1 {
+				sum = sum + 1998.0*float64(toInt(i))
+			}
+			if index == 2 {
+				sum = sum + 168.0*float64(toInt(i))
+			}
+			index++
+		}
 
 		context.JSON(http.StatusOK, gin.H{
 			"message": "ok",
@@ -1010,6 +1090,7 @@ ORDER BY
 			"Bio":     user.Bio,
 			"Verify":  user.Verify,
 			"Medal":   medal,
+			"Amount":  sum,
 		})
 	})
 	r.GET("/queryPage", func(context *gin.Context) {
@@ -1094,10 +1175,15 @@ ORDER BY
 					defer cancel()
 
 					var guardCount = 0
-					e := db.WithContext(ctx).Raw("select count(*) from live_actions where from_id = ? and action_type = 3", id).Scan(&guardCount)
+					var t0 []LiveAction
+					e := db.WithContext(ctx).Raw("select id from live_actions where from_id = ? and action_type = 3 limit 50", id).Scan(&t0)
+
+					guardCount = len(t0)
 
 					var msgCount = 0
-					e1 := db.WithContext(ctx).Raw("select count(*) from live_actions where from_id = ? and action_type = 1", id).Scan(&msgCount)
+					e1 := db.WithContext(ctx).Raw("select id from live_actions where from_id = ? and action_type = 1 limit 50", id).Scan(&t0)
+
+					msgCount = len(t0)
 
 					if e.Error == context.DeadlineExceeded || e1.Error == context.DeadlineExceeded {
 						dst[i].TimeOut = true
@@ -1118,9 +1204,6 @@ ORDER BY
 					dst[i].MessageCount = msgCount
 					dst[i].GuardCount = guardCount
 
-					if id == 447689051 {
-						time.Now()
-					}
 				})
 			}
 			pool.Wait()
@@ -1765,16 +1848,40 @@ ORDER BY money DESC;
 		var midStr = c.Query("mid")
 		var mid = toInt64(midStr)
 
+		sql := `select * from dynamics where uid = ?;
+`
 		var dst []Dynamic
-		db.Raw("select * from dynamics where uid = ? ", mid).Scan(&dst)
+		db.Raw(sql, mid).Scan(&dst)
 		type ExtendDynamic struct {
 			Dynamic
 			IDStr string
 		}
 		var d []ExtendDynamic
 		copier.Copy(&d, &dst)
+		var m = make(map[int64]bool)
 		for i := range d {
 			d[i].IDStr = toString(dst[i].ID)
+			if d[i].ForwardFrom != 0 {
+				m[d[i].ForwardFrom] = true
+			}
+		}
+		var pool = pool2.New().WithMaxGoroutines(12)
+		var mutex sync.Mutex
+		for i := range m {
+			var uid = i
+			pool.Go(func() {
+				var d2 ExtendDynamic
+				db.Raw(`select * from dynamics where id = ? limit 1`, uid).Scan(&d2)
+
+				mutex.Lock()
+
+				if mid != d2.UID {
+					d = append(d, d2)
+				}
+
+				mutex.Unlock()
+
+			})
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"data": d,
@@ -1792,9 +1899,39 @@ ORDER BY money DESC;
 		}
 
 		var count = 0
-		db.Raw("select count(*) from dynamics where uid = ? order by create_at desc", mid).Scan(&count)
+		db.Raw("select count(*) from dynamics where uid = ? ", mid).Scan(&count)
 		c.JSON(http.StatusOK, gin.H{
 			"count": count,
+		})
+	})
+
+	r.POST("/comments/delete", func(c *gin.Context) {
+		_, e := uuid.Parse(c.DefaultPostForm("session", ""))
+		if e != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid session",
+			})
+			return
+		}
+
+		var id = toInt64(c.DefaultPostForm("id", ""))
+		if id <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid id",
+			})
+			return
+		}
+		var s1 = ""
+		db.Raw("select session from comments where id = ?", id).Scan(&s1)
+		if s1 != c.DefaultPostForm("session", "") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invalid session",
+			})
+			return
+		}
+		db.Delete(&Comment{}, "id = ?", id)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
 		})
 	})
 
@@ -1820,6 +1957,10 @@ ORDER BY money DESC;
 			Text:      text,
 			CreatedAt: time.Now(),
 			Session:   c.PostForm("session"),
+		})
+
+		c.JSON(http.StatusOK, gin.H{
+			"message": "success",
 		})
 
 	})
@@ -1856,7 +1997,12 @@ ORDER BY money DESC;
 
 		for i := range comments {
 			if comments[i].Session != session {
+
+				h := md5.Sum([]byte(comments[i].Session))
+				comments[i].DisplayName = strings.ToUpper(hex.EncodeToString(h[:])[0:6])
 				comments[i].Session = ""
+			} else {
+				comments[i].DisplayName = "You"
 			}
 		}
 
@@ -1869,6 +2015,305 @@ ORDER BY money DESC;
 		})
 	})
 
+	r.GET("/hot", func(c *gin.Context) {
+		type Select struct {
+			ID       int
+			UserName string
+			UserID   int64
+		}
+		var dst []Select
+		db.Raw("select lives.user_id,user_name,lives.id from lives,area_livers where lives.user_id = area_livers.uid  and end_at = 0 and lives.created_at >= (NOW() + INTERVAL 8 HOUR) - INTERVAL 480 MINUTE group by lives.user_id order by fans desc limit 50").Scan(&dst)
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
+	r.GET("/stress", func(c *gin.Context) {
+
+		c.Redirect(http.StatusMovedPermanently, "http://127.0.0.1:8081"+fmt.Sprintf("/live/%d/?page=1&limit=10&order=undefined&mid=0&type=", rand.Int()%300000+1))
+	})
+
+	r.GET("/export", func(c *gin.Context) {
+		var typo = c.DefaultQuery("type", "user")
+		var idStr = c.DefaultQuery("id", "")
+
+		var id = toInt64(idStr)
+
+		if id <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "invalid id",
+			})
+			return
+		}
+		f := excelize.NewFile()
+		defer f.Close()
+
+		var sheetName = "Data"
+
+		index, _ := f.NewSheet(sheetName)
+
+		if typo == "user" {
+
+			type ExtendLiveAction struct {
+				LiveAction
+				UserName string
+			}
+			var dst []ExtendLiveAction
+			db.Raw("select live_actions.medal_level,live_actions.medal_name,live_actions.from_id,live_actions.action_type,live_actions.extra,live_actions.created_at,live_actions.gift_price,lives.user_name,live_actions.from_name,live_actions.gift_name from live_actions,lives where from_id = ? and live_actions.live = lives.id ", id).Scan(&dst)
+
+			var row = 1
+			f.SetCellValue(sheetName, "A1", "粉丝牌")
+			f.SetCellValue(sheetName, "b1", "用户名")
+			f.SetCellValue(sheetName, "C1", "时间")
+			f.SetCellValue(sheetName, "D1", "主播")
+			f.SetCellValue(sheetName, "E1", "弹幕/礼物")
+			f.SetCellValue(sheetName, "F1", "礼物金额")
+			f.SetCellValue(sheetName, "G1", "类型")
+
+			row++
+			f.SetColWidth(sheetName, "A", "C", 20)
+			f.SetColWidth(sheetName, "d", "d", 30)
+			f.SetColWidth(sheetName, "e", "e", 40)
+			for i := range dst {
+				var item = dst[i]
+				var price0 = item.GiftPrice
+
+				var price = ""
+
+				if price0.Valid {
+					price = strconv.FormatFloat(price0.Float64, 'f', -1, 64)
+				}
+
+				var extra = item.Extra
+
+				if extra == "" {
+					extra = item.GiftName
+				}
+
+				var t = ""
+
+				if item.ActionType == Message {
+					t = "弹幕"
+				}
+				if item.ActionType == Gift {
+					t = "礼物"
+				}
+				if item.ActionType == SuperChat {
+					t = "醒目留言"
+				}
+				if item.ActionType == Guard {
+					t = "上舰"
+				}
+				f.SetCellValue(sheetName, fmt.Sprintf("A%d", row), (item.MedalName)+"  LV"+toString(int64(item.MedalLevel)))
+				f.SetCellValue(sheetName, fmt.Sprintf("B%d", row), item.FromName)
+				f.SetCellValue(sheetName, fmt.Sprintf("C%d", row), item.CreatedAt.Format(time.DateTime))
+				f.SetCellValue(sheetName, fmt.Sprintf("D%d", row), item.UserName)
+				f.SetCellValue(sheetName, fmt.Sprintf("E%d", row), extra)
+				f.SetCellValue(sheetName, fmt.Sprintf("F%d", row), price)
+				f.SetCellValue(sheetName, fmt.Sprintf("G%d", row), t)
+
+				style, _ := f.NewStyle(&excelize.Style{
+					Font: &excelize.Font{
+						Color: getColor(int(item.MedalLevel)),
+						Bold:  true,
+					},
+					Alignment: &excelize.Alignment{
+						Horizontal: "center",
+					},
+				})
+
+				f.SetCellStyle(sheetName, fmt.Sprintf("A%d", row), fmt.Sprintf("A%d", row), style)
+
+				if price0.Valid {
+					style, _ := f.NewStyle(&excelize.Style{
+						Font: &excelize.Font{
+							Color: "#C55A11",
+							Bold:  true,
+						},
+						Alignment: &excelize.Alignment{
+							Horizontal: "center",
+						},
+					})
+
+					f.SetCellStyle(sheetName, fmt.Sprintf("E%d", row), fmt.Sprintf("E%d", row), style)
+				}
+
+				row++
+			}
+			f.SetActiveSheet(index)
+			rows, _ := f.GetRows(sheetName)
+
+			style, _ := f.NewStyle(&excelize.Style{
+				Alignment: &excelize.Alignment{
+					Horizontal: "center",
+				},
+			})
+
+			lastRow := len(rows)
+			e := f.SetPanes(sheetName, &excelize.Panes{
+				Freeze: true,
+				Split:  false,
+				XSplit: 1, // 冻结列数
+				YSplit: 0,
+			})
+			if e != nil {
+				log.Println(e)
+				return
+			}
+			f.SetCellStyle(sheetName, "B1", fmt.Sprintf("Z%d", lastRow), style)
+
+			buf, _ := f.WriteToBuffer()
+			c.Data(
+				200,
+				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+				buf.Bytes(),
+			)
+		}
+	})
+	r.POST("/black/add", func(c *gin.Context) {
+		var midStr = c.DefaultQuery("mid", "")
+		var mid = toInt64(midStr)
+
+		if mid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		config.BlackAreaLiver = append(config.BlackAreaLiver, mid)
+		SaveConfig()
+
+		c.JSON(http.StatusOK, gin.H{
+			"msg": "success",
+		})
+	})
+
+	r.GET("/crc", func(c *gin.Context) {
+		var hash = c.Query("hash")
+		type Response struct {
+			UName string
+			UID   int64
+		}
+		var dst []Response
+		clickDb.Raw("select uid,u_name  from user_mappings where hash = ?", hash).Scan(&dst)
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
+	r.GET("/crc/bv", func(c *gin.Context) {
+
+		type I struct {
+			Messages []struct {
+				Text string `xml:",chardata"`
+				P    string `xml:"p,attr"`
+			} `xml:"d"`
+		}
+
+		var bv = c.Query("bv")
+		res, _ := queryClient.R().Get("https://api.bilibili.com/x/web-interface/view?bvid=" + bv)
+
+		var obj map[string]interface{}
+
+		sonic.Unmarshal(res.Body(), &obj)
+
+		if getInt(obj, "code") != 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "video doesn't exists",
+			})
+			return
+		}
+		var cid = getInt64(obj, "data.cid")
+
+		if cid == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "unknown error",
+			})
+			return
+		}
+
+		xml0, _ := queryClient.R().Get("https://comment.bilibili.com/" + toString(cid) + ".xml")
+
+		decompress, _ := DeflateDecompress(xml0.Body())
+
+		type UserMapping struct {
+			UID   int64
+			UName string
+		}
+		type ResponseItem struct {
+			Text      string
+			Sender    []UserMapping
+			Offset    int
+			CreatedAt time.Time
+		}
+
+		var dm I
+		xml.Unmarshal(decompress, &dm)
+
+		var pool = pool2.New().WithMaxGoroutines(128)
+
+		var results []ResponseItem
+
+		var lck sync.Mutex
+
+		for i := range dm.Messages {
+			var item = dm.Messages[i]
+			pool.Go(func() {
+				var hash = strings.Split(item.P, ",")[6]
+
+				re, _ := localClient.R().Get("http://192.168.31.178:1145/crc?hash=" + hash)
+
+				type RPCObject struct {
+					Data []UserMapping
+				}
+				var o RPCObject
+				sonic.Unmarshal(re.Body(), &o)
+				lck.Lock()
+				results = append(results, ResponseItem{
+					Text:      item.Text,
+					Sender:    o.Data,
+					CreatedAt: time.Unix(toInt64(strings.Split(item.P, ",")[4]), 0),
+					Offset:    int((toFloat64(strings.Split(item.P, ",")[0]))),
+				})
+				lck.Unlock()
+
+			})
+		}
+
+		pool.Wait()
+
+		c.JSON(http.StatusOK, gin.H{
+			"item": results,
+		})
+
+	})
+	r.GET("/playback", func(c *gin.Context) {
+		var id = toInt(c.Query("id"))
+
+		if id <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		var live Live
+		db.Raw("select * from lives where id = ?", id).Scan(&live)
+
+		if live.ID == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"files": ListFile(fmt.Sprintf("/Microsoft365/%s/%s", live.UserName, strings.Replace(time.Unix(live.StartAt-3600*8, 0).Format(time.DateTime), ":", "-", 1145))),
+		})
+
+	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 
@@ -1879,6 +2324,7 @@ func CORSMiddleware() gin.HandlerFunc {
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT")
 
+		c.Writer.Header().Set("Cache-Control", " public, max-age=0, stale-while-revalidate=30")
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
 			return

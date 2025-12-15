@@ -1,5 +1,15 @@
 import React, {useEffect} from 'react';
-import {Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Slider, Image} from "@heroui/react";
+import {
+    Modal,
+    ModalBody,
+    ModalContent,
+    ModalFooter,
+    ModalHeader,
+    Slider,
+    Image,
+    Select,
+    SelectItem
+} from "@heroui/react";
 import axios from "axios";
 
 function SettingDialog(props) {
@@ -10,7 +20,16 @@ function SettingDialog(props) {
     },[opacity])
 
 
-    const images = []
+    const images   = isMobile()? [
+        'https://storage.ikun.dev/d/Microsoft365/static/136455890_p0.avif?sign=w3tPqeFMgX9NIwLn4mq8FI9XK8pgbcf68Ir9crpD9QQ=:0' ,//栞栞shiori
+        'https://storage.ikun.dev/d/Microsoft365/static/133487584_p0_master1200.avif?sign=gqjurkYhTQwdT_i2Z-MfmrDKXOc3INkqlUYQj1L--Vg=:0', //犬戎
+        'https://storage.ikun.dev/d/Microsoft365/static/83307417_p0.avif?sign=wxmZ7R-4WVEy1ils1yK5fyeLYEFlSEwJZvI_luSoL3s=:0', //白神遥Haruka
+    ]:[
+
+        //'https://storage.ikun.dev/d/Microsoft365/static/109780395_p0.avif?sign=fagwpdupRN5rGXmaqNIPLByxNPT08KFJ6XHcLYFVcG4=:0', //嘉然
+        'https://storage.ikun.dev/d/Microsoft365/static/136963002_p8.avif?sign=7lxaLKnSTkTgi8PYe5wnTgxXHqYx89jW6yhL9WGVblI=:0', //折原鹿鹿
+        'https://storage.ikun.dev/d/Microsoft365/static/videoframe_3241.avif?sign=HleQqGXynCxyCyAe4yQM1e6G9X0JvGFjO0habFV2GLA=:0', //KUN
+    ]
     const ref = React.useRef()
     return (
         <div className={'max-h-1/2'}>
@@ -50,7 +69,7 @@ function SettingDialog(props) {
                                     var html = document.querySelector('html')
                                     html.style.backgroundImage = ``
                                     props.onOpacityChange(100)
-                                    localStorage.setItem("background",item)
+                                    localStorage.setItem("background",'')
                                     setOpacity(100)
                                 }}
                             >
@@ -75,6 +94,23 @@ function SettingDialog(props) {
                                 )
                             })}
                         </div>
+
+                        <p>Default Page Size</p>
+
+                        <Select className=" mt-4 mb-4" label={'Page Size'} defaultSelectedKeys={[localStorage.getItem("defaultPageSize")??'10']}>
+                            <SelectItem onClick={e => { localStorage.setItem("defaultPageSize","10") }} key={'10'}>
+                                10
+                            </SelectItem>
+                            <SelectItem onClick={e => { localStorage.setItem("defaultPageSize","50")}} key={'50'}>
+                                50
+                            </SelectItem>
+                            <SelectItem onClick={e => { localStorage.setItem("defaultPageSize","200") }} key={'200'}>
+                                200
+                            </SelectItem>
+                            <SelectItem onClick={e => { localStorage.setItem("defaultPageSize","500")}} key={'500'}>
+                                500
+                            </SelectItem>
+                        </Select>
 
 
 

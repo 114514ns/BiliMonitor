@@ -22,8 +22,16 @@ import HoverMedals from "../components/HoverMedals";
 import Draggable from "react-draggable";
 import OnlineChart from "../components/OnlineChart";
 import {LiveMessageChart} from "../components/LineChart";
+import PlayBackForm from "../components/PlayBackForm";
 
-
+function PlayIcon() {
+    return (
+<svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 24 24" width="24" height="24">
+    <path d="M512 64C264.6 64 64 264.6 64 512s200.6 448 448 448 448-200.6 448-448S759.4 64 512 64zm0 820c-205.4 0-372-166.6-372-372s166.6-372 372-372 372 166.6 372 372-166.6 372-372 372z"/>
+    <path d="M719.4 499.1l-296.1-215A15.9 15.9 0 0 0 398 297v430c0 13.1 14.8 20.5 25.3 12.9l296.1-215a15.9 15.9 0 0 0 0-25.8zm-257.6 134V390.9L628.5 512 461.8 633.1z"/>
+               </svg>
+    )
+}
 
 
 function LiveDetailPage(props) {
@@ -47,7 +55,7 @@ function LiveDetailPage(props) {
     const p = parseInt(params.get("page"))
     const [currentPage, setCurrentPage] = useState(isNaN(p) ? 1 : p)
 
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState( parseInt(localStorage.getItem("defaultPageSize")));
     const [dataSource, setDatasource] = useState([])
 
     const highLight = params.get("highLight")
@@ -81,6 +89,10 @@ function LiveDetailPage(props) {
     }, [order])
 
     const [filter, setFilter] = useState('')
+
+    const [playBack,setPlayBack] = useState([])
+
+
 
     useEffect(() => {
 
@@ -119,8 +131,30 @@ function LiveDetailPage(props) {
         ])
     }, [])
     const port = location.port
+
+    const tableRef = React.createRef()
     const protocol = location.protocol.replace(":", "")
-    const refreshData = (page, size, name) => {
+    const refreshData = (page0, size, name) => {
+
+        var page = parseInt(page0)
+
+        if (!window.LIVE_MSG_CACHE) {
+            window.LIVE_MSG_CACHE = []
+        }
+
+        const handleResponse = (obj) => {
+            obj.records.forEach((item, index) => {
+                if (item.GiftName != "") {
+                    obj.records[index].Extra = item.GiftName
+                }
+                //res.data.records[index].Liver = res.data.liver
+                obj.records[index].GiftPrice = obj.records[index].GiftPrice.Float64
+                obj.records[index].CreatedAt = new Date(obj.records[index].CreatedAt).toLocaleString()
+            })
+            setTotal(obj.totalPages * size)
+            console.log(total)
+            setDatasource(obj.records)
+        }
         if (page === undefined) {
             return
         }
@@ -131,29 +165,38 @@ function LiveDetailPage(props) {
         if (filter != null) {
             url = url + `&type=${filter}`
         }
-        axios.get(url).then(res => {
-
-            res.data.records.forEach((item, index) => {
-                if (item.GiftName != "") {
-                    res.data.records[index].Extra = item.GiftName
-                }
-                //res.data.records[index].Liver = res.data.liver
-                res.data.records[index].GiftPrice = res.data.records[index].GiftPrice.Float64
-                res.data.records[index].CreatedAt = new Date(res.data.records[index].CreatedAt).toLocaleString()
-            })
-            setTotal(res.data.totalPages * size)
-            console.log(total)
-            setDatasource(res.data.records)
+        axios.get(`${protocol}://${host}:${port}/api/live/` + id + "/?" + "page=" + (page+1 )+ "&limit=" + size + "&order=" + order + "&mid=" + mid).then(response => {
+            window.LIVE_MSG_CACHE[page+1] = response.data
         })
+
+        if (window.LIVE_MSG_CACHE[page]) {
+            handleResponse(window.LIVE_MSG_CACHE[page])
+        } else {
+            axios.get(url).then(res => {
+                handleResponse(res.data)
+            })
+        }
+
+
+
     }
     useEffect(() => {
         var url = `${protocol}://${host}:${port}/api/liveDetail/` + id + "/"
         axios.get(url).then(res => {
             setLiveInfo(res.data.live)
+            document.title = 'Vtuber 数据台 - ' + res.data.live.UserName + '  -  ' + res.data.live.Title
         })
         axios.get(`${protocol}://${host}:${port}/api/liveUser?live=${id}`).then(res => {
             setUser(res.data.list)
         })
+
+
+        window.LIVE_MSG_CACHE = []
+
+        axios.get("/api/playback?id=" + id).then(res => {
+            setPlayBack(res.data.files)
+        })
+
     }, []);
 
 
@@ -198,6 +241,8 @@ function LiveDetailPage(props) {
 
 
 
+
+
     return (
         <div>
             {showOnline && <OnlineChart id={id} onClose={() => {
@@ -206,7 +251,8 @@ function LiveDetailPage(props) {
             {showMinuteChart &&                          <LiveMessageChart data={msgData} onClose={() => {
             setShowMinuteChart(false)
         }} id={id}/>}
-            <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md">
+            <PlayBackForm items={playBack}/>
+            <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md overflow-scroll ">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
@@ -233,8 +279,17 @@ function LiveDetailPage(props) {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                         <div
+                            onClick={() => {
+                                if (playBack) {
+                                    PLAY_BACK_OPEN()
+                                }
+                            }}
+
                             className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间<br /><span
                                 className="font-semibold">{new Date(liveInfo.StartAt * 1000 - 8 * 3600 * 1000).toLocaleString()}</span>
+                            <div className={''}>
+                                {playBack && playBack.length && <PlayIcon/>}
+                            </div>
                         </div>
                         <div
                             className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">结束时间<br />
@@ -320,17 +375,17 @@ function LiveDetailPage(props) {
                 >
                     {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
                 </Select>
-                <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={['10']}>
+                <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={[localStorage.getItem("defaultPageSize")]}>
                     <SelectItem onClick={e => { setPageSize(10); setCurrentPage(1) }} key={'10'}>
                         10
                     </SelectItem>
-                    <SelectItem onClick={e => { setPageSize(50); setCurrentPage(1) }}>
+                    <SelectItem onClick={e => { setPageSize(50); setCurrentPage(1) }} key={'50'}>
                         50
                     </SelectItem>
-                    <SelectItem onClick={e => { setPageSize(200); setCurrentPage(1) }}>
+                    <SelectItem onClick={e => { setPageSize(200); setCurrentPage(1) }} key={'200'}>
                         200
                     </SelectItem>
-                    <SelectItem onClick={e => { setPageSize(500); setCurrentPage(1) }}>
+                    <SelectItem onClick={e => { setPageSize(500); setCurrentPage(1) }} key={'500'}>
                         500
                     </SelectItem>
                 </Select>
@@ -365,17 +420,23 @@ function LiveDetailPage(props) {
                         color="secondary"
                         page={currentPage}
                         total={total / pageSize}
-                        onChange={(page) => handlePageChange(page, pageSize)}
+                        onChange={(page) => {
+                            handlePageChange(page, pageSize)
+                            window.scrollTo({
+                                top: 0,
+                                behavior: "smooth"
+                            })
+                        }}
                     />
                 </div>
             }
                    isStriped
-                   className={'min-w-[800px]'}
+                   className={(showMinuteChart || showOnline)?'':'min-w-[800px] '}
             >
 
                 <TableHeader>
                     {columns.map((col, index) => (
-                        <TableColumn key={index} maxWidth={9999}>{col.title}</TableColumn>
+                        <TableColumn key={index} >{col.title}</TableColumn>
 
                     ))}
                 </TableHeader>

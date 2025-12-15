@@ -3,19 +3,42 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="referrer" content="no-referrer">
-  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="bilibili 弹幕 虚拟主播数 据查询">
+  
   <link rel="stylesheet" href="./src/App.css" />
   <script src="https://unpkg.shop.jd.com/alasql@4.6.6/dist/alasql.js" async></script>
+ <!-- <script src="https://unpkg.shop.jd.com/mpegts.js@1.8.0/dist/mpegts.js" async></script>-->
+  <script src="
+https://pub-b6f3970b5de74e20a6e27a96d58d943d.r2.dev/hls.js
+"></script>
   <link rel="stylesheet" href="https://unpkg.shop.jd.com/github-markdown-css/github-markdown-light.css"/>
 <!--  <script
           crossOrigin="anonymous"
           src="https://unpkg.shop.jd.com/react-scan/dist/auto.global.js"
   />-->
-  <title>Vtuber数据</title>
+  <title>Vtuber 数据台</title>
   <script>
 
+  </script>
+  <script type="speculationrules">
+    {
+        "prerender": [
+            {
+                "where": {
+                    "href_matches": "/liver/.**"
+                },
+                "eagerness": "moderate"
+            },
+                        {
+                "where": {
+                    "href_matches": "/user/.**"
+                },
+                "eagerness": "moderate"
+            }
+        ]
+    }
   </script>
 </head>
 <body>
@@ -31,6 +54,7 @@
 
 
 <script type="module" src="/src/main.jsx"></script>
+<script  src="/analyze/inject.js"></script>
 <script>
   async function loadAssets(url) {
     const response = await fetch(url,{

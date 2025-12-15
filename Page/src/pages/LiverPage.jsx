@@ -11,7 +11,7 @@ import {
     Modal,
     ModalBody,
     ModalContent,
-    ModalHeader, Select, SelectItem, Switch,
+    ModalHeader, Pagination, Select, SelectItem, Switch,
     Tooltip
 } from "@heroui/react";
 import HoverMedals from "../components/HoverMedals";
@@ -66,6 +66,8 @@ function LiverPage(props) {
 
     const [dynCount,setDynCount] = React.useState(0)
 
+    const listRef = React.useRef()
+
 
     let {id} = useParams();
 
@@ -107,7 +109,7 @@ function LiverPage(props) {
             setLives(response.data.lives);
         })
 
-        axios.get("/api//dynamics/count?mid=" + id).then((response) => {
+        axios.get("/api/dynamics/count?mid=" + id).then((response) => {
             setDynCount(response.data.count)
         })
     }, [noDM,month])
@@ -119,6 +121,8 @@ function LiverPage(props) {
     const [showDyn,setShowDyn] = React.useState(false);
 
     const [dynList,setDynList] = React.useState([])
+
+    const [dynPage,setDynPage] = React.useState(1)
 
     React.useEffect(() => {
         axios.get(`/api/guard?id=${guardId}&inspect=true`).then((response) => {
@@ -132,6 +136,7 @@ function LiverPage(props) {
         })
     },[inspectMode])
 
+    const DYN_SIZE = 50
 
 
 
@@ -216,14 +221,21 @@ function LiverPage(props) {
                         <span>{space.UName}的历史动态</span>
                     </ModalHeader>
                     <ModalBody className={'overflow-x-hidden'}>
-                        <div>
-                            {dynList.map((item,i)=>{
+                        <div ref={listRef}>
+                            {dynList.slice((dynPage-1)*DYN_SIZE,dynPage*DYN_SIZE).map((item,i)=>{
                                 return (
                                     <DynamicCard item={item} key={i} onClick={() => {
                                         window.open("https://t.bilibili.com/" + item.IDStr)
                                     }}/>
                             )
                             })}
+                            <Pagination initialPage={1} total={Math.ceil(dynList.length/DYN_SIZE)} onChange={(e) => {
+                                setDynPage(e)
+                                listRef.current.parentElement.scrollTo({
+                                    top: 0,
+                                    behavior: "smooth"
+                                });
+                            }}/>;
                         </div>
                     </ModalBody>
                 </ModalContent>
@@ -279,17 +291,41 @@ function LiverPage(props) {
                 <div
                     onClick={() => {
                         setShowDyn(true)
+                        const start = new Date().getTime()
                         axios.get("/api/dynamics?mid=" + id).then(res=>{
-                            setDynList(res.data.data)
+                            console.log(new Date().getTime()-start) ;
+                            var array = res.data.data
+                            var m = new Map()
+                            array.forEach(element => {
+                                m.set(element.ID, element)
+                            })
+                            console.log(new Date().getTime()-start) ;
+                            array.forEach(element => {
+                                if (element.ForwardFrom !== 0) {
+                                    element.ForwardDynamic = m.get(element.ForwardFrom)
+                                }
+                            })
+                            console.log(new Date().getTime()-start) ;
+
+                            var newArray = []
+                            var v0 = parseInt(id)
+                            array.forEach(element => {
+                                if (element.UID === v0) {
+                                    newArray.push(element)
+                                }
+                            })
+                            console.log(new Date().getTime()-start) ;
+                            setDynList(newArray)
+                            console.log(new Date().getTime()-start) ;
                         })
                     }}
                     className="rounded-xl bg-blue-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
                     <span className="font-semibold">{parseInt(dynCount).toLocaleString()}</span>
                 </div>
                 <div
-                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">流水<br/>
+                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">30日内流水<br/>
                     <span
-                        className="font-semibold">{0}</span>
+                        className="font-semibold">{parseInt(space.Amount).toLocaleString()}</span>
                 </div>
             </div>
             <div>
@@ -320,8 +356,9 @@ function LiverPage(props) {
             }} defaultSelected={false}>
                 显示所有场次
             </Switch>
-            <div className={'grid grid-cols-1 md:grid-cols-4 2xl:grid-cols-5'}>
-                {lives.map((live, index) => (
+            <div className="grid 3xl:grid-cols-5 2xl:grid-cols-4">
+
+            {lives.map((live, index) => (
                     <LiveStatisticCard item={live} showUser={false} key={live.ID}/>
                 ))}
             </div>

@@ -17,6 +17,7 @@ import (
 	pool2 "github.com/sourcegraph/conc/pool"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -38,13 +39,32 @@ func loadDB() {
 	if err != nil {
 
 	}
-	//clickDb, _ = gorm.Open(clickhouse.Open(config.ClickServer))
+	db.AutoMigrate(&Comment{})
+	s, _ := db.DB()
+	s.SetMaxOpenConns(200)
+	s.SetMaxIdleConns(100)
+	clickDb, _ = gorm.Open(clickhouse.Open(config.ClickServer))
+
+}
+
+func MockRefreshLivers() {
+	type Response struct {
+		List []FrontAreaLiver
+	}
+	get, _ := client.R().Get("https://live.ikun.dev/areaLivers")
+	var dst Response
+	sonic.Unmarshal(get.Body(), &dst)
+	var from = dst.List
+	cachedLivers = append(cachedLivers, from...)
 
 }
 func TestHttp(test *testing.T) {
 
 	loadDB()
+	//MockRefreshLivers()
 
+	//RefreshFlow()
+	setupHTTPClient()
 	go func() {
 		//RefreshLivers()
 	}()
@@ -117,9 +137,19 @@ func TestGetFansClub(t *testing.T) {
 	setupHTTPClient()
 	GetFansClub("672342685", nil)
 }
+
+func TestRefreshLiver(t *testing.T) {
+	loadDB()
+	setupHTTPClient()
+	RefreshLiver(22886883)
+
+}
 func TestTraceArea(t *testing.T) {
 	//loadDB()
 	loadConfig()
+	setupHTTPClient()
+	db, _ = gorm.Open(sqlite.Open("database.db"))
+	man = NewSlaverManager([]string{})
 	TraceArea(9, true)
 }
 
@@ -183,15 +213,20 @@ func TestRefreshLiveCount(test *testing.T) {
 	loadDB()
 	var dst []Live
 	db.AutoMigrate(&Live{})
-	db.Raw("select * from lives where lives.end_at != 0 order by id desc").Scan(&dst)
+	db.Raw("select * from lives where lives.end_at != 0 and month(created_at) = 11 order by id desc").Scan(&dst)
+	//dst = append(dst, Live{})
+	//dst[0].ID = 209926
 	for _, live := range dst {
+
 		var sc = 0.0
 		var guard = 0.0
+		var total = 0.0
 		//var diff = 0.0
 		db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 4", live.ID).Scan(&sc)
 		db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 3", live.ID).Scan(&guard)
 		var boxes []LiveAction
 		db.Raw("select extra,gift_price from live_actions where live = ? and action_type = 2 and extra like '%盲盒%'", live.ID).Scan(&boxes)
+		db.Raw("select sum(gift_price) from live_actions where live = ?", live.ID).Scan(&total)
 		var diff = 0.0
 		for _, box := range boxes {
 			var spent = float64(toInt(strings.Split(box.Extra, ",")[1]))
@@ -201,6 +236,8 @@ func TestRefreshLiveCount(test *testing.T) {
 		db.Exec("update lives set box_diff = ? where id = ?", diff, live.ID)
 		db.Exec("update lives set super_chat_money = ? where id = ?", sc, live.ID)
 		db.Exec("update lives set guard_money = ? where id = ?", guard, live.ID)
+		db.Exec("update lives set money = ? where id = ?", total, live.ID)
+
 	}
 }
 
@@ -362,4 +399,12 @@ func TestDeleteDirty(test *testing.T) {
 
 	fmt.Printf("ids: %v\n", remov)
 
+}
+
+func TestExportBox(test *testing.T) {
+	loadDB()
+	var dst []interface{}
+	db.Raw("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and extra like '%盲盒%' ").Scan(&dst)
+	marshal, _ := sonic.Marshal(dst)
+	os.WriteFile("box.json", marshal, os.ModePerm)
 }

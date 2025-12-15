@@ -9,6 +9,8 @@ function StatusPage(props) {
 
     const [overview, setOverview] = React.useState({});
 
+    const [living,setLiving] = React.useState(0)
+
     const color = 'success'
     const [msg, setMsg] = React.useState([]);
     useEffect(() => {
@@ -22,6 +24,11 @@ function StatusPage(props) {
         }
         ws.onmessage = e => {
             setOverview(JSON.parse(e.data))
+            var total = 0
+            JSON.parse(e.data).Nodes.forEach((node) => {
+                total = total + (node.Tasks??[]).length
+            })
+            setLiving(total)
         }
         var intervalId = 0
         ws.onopen = () => {
@@ -48,14 +55,15 @@ function StatusPage(props) {
                     className="font-semibold">{overview.Message1}</span>
                 </div>
                 <div
-                    className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">每5分钟弹幕<br/>
-                    <span className="font-semibold">{overview.Message5}</span>
-                </div>
-                <div
                     className="rounded-xl bg-green-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">每小时弹幕<br/>
                     <span
                         className="font-semibold">{overview.MessageHour}</span>
                 </div>
+                <div
+                    className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">正在直播<br/>
+                    <span className="font-semibold">{living}</span>
+                </div>
+
 
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm mt-4">

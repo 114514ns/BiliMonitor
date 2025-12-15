@@ -10,7 +10,7 @@ import {
     Listbox,
     ListboxItem,
     Select,
-    SelectItem, ToastProvider, Tooltip, Code, Autocomplete, AutocompleteItem
+    SelectItem, ToastProvider, Tooltip, Code, Autocomplete, AutocompleteItem, Pagination
 } from "@heroui/react";
 import axios from "axios";
 
@@ -51,6 +51,8 @@ const sort = [
     {label: "month-diff-rate", key: "month-diff-rate", description: "月粉丝增幅"},
 ];
 
+const PAGE_SIZE = parseInt(localStorage.getItem("defaultPageSize"))
+
 function ListPage(props) {
     const [list, setList] = React.useState([]);
     const host = location.hostname;
@@ -70,6 +72,10 @@ function ListPage(props) {
 
     var rawSQLRef = React.createRef();
 
+    const [page,setPage] = React.useState(1);
+
+    const listRef = React.createRef();
+
     useEffect(() => {
         async function fetchData() {
             const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{
@@ -80,6 +86,10 @@ function ListPage(props) {
             guildData = (JSON.parse(dec.decode(arrayBuffer).substring(16569)))
         }
         fetchData();
+        document.title = '哔哩哔哩 虚拟主播 列表'
+        return (() => {
+            document.title = 'Vtuber 数据'
+        })
     },[])
 
 
@@ -364,30 +374,45 @@ function ListPage(props) {
                     </ListboxItem>))}
             </Listbox>*/}
 
-            <div style={{height:`${calcHeight()-120}px`}} className={'overflow-scroll'}>
-                {filted.slice(0,2000).map((item, index) => (
-                    <div onClick={() => {
-                        window.open(location.origin + "/liver/" + item.UID)
-                    }} key={item.UID}>
-                        <LiverCard
-                            Rank={index}
-                            Avatar={`${AVATAR_API}${item.UID}`}
-                            UName={item.UName}
-                            Guard={item.Guard}
-                            DailyDiff={item.DailyDiff}
-                            MonthlyDiff={item.MonthlyDiff}
-                            Fans={item.Fans}
-                            LastActive={(item.LastActive)}
-                            UID={item.UID}
-                            Bio={item.Bio}
-                            Verify={item.Verify}
-                            Guild={item.Guild}
+            <div style={{height:`${calcHeight()-160}px`}} className={'overflow-y-scroll overflow-x-hidden'} ref={listRef}>
+                {filted.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map((item, index) => (
+                    <Tooltip content={<Button onClick={() => {
+                        axios.post("/api/black/add?mid=" + item.UID)
+                    }}>Add BlackList</Button>}>
+                        <div onClick={() => {
+                            window.open(location.origin + "/liver/" + item.UID)
+                        }} key={item.UID}>
 
-                        />
-                    </div>))
+                            <LiverCard
+                                Rank={index}
+                                Avatar={`${AVATAR_API}${item.UID}`}
+                                UName={item.UName}
+                                Guard={item.Guard}
+                                DailyDiff={item.DailyDiff}
+                                MonthlyDiff={item.MonthlyDiff}
+                                Fans={item.Fans}
+                                LastActive={(item.LastActive)}
+                                UID={item.UID}
+                                Bio={item.Bio}
+                                Verify={item.Verify}
+                                Guild={item.Guild}
+
+                            />
+                        </div>
+                    </Tooltip>
+))
+
+
  }
 
             </div>
+            <Pagination page={page} total={filted.length/PAGE_SIZE}  onChange={(e) => {
+                setPage(e)
+                listRef.current.scrollTo({
+                    top: 0,
+                    behavior: "smooth"
+                })
+            }} classNames={'ml-4'}/>;
 
             <div style={{
                 position: 'fixed',

@@ -92,6 +92,7 @@ type Config struct {
 	RequestDelay            int
 	ConnectionPoolSize      int
 	ClickServer             string
+	BlackAreaLiver          []int64
 }
 
 type User struct {
@@ -250,7 +251,7 @@ func SaveConfig() {
 			cpy.Slaves = append(cpy.Slaves, slave)
 		}
 	}
-	content, _ := sonic.Marshal(&cpy)
+	content, _ := sonic.MarshalIndent(config, "", "   ")
 	os.WriteFile("config.json", content, 666)
 }
 
@@ -511,6 +512,9 @@ func main0() {
 			log.New(os.Stdout, "", log.LstdFlags),
 			logger.Config{},
 		)})
+		s, _ := db.DB()
+		s.SetMaxOpenConns(200)
+		s.SetMaxIdleConns(100)
 	}
 	if db == nil || err != nil {
 		log.Println("Fail to connect to database")
@@ -551,7 +555,7 @@ func main0() {
 	RefreshCookie()
 	time.Sleep(5 * time.Second)
 	if config.Mode == "Master" {
-		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
+		//config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
 		man.OnErr = func(tasks []string) {
 			log.Println("onError")
@@ -624,6 +628,37 @@ func main0() {
 	if config.Mode == "Slaver" {
 		log.Printf("Slave Mode")
 	}
+
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+
+			var batch1 []LiveAction
+
+			actionMutex.Lock()
+			if len(cacheAction) > 0 {
+				batch1 = cacheAction
+				cacheAction = make([]LiveAction, 0)
+			}
+			actionMutex.Unlock()
+			if len(batch1) > 0 {
+				db.Table("enter_action").Create(&batch1)
+			}
+
+			var batch2 []LiveAction
+
+			extraAction.Lock()
+			if len(extraList) > 0 {
+				batch2 = extraList
+				extraList = make([]LiveAction, 0)
+			}
+			extraAction.Unlock()
+
+			if len(batch2) > 0 {
+				db.Create(&batch2)
+			}
+		}
+	}()
 	select {}
 }
 func randomBrowserVersion(browser string) string {

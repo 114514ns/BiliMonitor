@@ -48,6 +48,10 @@ function ComparePage() {
                 return cmp;
             });
 
+            items.forEach(item => {
+                item.Money = calc(item)
+            })
+
             return { items: sorted };
         },
     });
@@ -89,6 +93,7 @@ function ComparePage() {
                         className="max-w-xs lg:ml-4 sm:mt-2"
                         label="Month"
                         defaultSelectedKeys={[month]}
+                        selectedKeys={[month]}
                     >
                         {['1','2','3','4','5','6','7','8','9','10',11,'12'].map((item) => {
                             return <SelectItem key={item} onClick={(e) => {
@@ -118,17 +123,11 @@ function ComparePage() {
                             <TableColumn key="Gift" allowsSorting>
                                 礼物营收
                             </TableColumn>
-                            <TableColumn key="Fans" allowsSorting>
-                                粉丝
-                            </TableColumn>
                             <TableColumn key="Guard" allowsSorting>
                                 大航海
                             </TableColumn>
                             <TableColumn key="Hours" allowsSorting>
                                 直播时长
-                            </TableColumn>
-                            <TableColumn key="BoxDiff" allowsSorting>
-                                盲盒盈亏
                             </TableColumn>
                             <TableColumn key="Guild" allowsSorting>
                                 公会
@@ -153,7 +152,6 @@ function ComparePage() {
                                     <TableCell>{formatNumber(calc(item))}</TableCell>
                                     <TableCell>{formatNumber(item.SuperChatMoney)}</TableCell>
                                     <TableCell>{formatNumber(item.Gift)}</TableCell>
-                                    <TableCell>{formatNumber(item.Fans)}</TableCell>
                                     <TableCell className={'flex flex-row]'}>
                                         {item.Guard.split(",").map((item,index) => {
                                             return (
@@ -172,7 +170,6 @@ function ComparePage() {
                                         })}
                                     </TableCell>
                                     <TableCell>{item.Hours} h</TableCell>
-                                    <TableCell>{formatNumber(item.BoxDiff)}</TableCell>
                                     <TableCell>{item.Guild}</TableCell>
                                 </TableRow>
                             )}

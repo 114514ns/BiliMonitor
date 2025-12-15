@@ -16,7 +16,11 @@ function UserPage(props) {
     useEffect(() => {
         axios.get(`${protocol}://${host}:${port}/api/user/space?uid=${id}`).then((response) => {
             setSpace(response.data);
+            document.title = response.data.UName + ' 的弹幕数据'
             console.log(response.data);
+        })
+        return(() => {
+            document.title = 'Vtuber 数据'
         })
     }, [])
     const [total, setTotal] = useState(1)
@@ -37,15 +41,17 @@ function UserPage(props) {
     let page = 1
 
     useEffect(() => {
-        axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page}&order=${order}&type=${filter}&room=${room === null ? "" : room} &enter=${showEnter ? '1' : ''} `).then((response) => {
+        axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page}&pageSize=${localStorage.getItem("defaultPageSize")}&order=${order}&type=${filter}&room=${room === null ? "" : room} &enter=${showEnter ? '1' : ''} `).then((response) => {
             setData(response.data.data);
             setTotal(response.data.total);
         })
     }, [order, filter, room, showEnter])
 
+    const tableRef = React.createRef();
+
     return (
         <div>
-            <div className={'flex flex-col sm:flex-row  h-[88vh] ]'}>
+            <div className={'flex flex-col sm:flex-row  h-[88vh] '}>
                 <HeroUIPieChart
                     width={isMobile() ? vwToPx(90) : vwToPx(35)}
                     data={getPieData(space.Rooms)}
@@ -54,7 +60,7 @@ function UserPage(props) {
                         setRoom(data.payload.id)
                     }}
                 />
-                <div className={'sm:w-[75vw] lg:overflow-x-hidden scrollbar-hide'}>
+                <div className={'sm:w-[75vw] lg:overflow-x-hidden '}>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
                             className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
@@ -106,7 +112,7 @@ function UserPage(props) {
 
                     </div>
 
-                    <div className={'mt-4 ' }>
+                    <div className={'mt-4 ' } ref={tableRef}>
                         <div className='flex  items-center flex-col sm:flex-row '>
                             <Autocomplete
                                 isClearable
@@ -183,13 +189,17 @@ function UserPage(props) {
                         </div>
                         <ActionTable dataSource={data} handlePageChange={(page0, pageSize) => {
                             page = page0
-                            axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page0}&order=${order}&type=${filter}&room=${room === null ? "" : room}&enter=${showEnter ? '1' : ''} `).then((response) => {
+                            axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page0}&pageSize=${localStorage.getItem("defaultPageSize")}&order=${order}&type=${filter}&room=${room === null ? "" : room}&enter=${showEnter ? '1' : ''} `).then((response) => {
                                 setData(response.data.data);
                                 setTotal(response.data.total);
                             })
                             if (page >= 2) {
                                 window.USER_PAGE = page0
                             }
+                            tableRef.current.parentElement.scroll({
+                                top: 0,
+                                behavior: "smooth"
+                            })
                         }} total={total} />
                     </div>
                 </div>

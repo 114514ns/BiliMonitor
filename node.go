@@ -60,6 +60,10 @@ func (man *SlaverManager) AddTask(task string) {
 	}
 
 	target := aliveNodes[rand.Intn(len(aliveNodes))]
+
+	if Has(config.Tracing, task) {
+		target = aliveNodes[0] //特别关注的直播间只应在主节点运行
+	}
 	target.Tasks = append(target.Tasks, task)
 
 	go func(addr string) {
@@ -154,7 +158,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 		}
 	}()
 	go func() {
-		ticker := time.NewTicker(90 * time.Second)
+		ticker := time.NewTicker(150 * time.Second)
 		defer ticker.Stop()
 
 		for range ticker.C {
@@ -163,9 +167,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 
 			var tmp []string
 			for _, s := range all {
-				if !Has(config.Tracing, s) {
-					tmp = append(tmp, s)
-				}
+				tmp = append(tmp, s)
 			}
 
 			for _, s := range tmp {
@@ -187,7 +189,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 
 				}
 
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(100 * time.Millisecond)
 			}
 
 		}
@@ -199,7 +201,7 @@ func NewSlaverManager(node []string) *SlaverManager {
 				if GetServerState(config.Tracing[i]) {
 					man.AddTask(config.Tracing[i])
 				}
-				time.Sleep(500 * time.Millisecond)
+				time.Sleep(200 * time.Millisecond)
 			}
 		}
 	}()
