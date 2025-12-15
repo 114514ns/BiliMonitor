@@ -53,7 +53,7 @@ function HoverMedals(props) {
                             onClick={() => {
                                 toSpace(item.LiverID);
                             }}
-                            style={{background: getColor(item.Level), color: 'white', marginLeft: '8px'}}
+                            style={{background: (new Date().getTime() - new Date(item.UpdatedAt))>168*2*3600*1000?'#5762A799':getColor(item.Level), color: 'white', marginLeft: '8px'}}
                         >
                             {item.MedalName}
                             <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">

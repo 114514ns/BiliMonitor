@@ -46,8 +46,12 @@ function SearchPage(props) {
 
     useEffect(() => {
         setAvatar("https://i1.hdslb.com/bfs/face/5ddddba98f0265265662a8f7d5383e528a98412b.jpg")
-        axios.get("/api/status").then((response) => {
-            setRooms(uniqueByKey(response.data.Rooms.sort((a,b) => a.Fans < b.Fans ? 1 : -1),"UID"));
+        axios.get("/api/hot").then((response) => {
+            setRooms(response.data.data);
+        })
+        document.title = '哔哩哔哩 虚拟主播搜索'
+        return (() => {
+            document.title = 'Vtuber 数据'
         })
     }, []);
 
@@ -61,20 +65,23 @@ function SearchPage(props) {
             <ScrollShadow className={'w-[80vw] sm:w-[50vw] max-h-[20vh] overflow-scroll scrollbar-hide mt-6'}>
 
                     {rooms.map((room, index) => (
-                        <NavLink to={'/liver/' + room.UID}>
+                        <NavLink to={'/liver/' + room.UserID} onMouseEnter={() => {
+                            setAvatar(`${AVATAR_API}${room.UserID}`)
+                        }}>
                             <Chip
-                                avatar={<Avatar name={room.UName} src={room.Face} />}
+                                avatar={<Avatar name={room.UserName} src={`${AVATAR_API}${room.UserID}`} />}
                                 variant="flat"
                                 className={'ml-2 mt-1'}
+
                             >
-                                <p className={'font-bold'}>{room.UName}</p>
+                                <p className={'font-bold'}>{room.UserName}</p>
                             </Chip>
                         </NavLink>))}
             </ScrollShadow>
             <div className={'flex w-full mt-[6vh] sm:flex-row flex-col'}>
                 <Select className="sm:max-w-xs sm:mr-4 " onSelectionChange={(e) => {
                     setType(e.currentKey);
-                }} label={'Type'} selectedKeys={['name']}>
+                }} label={'Type'} defaultSelectedKeys={['name']}>
                     <SelectItem key={'room'}>Room</SelectItem>
                     <SelectItem key={'uid'}>UID</SelectItem>
                     <SelectItem key={'name'}>UName</SelectItem>

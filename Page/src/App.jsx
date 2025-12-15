@@ -73,7 +73,19 @@ function BasicLayout() {
 
     useEffect(() => {
         axios.get("/about.md").then((response) => {
-            setContent(response.data);
+            setContent(response.data)
+
+            if (navigator.userAgent !== 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36') {
+                var last = localStorage.getItem("news")
+                if (last === null || last !== response.data) {
+                    localStorage.setItem("news",response.data)
+                    setTimeout(() => {
+                        setShowNotice(true)
+                    },3000)
+                }
+            }
+
+
         })
     }, [])
 
@@ -135,7 +147,7 @@ function BasicLayout() {
                                 setShowSettings(true);
                             }}>Setting</DropdownItem>
                             <DropdownItem key="reaction" onClick={() => {
-                                window.open("/reactions")
+                                redirect("/reactions")
                             }}>Reaction</DropdownItem>
                             <DropdownItem key="geo" onClick={() => {
                                 redirect("/geo")

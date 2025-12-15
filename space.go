@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"math/rand"
 	"strconv"
 	"time"
 
@@ -44,27 +43,14 @@ var commonDone = true
 // 刷新粉丝数
 func UpdateCommon() {
 	var start = time.Now()
-	var pool = pool2.New().WithMaxGoroutines(8)
-	if commonDone {
-		commonDone = false
-	} else {
-		log.Println("[UpdateCommon] last task is still running")
-	}
-	var full = false
-	if rand.Int()%3 == 2 {
-		full = true
-	}
-	for i := range Followings {
+	var pool = pool2.New().WithMaxGoroutines(config.ConnectionPoolSize)
+	var dst []AreaLiver
+	db.Raw("SELECT fans,uid FROM area_livers where fans > 1500 GROUP BY uid").Scan(&dst)
+	for i := range dst {
 		if i > len(Followings)-1 {
 			continue
 		}
-		var id = Followings[i].UserID
-		if !full {
-			var fans = GetFansLocal(id)
-			if fans < 1000 && fans != 0 {
-				continue //每三次中有一次的全量更新，剩下的情况只更新1000粉以上的
-			}
-		}
+		var id = dst[i].UID
 		pool.Go(func(uid int64) func() {
 			return func() {
 				var user = FetchUser(strconv.FormatInt(uid, 10), nil)
@@ -213,7 +199,7 @@ func RefreshFollowings() {
 		page++
 	}
 	var livers = make([]AreaLiver, 0)
-	db.Model(&AreaLiver{}).Group("uid").Find(&livers)
+	db.Model(&AreaLiver{}).Where("fans").Group("uid").Find(&livers)
 	for _, liver := range livers {
 		var user = User{}
 		user.Name = liver.UName

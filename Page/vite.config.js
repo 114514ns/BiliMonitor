@@ -24,7 +24,15 @@ export default defineConfig({
             "/api": {
                 target: "http://127.0.0.1:8081",
                 changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/api/, '')
+                rewrite: (path) => path.replace(/^\/api/, ''),
+                configure: (proxy, options) => {
+                    proxy.on('proxyRes', (proxyRes) => {
+                        // 不要让 Vite 加 no-cache
+                        delete proxyRes.headers['cache-control']
+                        delete proxyRes.headers['pragma'];
+                        proxyRes.headers['cache-control'] = 'public, max-age=0, stale-while-revalidate=30'
+                    });
+                }
             },
             "/api/status": {
                 target: "ws://127.0.0.1:8081",
@@ -35,7 +43,7 @@ export default defineConfig({
 
         },
         port: 5174,
-        allowedHosts: ['live-dev.ikun.dev']
+        allowedHosts: ['live-dev.ikun.dev','8d3caf.ikun.dev']
     },
     build: {
         sourcemap: true,

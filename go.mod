@@ -19,11 +19,13 @@ require (
 	github.com/resend/resend-go/v2 v2.14.0
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/sourcegraph/conc v0.3.0
-	golang.org/x/net v0.39.0
-	golang.org/x/sync v0.13.0
+	github.com/xuri/excelize/v2 v2.10.0
+	golang.org/x/net v0.46.0
+	golang.org/x/sync v0.17.0
 	gorm.io/datatypes v1.0.5
 	gorm.io/driver/clickhouse v0.7.0
 	gorm.io/driver/mysql v1.5.7
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.0
 )
 
@@ -55,27 +57,32 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.9 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/richardlehane/mscfb v1.0.4 // indirect
+	github.com/richardlehane/msoleps v1.0.4 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/tiendc/go-deepcopy v1.7.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
+	github.com/xuri/efp v0.0.1 // indirect
+	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	go.opentelemetry.io/otel v1.26.0 // indirect
 	go.opentelemetry.io/otel/trace v1.26.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.13.0 // indirect
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
+	golang.org/x/crypto v0.43.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.2.3 // indirect
-	gorm.io/driver/sqlite v1.6.0 // indirect
 	gorm.io/driver/sqlserver v1.6.1 // indirect
 	modernc.org/libc v1.22.5 // indirect
 	modernc.org/mathutil v1.5.0 // indirect
