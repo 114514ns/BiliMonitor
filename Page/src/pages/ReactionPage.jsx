@@ -88,7 +88,9 @@ function ReactionPage(props) {
                 <div className={'overflow-y-auto max-h-[85vh] overflow-x-hidden'} ref={listRef}>
                     {(filtered??[]).slice((page-1)*SIZE,page*SIZE).map((item,i)=>{
                         return (
-                            <DynamicCard item={item}/>
+                            <DynamicCard item={item} onClick={() => {
+                                window.open(`https://t.bilibili.com/${item.OID}`)
+                            }}/>
                         )
                     })}
                     <Pagination initialPage={1} total={Math.ceil((filtered??[]).length/SIZE)} onChange={(e) => {
