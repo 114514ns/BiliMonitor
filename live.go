@@ -340,10 +340,14 @@ func TraceArea(parent int, full bool) {
 		if full {
 			working = true
 		}
-		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?area_id=0&build=1001016004&device=win&page=%d&parent_area_id=%d&platform=web&web_location=bilibili-electron", page, parent))
+		var typo = ""
+		if !full {
+			typo = "live_time"
+		}
+		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?area_id=0&build=1001016004&device=win&page=%d&parent_area_id=%d&platform=web&web_location=bilibili-electron&sort_type=%s", page, parent, typo))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
-		res, _ := client.R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
+		res, _ := RandomPick(cPools).R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
 		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
@@ -547,7 +551,7 @@ func TraceArea(parent int, full bool) {
 		if len(obj.Data.List) == 0 {
 			break
 		}
-		if !full && page >= 25 {
+		if !full && page >= 5 {
 			return
 		}
 		page++

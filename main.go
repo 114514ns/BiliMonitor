@@ -93,6 +93,7 @@ type Config struct {
 	ConnectionPoolSize      int
 	ClickServer             string
 	BlackAreaLiver          []int64
+	PlaybackRepositories    map[string]PlaybackRepository
 }
 
 type User struct {
@@ -555,7 +556,7 @@ func main0() {
 	RefreshCookie()
 	time.Sleep(5 * time.Second)
 	if config.Mode == "Master" {
-		//config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
+		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
 		man.OnErr = func(tasks []string) {
 			log.Println("onError")
@@ -601,12 +602,12 @@ func main0() {
 		c.AddFunc("@every 2m", func() { UpdateSpecial() })
 		c.AddFunc("@every 120m", RefreshFollowings)
 		c.AddFunc("@every 720m", UpdateCommon)
-		c.AddFunc("@every 15m", func() {
+		c.AddFunc("@every 5m", func() {
 			if config.TraceArea {
 				TraceArea(9, true)
 			}
 		})
-		c.AddFunc("@every 2m", func() {
+		c.AddFunc("@every 1m", func() {
 			if config.TraceArea {
 				TraceArea(9, false)
 			}

@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/bytedance/sonic"
 )
@@ -157,7 +156,7 @@ func ListFile(path string) []File {
 			f.FileName = getString(item, "name")
 			f.CreatedAt = getString(item, "created")
 			f.Sign = getString(item, "sign")
-			f.Link = config.AlistServer + "d/Microsoft365" + strings.Replace((getString(item, "path")), "Live/", "", 1)
+			f.Link = config.AlistServer + "d" + path + "/" + f.FileName
 
 			results = append(results, f)
 		}

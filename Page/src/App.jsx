@@ -29,6 +29,7 @@ import ComparePage from "./pages/ComparePage";
 import GeoPage from "./pages/GeoPage";
 import ReactionPage from "./pages/ReactionPage";
 import SettingDialog from "./components/SettingDialog";
+import DemoPage from "./pages/DemoPage";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -172,6 +173,7 @@ function BasicLayout() {
                         <Route path="/pk" element={<PageWrapper><ComparePage/></PageWrapper>}/>
                         <Route path="/geo" element={<PageWrapper><GeoPage/></PageWrapper>}/>
                         <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>
+                        <Route path="/demo" element={<PageWrapper><DemoPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 
