@@ -339,3 +339,9 @@ type Comment struct {
 	Self        bool
 	ID          uint `gorm:"primaryKey"`
 }
+
+type PlaybackRepository struct {
+	Type   string
+	ListID int64
+	UID    int64
+}

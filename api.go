@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/md5"
 	"embed"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/xml"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -2309,11 +2311,82 @@ ORDER BY money DESC;
 			return
 		}
 
+		var wg sync.WaitGroup
+		wg.Add(2)
+		var f1 []File
+		var f2 []File
+
+		go func() {
+			f1 = ListFile(fmt.Sprintf("/Microsoft365/%s/%s", live.UserName, strings.Replace(time.Unix(live.StartAt-3600*8, 0).Format(time.DateTime), ":", "-", 1145)))
+			wg.Done()
+		}()
+
+		go func() {
+			f2 = ListFile(fmt.Sprintf("/139/%s/%s", live.UserName, strings.Replace(time.Unix(live.StartAt-3600*8, 0).Format(time.DateTime), ":", "-", 1145)))
+			wg.Done()
+		}()
+		wg.Wait()
+
+		var f3 = f2
+
+		if f3 == nil {
+			f3 = f1
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"files": ListFile(fmt.Sprintf("/Microsoft365/%s/%s", live.UserName, strings.Replace(time.Unix(live.StartAt-3600*8, 0).Format(time.DateTime), ":", "-", 1145))),
+			"files": f3,
 		})
 
 	})
+
+	r.POST("/redirect", func(c *gin.Context) {
+		type Req struct {
+			Data string `json:"data"`
+		}
+		var req Req
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"err": err.Error()})
+			return
+		}
+
+		decoded, e := base64.StdEncoding.DecodeString(req.Data)
+		if e != nil {
+			c.JSON(400, gin.H{"err": "invalid base64"})
+			return
+		}
+		get, _ := client.R().SetDoNotParseResponse(true).Get(string(decoded))
+		c.JSON(http.StatusOK, gin.H{
+			"url": get.RawResponse.Request.URL.String(),
+		})
+	})
+
+	r.GET("/bv/view", func(c *gin.Context) {
+		//var start = time.Now()
+		var bv = c.Query("bv")
+		if bv == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "invaild params",
+			})
+			return
+		}
+		r0, _ := queryClient.R().Post("https://api.live.bilibili.com//xlive/open-platform/v1/inner/getArchiveInfo?bv_id=" + bv)
+		var o0 map[string]interface{}
+		sonic.Unmarshal(r0.Body(), &o0)
+		cid := getInt(o0, "data.cid")
+		//log.Println(time.Since(start))
+		var url0 = fmt.Sprintf("https://api.bilibili.com/x/player/wbi/playurl?bvid=%s&cid=%d&gaia_source=view-card&isGaiaAvoided=true&qn=32&fnval=4048&try_look=1", bv, cid)
+		parse, _ := url.Parse(url0)
+		query, _ := wbi.SignQuery(parse.Query(), time.Now())
+		res, _ := queryClient.R().Get("https://api.bilibili.com/x/player/wbi/playurl?" + query.Encode())
+		//log.Println(time.Since(start))
+		var o map[string]interface{}
+		sonic.Unmarshal(res.Body(), &o)
+		//log.Println(time.Since(start))
+		c.JSON(http.StatusOK, o)
+
+		return
+	})
+
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 

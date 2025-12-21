@@ -117,13 +117,6 @@ function LiveDetailPage(props) {
                 key: 'StartAt',
             },
             {
-                title: 'Price',
-                dataIndex: 'GiftPrice',
-                key: 'Money',
-                sorter: true,
-
-            },
-            {
                 title: 'Message',
                 dataIndex: 'Extra',
                 key: 'Message'
@@ -194,7 +187,7 @@ function LiveDetailPage(props) {
         window.LIVE_MSG_CACHE = []
 
         axios.get("/api/playback?id=" + id).then(res => {
-            setPlayBack(res.data.files)
+            setPlayBack(res.data.files??[])
         })
 
     }, []);
@@ -238,6 +231,8 @@ function LiveDetailPage(props) {
 
     const [showOnline, setShowOnline] = useState(false)
 
+    const [showPlayBack,setShowPlayBack] = useState(false)
+
 
 
 
@@ -251,7 +246,7 @@ function LiveDetailPage(props) {
             {showMinuteChart &&                          <LiveMessageChart data={msgData} onClose={() => {
             setShowMinuteChart(false)
         }} id={id}/>}
-            <PlayBackForm items={playBack}/>
+            <PlayBackForm items={playBack} id={id}/>
             <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md overflow-scroll ">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
@@ -268,9 +263,16 @@ function LiveDetailPage(props) {
 
                         </div>
                         <div
-                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">房间号<br />
-                            <span
-                                className="font-semibold">{liveInfo.RoomId}</span>
+                            onClick={() => {
+                                if (playBack) {
+                                    setShowPlayBack(true)
+                                    PLAY_BACK_OPEN()
+                                }
+                            }}
+                            className={`rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ${playBack && playBack.length ?'bg-green-100':'bg-red-100'}`}>录播<br />
+                    {/*        <span
+                                className="font-semibold">{liveInfo.RoomId}</span>*/}
+                            {playBack && playBack.length ? <span className={'font-semibold'}>点击查看</span>:<span className={'font-semibold'}>无</span>}
                         </div>
                         <div
                             className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">分区<br /><span className="font-semibold">{liveInfo.Area}</span>
@@ -279,16 +281,12 @@ function LiveDetailPage(props) {
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                         <div
-                            onClick={() => {
-                                if (playBack) {
-                                    PLAY_BACK_OPEN()
-                                }
-                            }}
 
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间<br /><span
+
+                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间            <br /><span
                                 className="font-semibold">{new Date(liveInfo.StartAt * 1000 - 8 * 3600 * 1000).toLocaleString()}</span>
                             <div className={''}>
-                                {playBack && playBack.length && <PlayIcon/>}
+
                             </div>
                         </div>
                         <div
@@ -431,7 +429,7 @@ function LiveDetailPage(props) {
                 </div>
             }
                    isStriped
-                   className={(showMinuteChart || showOnline)?'':'min-w-[800px] '}
+                   className={(showMinuteChart || showOnline || showPlayBack)?'':'min-w-[800px] '}
             >
 
                 <TableHeader>
@@ -476,11 +474,10 @@ function LiveDetailPage(props) {
                             </TableCell>
                             {/*<TableCell>{item.Liver}</TableCell>*/}
                             <TableCell>{item.CreatedAt}</TableCell>
-                            <TableCell>{item.GiftPrice}</TableCell>
                             <TableCell className={
-                                (item.ActionName === "gift" ? "font-bold" : "") +
+                                (item.ActionName !== "msg" ? "font-bold" : "") +
                                 (item.ID == highLight ? "bg-yellow-200" : "")
-                            }>{item.Extra}{item.ActionName === "gift" && <span>*{item.GiftAmount.Int16}</span>}</TableCell>
+                            }>{item.Extra}{item.ActionName !== "msg" && <span>*{item.GiftAmount.Int16 || ''}  ￥{item.GiftPrice}</span>}</TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

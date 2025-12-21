@@ -13,16 +13,16 @@ function UserChip(props) {
                                 src={`${AVATAR_API}${props.props.FromId}`}
                                 onClick={() => {
                                     //toSpace(props.props.FromId);
-                                    window.open("/user/" + props.props.UID)
+                                    window.open("/user/" + (props.props.UID || props.props.FromId))
                                 }}/>
 
-                            {props.props.MedalLevel ?              <Chip
-                                startContent={props.props.MedalLevel != 0 ?<img src={getGuardIcon(props.props.GuardLevel)}/>:<CheckIcon size={18}/> }
+                            {(props.props.MedalLevel || props.props.Level) ?             <Chip
+                                startContent={props.props.MedalLevel || props.props.Level ?<img src={getGuardIcon(props.props.GuardLevel)}/>:<CheckIcon size={18}/> }
                                 variant="faded"
                                 onClick={() => {
                                     toSpace(props.props.LiverID);
                                 }}
-                                style={{background: (new Date().getTime() - new Date(props.props.UpdatedAt))>168*2*3600*1000?'#5762A799':getColor(props.props.Level), color: 'white', marginLeft: '8px',marginTop:'4px'}}
+                                style={{background: props.props.UpdatedAt?(new Date().getTime() - new Date(props.props.UpdatedAt))>168*2*3600*1000?'#5762A799':getColor(props.props.Level ?? props.props.MedalLevel):getColor(props.props.Level ?? props.props.MedalLevel), color: 'white', marginLeft: '8px',marginTop:'4px'}}
                             >
                                 <span>{props.props.MedalName}</span>
                                 <span className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full">
