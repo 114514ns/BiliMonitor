@@ -187,7 +187,7 @@ function LiveDetailPage(props) {
         window.LIVE_MSG_CACHE = []
 
         axios.get("/api/playback?id=" + id).then(res => {
-            setPlayBack(res.data.files??[])
+            setPlayBack(res.data)
         })
 
     }, []);
@@ -246,16 +246,16 @@ function LiveDetailPage(props) {
             {showMinuteChart &&                          <LiveMessageChart data={msgData} onClose={() => {
             setShowMinuteChart(false)
         }} id={id}/>}
-            <PlayBackForm items={playBack} id={id}/>
-            <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md overflow-scroll ">
+            <PlayBackForm items={playBack} id={id} start={liveInfo.StartAt * 1000 - 8 * 3600 * 1000}/>
+            <div className="flex  space-x-4 rounded-2xl  p-4 shadow-md overflow-scroll ">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
-                            className=" bg-blue-100 p-2 rounded-xl transition-transform transform-duration-500  hover:shadow-lg cursor-pointer ">
+                            className="dark:bg-gray-500 bg-blue-100 p-2 rounded-xl transition-transform transform-duration-500  hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
                             <NavLink className='' to={`/liver/${liveInfo.UserID}`}>
-                                <div className={'flex flex-row items-center text-blue-600 '}>
+                                <div className={'flex flex-row items-center text-blue-600 dark:text-white'}>
                                     <img src={`${AVATAR_API}${liveInfo.UserID}`} className='w-12 h-12 ml-4 mr-4 ' style={{ borderRadius: '50%' }}></img>
                                     {liveInfo.UserName}
                                 </div>
@@ -269,13 +269,13 @@ function LiveDetailPage(props) {
                                     PLAY_BACK_OPEN()
                                 }
                             }}
-                            className={`rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ${playBack && playBack.length ?'bg-green-100':'bg-red-100'}`}>录播<br />
+                            className={`dark:bg-gray-600 rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ${playBack && ((playBack.files??[]).length>0 || (playBack.archives??[]).length>0) ?'bg-green-100':'bg-red-100'}`}>录播<br />
                     {/*        <span
                                 className="font-semibold">{liveInfo.RoomId}</span>*/}
-                            {playBack && playBack.length ? <span className={'font-semibold'}>点击查看</span>:<span className={'font-semibold'}>无</span>}
+                            {playBack && ((playBack.files??[]).length>0 || (playBack.archives??[]).length>0) ? <span className={'font-semibold'}>点击查看</span>:<span className={'font-semibold'}>无</span>}
                         </div>
                         <div
-                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">分区<br /><span className="font-semibold">{liveInfo.Area}</span>
+                            className="rounded-xl bg-gray-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">分区<br /><span className="font-semibold">{liveInfo.Area}</span>
                         </div>
                     </div>
 
@@ -283,25 +283,25 @@ function LiveDetailPage(props) {
                         <div
 
 
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间            <br /><span
+                            className="rounded-xl bg-gray-50 dark:bg-gray-500  p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">开始时间            <br /><span
                                 className="font-semibold">{new Date(liveInfo.StartAt * 1000 - 8 * 3600 * 1000).toLocaleString()}</span>
                             <div className={''}>
 
                             </div>
                         </div>
                         <div
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">结束时间<br />
+                            className="rounded-xl bg-gray-50  dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">结束时间<br />
                             <span className="font-semibold">{new Date(liveInfo.EndAt * 1000).toLocaleString()}</span>
                         </div>
                         <div
-                            className="rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">时长<br />
+                            className="rounded-xl bg-gray-50  dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">时长<br />
                             <span
                                 className="font-semibold">{formatTimeDiff(liveInfo.StartAt * 1000 - 8 * 3600 * 1000, liveInfo.EndAt * 1000)}</span>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3  gap-2 text-sm">
-                        <div className="rounded-xl bg-green-100 p-2 text-green-700 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
+                        <div className="rounded-xl bg-green-100  dark:bg-gray-500 p-2 text-green-700 dark:text-stone-100 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
                             setShowOnline(true)
                         }}>观众数<br />{liveInfo.Watch}</div>
                         <div className="rounded-xl bg-purple-100 p-2 text-fuchsia-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {

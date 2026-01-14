@@ -271,6 +271,7 @@ type AreaLiver struct {
 	GuardList string
 	Guard     string
 	FreeClubs int
+	Charge    string
 }
 
 // 一场直播
@@ -535,6 +536,9 @@ func TraceArea(parent int, full bool) {
 								i.GuardList = string(b)
 								db.Save(&user)
 								i.Fans = user.Fans
+								o := GetCharge(i.UID)
+								marshal, _ := sonic.Marshal(o)
+								i.Charge = string(marshal)
 								time.Sleep(time.Second * 2)
 								db.Save(&i)
 								log.Printf("end %s", s2.UName)
@@ -645,7 +649,19 @@ func TraceLive(roomId string) {
 	}
 	var startAt = roomInfo.Data.LiveTime
 
+	/*
+		livesMutex.Lock()
+		lives[roomId].Live = GetServerState(roomId)
+		var living = lives[roomId].Live
+		livesMutex.Unlock()
+
+	*/
 	livesMutex.Lock()
+	if lives[roomId] == nil {
+		livesMutex.Unlock()
+		log.Printf("房间 %s 的监控任务被取消，因为它在启动前已被清理。", roomId)
+		return
+	}
 	lives[roomId].Live = GetServerState(roomId)
 	var living = lives[roomId].Live
 	livesMutex.Unlock()
@@ -924,7 +940,6 @@ func TraceLive(roomId string) {
 						action.Extra = info.Data.Parent.GiftName + "," + strconv.Itoa(info.Data.Parent.Price/1000)
 					}
 					front.Face = info.Data.Face
-					front.GiftPicture = GiftPic[info.Data.GiftName]
 					go func() {
 						db.Create(&action)
 					}()
@@ -1125,32 +1140,35 @@ func TraceLive(roomId string) {
 			} else {
 				if rand.Int()%5 == 0 {
 					go func() {
-						var msg = 0
-						var money = 0.0
-						db.Raw("select count(*) from live_actions where live = ?", dbLiveId).Scan(&msg)
-						db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&money)
-						db.Raw("update lives set money = ? where id = ?", money, dbLiveId).Scan(&msg)
-						db.Raw("update lives set message = ? where id = ?", msg, dbLiveId).Scan(&msg)
+						if dbLiveId != 0 {
+							var msg = 0
+							var money = 0.0
+							db.Raw("select count(*) from live_actions where live = ?", dbLiveId).Scan(&msg)
+							db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&money)
+							db.Raw("update lives set money = ? where id = ?", money, dbLiveId).Scan(&msg)
+							db.Raw("update lives set message = ? where id = ?", msg, dbLiveId).Scan(&msg)
 
-						var sc = 0.0
-						var guard = 0.0
-						var total = 0.0
-						//var diff = 0.0
-						db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 4", dbLiveId).Scan(&sc)
-						db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 3", dbLiveId).Scan(&guard)
-						var boxes []LiveAction
-						db.Raw("select extra,gift_price from live_actions where live = ? and action_type = 2 and extra like '%盲盒%'", dbLiveId).Scan(&boxes)
-						db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&total)
-						var diff = 0.0
-						for _, box := range boxes {
-							var spent = float64(toInt(strings.Split(box.Extra, ",")[1]))
-							var d = box.GiftPrice.Float64 - spent
-							diff = diff + d
+							var sc = 0.0
+							var guard = 0.0
+							var total = 0.0
+							//var diff = 0.0
+							db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 4", dbLiveId).Scan(&sc)
+							db.Raw("select COALESCE(sum(gift_price)) from live_actions where live = ? and action_type = 3", dbLiveId).Scan(&guard)
+							var boxes []LiveAction
+							db.Raw("select extra,gift_price from live_actions where live = ? and action_type = 2 and extra like '%盲盒%'", dbLiveId).Scan(&boxes)
+							db.Raw("select sum(gift_price) from live_actions where live = ?", dbLiveId).Scan(&total)
+							var diff = 0.0
+							for _, box := range boxes {
+								var spent = float64(toInt(strings.Split(box.Extra, ",")[1]))
+								var d = box.GiftPrice.Float64 - spent
+								diff = diff + d
+							}
+							db.Exec("update lives set box_diff = ? where id = ?", diff, dbLiveId)
+							db.Exec("update lives set super_chat_money = ? where id = ?", sc, dbLiveId)
+							db.Exec("update lives set guard_money = ? where id = ?", guard, dbLiveId)
+							db.Exec("update lives set money = ? where id = ?", total, dbLiveId)
 						}
-						db.Exec("update lives set box_diff = ? where id = ?", diff, dbLiveId)
-						db.Exec("update lives set super_chat_money = ? where id = ?", sc, dbLiveId)
-						db.Exec("update lives set guard_money = ? where id = ?", guard, dbLiveId)
-						db.Exec("update lives set money = ? where id = ?", total, dbLiveId)
+
 					}()
 				}
 				if isLive(roomId) || (ok && e.Live) {
@@ -1186,7 +1204,6 @@ func BuildMessage(str string, opCode int) []byte {
 }
 
 var mu sync.RWMutex
-var GiftPic = make(map[string]string)
 
 func FillGiftPrice(room string, area int, parent int) {
 	res, _ := client.R().Get("https://api.live.bilibili.com/xlive/web-room/v1/giftPanel/roomGiftList?platform=pc&room_id=" + room + "&area_id=" + strconv.Itoa(area) + "&area_parent_id" + strconv.Itoa(parent))
@@ -1204,13 +1221,11 @@ func FillGiftPrice(room string, area int, parent int) {
 				var item0 = box.Data.Gifts[i2]
 				mu.Lock()
 				GiftPrice[item0.GiftName] = float32(item0.Price) / 1000.0
-				GiftPic[item0.GiftName] = item0.Picture
 				mu.Unlock()
 			}
 		} else {
 			mu.Lock()
 			GiftPrice[item.Name] = float32(item.Price) / 1000.0
-			GiftPic[item.Name] = item.Picture
 			mu.Unlock()
 		}
 

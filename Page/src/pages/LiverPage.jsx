@@ -32,6 +32,14 @@ function calcValid(array) {
     return count
 }
 
+function parseCharge(str) {
+    var sum = 0
+    JSON.parse(str).forEach((item) => {
+        sum = sum + item.Count*item.Price
+    })
+    return sum
+}
+
 function LiverPage(props) {
     const [fansChart, setFansChart] = React.useState([]);
 
@@ -67,6 +75,8 @@ function LiverPage(props) {
     const [dynCount,setDynCount] = React.useState(0)
 
     const listRef = React.useRef()
+
+    const [showAmount,setShowAmount] = React.useState(false);
 
 
     let {id} = useParams();
@@ -268,11 +278,11 @@ function LiverPage(props) {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                 <div
-                    className="rounded-xl bg-green-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝<br/>
+                    className="rounded-xl bg-green-50 dark:bg-gray-700 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝<br/>
                     <span className="font-semibold">{parseInt(space.Fans).toLocaleString()}</span>
                 </div>
                 <div
-                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">大航海<br/>
+                    className="rounded-xl bg-yellow-50 dark:bg-gray-600 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">大航海<br/>
                     <span
                         className="font-semibold">{space.Guard}</span>
                 </div>
@@ -281,7 +291,7 @@ function LiverPage(props) {
                         onContextMenu={e => {
 
                         }}
-                        className="rounded-xl bg-pink-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝牌<br/>
+                        className="rounded-xl bg-pink-50 dark:bg-gray-400 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝牌<br/>
                         <span
                             className="font-semibold">{space.Medal}</span>
                     </div>
@@ -319,14 +329,24 @@ function LiverPage(props) {
                             console.log(new Date().getTime()-start) ;
                         })
                     }}
-                    className="rounded-xl bg-blue-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
+                    className="rounded-xl bg-blue-50 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
                     <span className="font-semibold">{parseInt(dynCount).toLocaleString()}</span>
                 </div>
-                <div
-                    className="rounded-xl bg-yellow-50 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">30日内流水<br/>
-                    <span
-                        className="font-semibold">{parseInt(space.Amount).toLocaleString()}</span>
-                </div>
+                <Tooltip content={<div>
+                    <p>直播收入 {parseInt(space.Amount).toLocaleString()}</p>
+                    {space && space.Charge && space.Charge!=='null' && <p>充电收入：{parseCharge(space.Charge).toLocaleString()}</p>}
+                </div>} isOpen={showAmount} onOpenChange={(o) => {
+                    setShowAmount(o)
+                }}>
+                    <div
+                        onContextMenu={() => {
+                            setShowAmount(!showAmount)
+                        }}
+                        className="rounded-xl bg-yellow-50 dark:bg-gray-500 p-2 transition-transform duration-200 ">30日内流水<br/>
+                        <span
+                            className="font-semibold">{(((space && space.Charge && space.Charge!== 'null')?parseCharge(space.Charge):0 )+ parseInt(space.Amount)).toLocaleString()}</span>
+                    </div>
+                </Tooltip>
             </div>
             <div>
                 <Button onClick={e => {

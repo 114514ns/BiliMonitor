@@ -376,9 +376,9 @@ function ListPage(props) {
 
             <div style={{height:`${calcHeight()-160}px`}} className={'overflow-y-scroll overflow-x-hidden'} ref={listRef}>
                 {filted.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map((item, index) => (
-                    <Tooltip content={<Button onClick={() => {
+                    <Tooltip /*-content={<Button onClick={() => {
                         axios.post("/api/black/add?mid=" + item.UID)
-                    }}>Add BlackList</Button>}>
+                    /}>Add BlackList</Button>}*/>
                         <div onClick={() => {
                             window.open(location.origin + "/liver/" + item.UID)
                         }} key={item.UID}>

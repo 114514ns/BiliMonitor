@@ -9,11 +9,14 @@ import (
 	"log"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/bytedance/sonic"
 )
+
+var cachedToken = ""
 
 func UploadFile(path string, alistPath string) error {
 	file, err := os.Open(path)
@@ -77,8 +80,12 @@ func UploadBytes(bytes0 []byte, alistPath string) error {
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Authorization", GetAlistToken())
 	req.Header.Set("File-Path", alistPath)
-
-	client := &http.Client{}
+	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
+	client := &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println("上传请求失败: %w", err.Error())
@@ -122,7 +129,7 @@ func GetFile(path string) string {
 		Path string `json:"path"`
 	}
 	var req = Request{Path: path}
-	res, _ := client.R().SetBody(req).Post(config.AlistServer + "api/fs/get/")
+	res, _ := queryClient.R().SetBody(req).SetHeader("authorization", cachedToken).Post(config.AlistServer + "api/fs/get/")
 
 	var obj map[string]interface{}
 	sonic.Unmarshal(res.Body(), &obj)
