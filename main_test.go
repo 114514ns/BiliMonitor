@@ -59,8 +59,14 @@ func MockRefreshLivers() {
 
 }
 func TestHttp(test *testing.T) {
-
 	loadDB()
+	go func() {
+		for {
+			cachedToken = GetAlistToken()
+			time.Sleep(120 * time.Minute)
+		}
+	}()
+
 	//MockRefreshLivers()
 
 	//RefreshFlow()

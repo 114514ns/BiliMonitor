@@ -252,3 +252,23 @@ func GetFansLocal(mid int64) int {
 	db.Model(&User{}).Where("user_id = ?", mid).Last(&found)
 	return found.Fans
 }
+
+func GetCharge(uid int64) []ChargeInfo {
+
+	var array []ChargeInfo
+
+	var url = fmt.Sprintf("https://api.bilibili.com/x/upower/up/member/rank/v2?pn=1&privilege_type=10&ps=100&up_mid=%d", uid)
+
+	res, _ := queryClient.R().Get(url)
+	var obj map[string]interface{}
+	sonic.Unmarshal(res.Body(), &obj)
+	for _, o := range getArray(obj, "data.level_info") {
+		array = append(array, ChargeInfo{
+			Name:  getString(o, "name"),
+			Price: float64(getInt(o, "price") / 100.0),
+			Count: getInt(o, "member_total"),
+		})
+	}
+
+	return array
+}

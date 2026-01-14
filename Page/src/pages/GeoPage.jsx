@@ -1,5 +1,4 @@
 import china from '../cn.json';
-import * as echarts from 'echarts'; //全局引入 ，可按需引入
 import React, { useEffect, useRef , useState } from 'react';
 import axios from "axios";
 import {Modal, ModalHeader,ModalBody,ModalFooter,Button,ModalContent} from "@heroui/react";
@@ -127,7 +126,7 @@ const GeoPage = (props) => {
                         <ModalHeader className="flex flex-col gap-1">{province}</ModalHeader>
                         <ModalBody>
                             <div className="flex flex-row flex-wrap">
-                                {livers.map((item, i) => {
+                                {(livers??[]).map((item, i) => {
                                     return (
                                         <NavLink
                                             key={i}

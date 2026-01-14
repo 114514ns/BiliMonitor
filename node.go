@@ -195,15 +195,18 @@ func NewSlaverManager(node []string) *SlaverManager {
 		}
 	}()
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		for range ticker.C {
-			for i := range config.Tracing {
-				if GetServerState(config.Tracing[i]) {
-					man.AddTask(config.Tracing[i])
+		/*
+			ticker := time.NewTicker(30 * time.Second)
+			for range ticker.C {
+				for i := range config.Tracing {
+					if GetServerState(config.Tracing[i]) {
+						man.AddTask(config.Tracing[i])
+					}
+					time.Sleep(200 * time.Millisecond)
 				}
-				time.Sleep(200 * time.Millisecond)
 			}
-		}
+
+		*/
 	}()
 
 	return man

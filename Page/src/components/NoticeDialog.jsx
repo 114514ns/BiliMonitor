@@ -26,7 +26,7 @@ function NoticeDialog(props) {
 
     return (
         <div className={'max-h-2/3'} data-nosnippet>
-            <Modal onClose={props.onClose} isOpen={true} size={'lg'} className={'max-h-1/2 sm:max-h-2/3'} scrollBehavior={'inside'} backdrop={'blur'} isDismissable={seconds<=0}>
+            <Modal onClose={seconds <= 1 && props.onClose} isOpen={true} size={'lg'} className={'max-h-1/2 sm:max-h-2/3'} scrollBehavior={'inside'} backdrop={'blur'} isDismissable={seconds<=0}>
                 <ModalContent>
                     <ModalHeader>
                         About & Notice
