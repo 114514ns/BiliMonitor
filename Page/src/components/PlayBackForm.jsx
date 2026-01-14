@@ -15,6 +15,7 @@ import {
 } from "react";
 import axios from "axios";
 import UserChip from "./UserChip";
+import BVPlayer from "./BVPlayer";
 
 function toBlob(text, mime = "text/plain;charset=utf-8") {
     const blob = new Blob([text], { type: mime });
@@ -25,6 +26,21 @@ function toBase64(str)
     const uint8Array = new TextEncoder().encode(str);
     return btoa(String.fromCharCode(...uint8Array));
 }
+function timeToSeconds(timeStr) {
+    const parts = timeStr.split(':').map(Number);
+
+    if (parts.length === 2) {
+        const [minutes, seconds] = parts;
+        return minutes * 60 + seconds;
+    }
+
+    if (parts.length === 3) {
+        const [hours, minutes, seconds] = parts;
+        return hours * 3600 + minutes * 60 + seconds;
+    }
+
+}
+
 function PlayBackForm(props) {
 
     const {isOpen, onOpen, onOpenChange} = useDisclosure();
@@ -51,6 +67,8 @@ function PlayBackForm(props) {
 
     const [off,setOff] = React.useState(0)
 
+    const typo = React.useRef('')
+
     const destroy = () => {
         console.log("destroy")
         hlsRef.current.destroy();
@@ -64,6 +82,17 @@ function PlayBackForm(props) {
             var mapping = []
 
             async function handle() {
+                if (link.includes('CONVERT') || link.includes('COVERT')) {
+                    videoRef.current.src = link
+                    typo.current = 'mp4'
+                    return;
+                }
+
+                if (link.startsWith("BV")) {
+                    return
+                }
+
+
                 if (cacheMapping.current.has(link.replace(".mp4", ".json")) ) {
                     mapping = cacheMapping.current.get(link.replace(".mp4", ".json"));
                 } else {
@@ -157,13 +186,18 @@ function PlayBackForm(props) {
     useEffect(() => {
         if (off > 0) {
             setTimeout(() => {
-                videoRef.current.currentTime = off-3;
+                if (typo.current === 'mp4') {
+                    videoRef.current.currentTime = off-3;
+                    return
+                }
+                videoRef.current.querySelector('video').currentTime = off-3;
             },1000)
         }
+
     },[off])
 
     useEffect(() => {
-        props.items.length &&     fetch(props.items.filter((s) => s.Link.includes("metadata.json"))[0].Link).then(async (res) => {
+        (props.items.files??[]).length &&     fetch(props.items.files.filter((s) => s.Link.includes("metadata.json"))[0].Link).then(async (res) => {
             setMeta(await res.json()??{})
         })
     },[props.items])
@@ -193,7 +227,7 @@ function PlayBackForm(props) {
                                         console.log(key);
                                         setLink(key)
                                     }} className={'w-[180px]'}>
-                                        {props.items.filter((e) => {
+                                        {(props.items.files??[]).filter((e) => {
                                             return e.FileName.includes(".mp4")
                                         }).map((i,index) => {
                                             var color = i.Link === link?'#E1F5FF':''
@@ -211,14 +245,31 @@ function PlayBackForm(props) {
                                                 </ListboxItem>
                                             )
                                         })}
+                                        {(props.items.archives??[]).map((i,index) => {
+                                            var color = i.BV === link?'#E1F5FF':''
+                                            return (
+                                                <ListboxItem
+                                                    key={i.BV}
+                                                    className=""
+                                                    style={{backgroundColor:color}}
+                                                    onPress={() => {
+
+                                                    }}
+                                                >
+                                                    <span className="text-sm">{i.Title}</span>
+                                                </ListboxItem>
+                                            )
+                                        })}
                                     </Listbox>
                                     <div className={'flex flex-row'}>
-                                        <video ref={videoRef} controls autoPlay playsInline
-                                               className={'w-[100%] lg:w-[84%] h-auto'}></video>
-                                        <div className={'flex flex-col overflow-scroll max-h-[85vh] ml-4'}>
-                                            {msg.map((e,index) => {
+
+                                        {link.startsWith("http") &&       <video ref={videoRef} controls autoPlay playsInline
+                                                                                 className={'w-[100%] lg:w-[84%] h-auto'}></video>}
+                                        {link.startsWith('BV') && <BVPlayer bv={link} className={'w-[100%] lg:w-[85%] h-auto'} ref={videoRef}/>}
+                                        <div className={'flex flex-col overflow-scroll max-h-[85vh] ml-4 w-[15%]'}>
+                                            {!isMobile() &&msg.map((e,index) => {
                                                 return (
-                                                    <div>
+                                                    <div className={''}>
                                                         {(index === 0?true:(e.FromId !== msg[index-1].FromId) )&& <UserChip props={e}/>}
                                                         <span
                                                             className={'hover:text-[#0AA5D8]'}
@@ -231,11 +282,23 @@ function PlayBackForm(props) {
                                                                         }
                                                                     })
                                                                     setOff( (new Date(e.CreatedAt).getTime() - new Date(meta.ChunkRecord[index]).getTime() + 3600*8)/1000)
-                                                                    setLink(props.items.filter((e) => {
+                                                                    setLink(props.items.files.filter((e) => {
                                                                         return e.FileName.includes(".mp4")
                                                                     })[index].Link)
                                                                     console.log(off)
                                                                     console.log(index)
+                                                                } else {
+                                                                    if (props.items.archives.length) {
+                                                                        var index = 0
+                                                                        props.items.archives.forEach((e,i) => {
+                                                                            if (props.start + timeToSeconds(e.Duration) < new Date(e.CreatedAt).getTime()) {
+                                                                                index = i
+                                                                            }
+                                                                        })
+                                                                        setLink(props.items.archives[index].BV)
+                                                                        console.log((new Date(e.CreatedAt).getTime()-props.start)/1000)
+                                                                        setOff((new Date(e.CreatedAt).getTime()-props.start)/1000)
+                                                                    }
                                                                 }
                                                             }}
                                                         >{e.Extra}{e.GiftName &&   e.GiftName + '* ' + e.GiftAmount.Int16 +'  CNY ' +e.GiftPrice.Float64  }</span>

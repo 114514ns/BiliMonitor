@@ -1,11 +1,11 @@
-import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider, ToastProvider} from "@heroui/react";
 import axios from "axios";
-
+import {ThemeProvider as NextThemesProvider, useTheme} from "next-themes";
+import {ThemeProvider} from "@emotion/react";
 window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
@@ -129,9 +129,9 @@ window.inspectGuard = (obj) => {
     return false
 
 }
-const fetchGuild = async () => {
-    if (!localStorage.getItem("guild")) {
-        const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/bili_guild_infos.json?sign=Jgd-iZ5deklFU3Jbjq4lp2-TVdD1h44aNA5XUsi79n4=:0',{
+window.fetchGuild = async (force) => {
+    if (!localStorage.getItem("guild") || force === true) {
+        const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/bili_guild_infos_20250920.json',{
             referrerPolicy: "no-referrer"
         });
         const arrayBuffer = await response.arrayBuffer()
@@ -139,8 +139,8 @@ const fetchGuild = async () => {
         localStorage.setItem("guild", dec.decode(arrayBuffer).substring(0));
     }
 }
-const fetchMoney = async () => {
-    if (!localStorage.getItem("money")) {
+window.fetchMoney = async (force) => {
+    if (!localStorage.getItem("money") || force === true) {
         const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/rank.json?sign=bOejKONpD3-QV8TtS64DwgtZEwbZy2yt3uCkNn2yolc=:0',{
             referrerPolicy: "no-referrer"
         });
@@ -195,11 +195,21 @@ window.prefetch = (url) => {
     link.href = url;
     document.head.appendChild(link);
 }
+window.getSystemTheme = () =>{
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+if (getSystemTheme() === 'light') {
+    document.documentElement.style.setProperty("--heroui-content1", "240 25% 95%");
+}
+
 
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>
-                  <App />
+              <NextThemesProvider attribute="class" defaultTheme={getSystemTheme()}>
+                  <App/>
+              </NextThemesProvider>
           </BrowserRouter>
       </HeroUIProvider>
 )

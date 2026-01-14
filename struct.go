@@ -345,3 +345,24 @@ type PlaybackRepository struct {
 	ListID int64
 	UID    int64
 }
+type Transcribe struct {
+	ID      uint `gorm:"primaryKey"`
+	UID     int64
+	Live    int
+	Text    string
+	Summary string
+}
+
+type Task struct {
+	Type     string
+	UUID     string
+	Arg      interface{}
+	Return   interface{}
+	Created  time.Time
+	Finished time.Time
+}
+type ChargeInfo struct {
+	Name  string
+	Price float64
+	Count int
+}
