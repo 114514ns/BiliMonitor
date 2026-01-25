@@ -88,7 +88,11 @@ func ParseDynamic(item DynamicItem, push bool) (Archive, Archive) {
 		orig, _ = ParseDynamic(*item.Orig, false)
 		archive.Text = txt
 		if push {
-			PushDynamic("你关注的up主："+userName+"转发了动态 ", item.Modules.ModuleDynamic.Desc.Nodes[0].Text)
+			var t = ""
+			if len(item.Modules.ModuleDynamic.Desc.Nodes) > 0 {
+				t = item.Modules.ModuleDynamic.Desc.Nodes[0].Text
+			}
+			PushDynamic("你关注的up主："+userName+"转发了动态 ", t)
 		}
 	} else if Type == "DYNAMIC_TYPE_AV" { //发布视频
 		archive.Type = "v"
@@ -133,7 +137,7 @@ func UpdateSpecial() {
 	}
 	for i := range config.SpecialList {
 		var id = config.SpecialList[i]
-		resp, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("Referer", "https://www.bilibili.com/").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.FormatInt(id, 10)) + "&timezone_offset=-480&features=itemOpusStyle")
+		resp, _ := client.R().SetHeader("Cookie", PickCookie()).SetHeader("Referer", "https://www.bilibili.com/").Get("https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?offset&host_mid=" + (strconv.FormatInt(id, 10)) + "&timezone_offset=-480&features=itemOpusStyle")
 		var result UserDynamic
 		sonic.Unmarshal(resp.Body(), &result)
 		for i2 := range result.Data.Items {

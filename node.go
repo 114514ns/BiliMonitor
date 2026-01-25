@@ -67,10 +67,10 @@ func (man *SlaverManager) AddTask(task string) {
 	target.Tasks = append(target.Tasks, task)
 
 	go func(addr string) {
-		res, err := localClient.R().
+		_, err := localClient.R().
 			Get(addr + "/trace?room=" + task)
 
-		log.Printf("[%s]  responsed with  %d", task, res.StatusCode())
+		//log.Printf("[%s]  responsed with  %d", task, res.StatusCode())
 		if err != nil && man.OnErr != nil {
 			man.OnErr([]string{task})
 		}
