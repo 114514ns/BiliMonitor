@@ -14,6 +14,7 @@ import (
 	"io"
 	"math"
 	mathRand "math/rand"
+	"net"
 	"os"
 	"reflect"
 	"sort"
@@ -355,4 +356,13 @@ func DeflateDecompress(data []byte) ([]byte, error) {
 		return nil, err
 	}
 	return out.Bytes(), nil
+}
+
+func TcpPing(address string) bool {
+	conn, err := net.DialTimeout("tcp", address, 3*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }

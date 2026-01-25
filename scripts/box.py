@@ -3,7 +3,13 @@ import json
 import pymysql
 
 def query():
-    cursor.execute("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and month(created_at) = 12 and day(created_at) = 5 and extra like '%盲盒%'")
+    cursor.execute("""SELECT extra, gift_amount, gift_price
+                    FROM live_actions
+                    WHERE action_type = 2
+                      AND created_at >= '2026-01-24 00:00:00'
+                      AND created_at <= '2026-01-24 23:59:59'
+                      AND extra LIKE '%盲盒%'
+                    ORDER BY live DESC;""")
     array = cursor.fetchall()
     m = {}
     got = 0
