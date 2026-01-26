@@ -8,10 +8,7 @@ export default defineConfig({
         react({
             babel: {
                 plugins: [
-
                     ["babel-plugin-react-compiler", ReactCompilerConfig],
-
-
                 ],
             },
         }), visualizer({
@@ -51,49 +48,13 @@ export default defineConfig({
     build: {
         sourcemap: true,
         rollupOptions: {
-            external: (id) => {
-                if (id.includes("react-aria")) {
-                    //console.log(id)
-                }
-
-                return (
-
-
-                    id === "react" ||
-                    id === "react-dom" ||
-                    id === "react-dom/client" ||
-
-                        id === "motion-dom"
-                    ||
-
-
-
-
-                        id === "parse5" ||
-                        id === "axios" ||
-                        id.includes("heroui/theme") ||
-                        id === "react-markdown"
-
-
-
-
-                );
-            },
             output: {
                 manualChunks(id) {
-
-                    //console.log(id)
                     // 按依赖路径分组
-
                     if (id.includes('node_modules')) {
-                        if (id.includes('heroui')) {
-                            return "heroui"
+                        if (id.includes('react') || id.includes('heroui') || id.includes('rechart')) {
+                            return 'react-vendor'
                         }
-                        if (id.includes('recharts')) {
-                            return "recharts"
-                        }
-                        return 'react-vendor'
-
                     }
                 },
             }
