@@ -60,7 +60,6 @@ func MockRefreshLivers() {
 }
 func TestHttp(test *testing.T) {
 	loadDB()
-	config.ConnectionPoolSize = 2
 	go func() {
 		for {
 			cachedToken = GetAlistToken()
@@ -414,17 +413,4 @@ func TestExportBox(test *testing.T) {
 	db.Raw("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and extra like '%盲盒%' ").Scan(&dst)
 	marshal, _ := sonic.Marshal(dst)
 	os.WriteFile("box.json", marshal, os.ModePerm)
-}
-
-func TestTraceLive(t *testing.T) {
-	loadConfig()
-	loadDB()
-	setupHTTPClient()
-	config.Port = 8080
-	go func() {
-		InitHTTP()
-		client.R().Get("http://127.0.0.1:8080/trace?room=3237809")
-	}()
-
-	select {}
 }

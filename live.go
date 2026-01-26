@@ -582,17 +582,10 @@ func BuildAuthMessage(room string) string {
 	cer.RoomId = id
 	cer.Type = 2
 	cer.Key = liveInfo.Data.Token
-	//cer.Cookie = strings.Replace(config.Cookie, "buvid3=", "", 1)
-	//cer.Cookie = strings.ToUpper(uuid.NewString()) + "infoc"
-	cer.Cookie = "5332ebe5-50f8-4909-87c2-752229442472infoc"
+	cer.Cookie = strings.Replace(config.Cookie, "buvid3=", "", 1)
 	cer.Protover = 3
-	cer.Platform = "web"
-	cer.Scene = "room"
-	cer.SupportAck = true
 	json, _ := sonic.Marshal(&cer)
 	return string(json)
-
-	//return "{\"uid\":2,\"roomid\":1947277414,\"protover\":3,\"buvid\":\"C52EFC9A-79ED-5520-5C6F-DF7F7ED084CA74383infoc\",\"support_ack\":true,\"queue_uuid\":\"0qjllhga\",\"scene\":\"room\",\"platform\":\"web\",\"type\":2,\"key\":\"ct61u1UwTk6G2Rl91m_34m4kDvaurB1VAZHW8yeuh4xpadK3FTj_ltQDRCC7zWQGhr_W9lq0mUkqEI9DD5fLL8HaDe_gxtLFiCZmcdoMFQYiL41hNPEKRY3QE1HsAn36EqolvMYCKo1x-a0wTzUoL88iKloZc7jII6eFGQsnnS658drwDGIxQ-JK4t8aZodsQdLzBAYMTdzbTtt6BsKdj2EcUlzsYsAEGLQt2MlrEjqQgvSXatl-zxbcQSGrIL8DlcW53fA5HbBy54BQGIyd6V-GwA==\"}"
 
 }
 
@@ -639,8 +632,7 @@ func TraceLive(roomId string) {
 	}()
 
 	var WS_HEADER = http.Header{}
-	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-	WS_HEADER.Add("Origin", "https://live.bilibili.com")
+	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
 	var liver string
@@ -1248,15 +1240,12 @@ func FillGiftPrice(room string, area int, parent int) {
 }
 
 type Certificate struct {
-	Uid        int64  `json:"uid"`
-	RoomId     int    `json:"roomid"`
-	Key        string `json:"key"`
-	Protover   int    `json:"protover"`
-	Cookie     string `json:"buvid"`
-	Type       int    `json:"type"`
-	Platform   string `json:"platform"`
-	Scene      string `json:"scene"`
-	SupportAck bool   `json:"support_ack"`
+	Uid      int64  `json:"uid"`
+	RoomId   int    `json:"roomid"`
+	Key      string `json:"key"`
+	Protover int    `json:"protover"`
+	Cookie   string `json:"buvid"`
+	Type     int    `json:"type"`
 }
 type LiveInfo struct {
 	Data struct {
