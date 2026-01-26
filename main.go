@@ -53,9 +53,7 @@ type Config struct {
 	User                    string
 	SpecialList             []int64
 	Cookie                  string
-	LoginMode               string
-	PoolToken               string
-	PoolEndPoint            string
+	LoginMode               bool
 	EnableEmail             bool
 	ResendToken             string
 	FromMail                string
@@ -131,7 +129,7 @@ type Status struct {
 	Area         string
 	Title        string
 	StartAt      string
-	RemainTrying int
+	RemainTrying int8
 	Face         string
 	Cover        string
 	LiveRoom     string
@@ -353,11 +351,6 @@ func setupHTTPClient() {
 
 	client.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
 		request.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
-		if config.LoginMode == "pool" || config.LoginMode == "mix" {
-			if strings.Contains(request.URL, config.PoolEndPoint) {
-				request.Header.Set("Authorization", config.PoolToken)
-			}
-		}
 		return nil
 	})
 
@@ -486,7 +479,6 @@ func main0() {
 		SaveConfig()
 		os.Exit(0)
 	}
-	SelfUID(config.Cookie)
 	var loggerFlag = log.Ldate | log.Ltime | log.Llongfile
 	consoleLogger.SetFlags(loggerFlag)
 
@@ -561,20 +553,8 @@ func main0() {
 	res, _ = client.R().Get("https://api.bilibili.com/x/web-interface/zone")
 	log.Println("当前ip：" + res.String())
 
-	if config.LoginMode == "cookie" {
-
-		RefreshCookie()
-		time.Sleep(5 * time.Second)
-	}
-	if config.LoginMode == "mix" {
-		config.Cookie = PickCookie()
-		go func() {
-			for {
-				config.Cookie = PickCookie()
-				time.Sleep(time.Second * 300)
-			}
-		}()
-	}
+	RefreshCookie()
+	time.Sleep(5 * time.Second)
 	if config.Mode == "Master" {
 		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
@@ -607,7 +587,6 @@ func main0() {
 			}
 		}()
 		go func() {
-			time.Sleep(900 * time.Second)
 			RefreshMessagePoints()
 			RefreshLivers()
 			RefreshWatcher()
@@ -645,9 +624,7 @@ func main0() {
 			man.AddTask(config.Tracing[i])
 		}
 	}
-	if config.LoginMode == "cookie" {
-		c.AddFunc("@every 240m", RefreshCookie)
-	}
+	c.AddFunc("@every 240m", RefreshCookie)
 	c.Start()
 	if config.Mode == "Slaver" {
 		log.Printf("Slave Mode")
@@ -666,7 +643,7 @@ func main0() {
 			}
 			actionMutex.Unlock()
 			if len(batch1) > 0 {
-				clickDb.Table("enter_actions").Create(&batch1)
+				db.Table("enter_action").Create(&batch1)
 			}
 
 			var batch2 []LiveAction
@@ -679,7 +656,7 @@ func main0() {
 			extraAction.Unlock()
 
 			if len(batch2) > 0 {
-				db.Save(&batch2)
+				db.Create(&batch2)
 			}
 		}
 	}()
@@ -767,33 +744,4 @@ func RefreshCookie() {
 		log.Println("[CookieRefresh] Skip")
 	}
 
-}
-
-var PICK_CACHETIME int64 = 60
-var LAST_PICK int64 = 0
-var PICK_CACHE = ""
-var pickMu sync.Mutex
-
-func PickCookie() string {
-	now := time.Now().Unix()
-	pickMu.Lock()
-	defer pickMu.Unlock()
-	if PICK_CACHE != "" && LAST_PICK != 0 && now-LAST_PICK < PICK_CACHETIME {
-		return PICK_CACHE
-	}
-	res, err := client.R().Get(config.PoolEndPoint + "pick")
-	if err != nil {
-		return PICK_CACHE
-	}
-	var obj map[string]interface{}
-	if err := sonic.Unmarshal(res.Body(), &obj); err != nil {
-		return PICK_CACHE
-	}
-	c := getString(obj, "Cookie")
-	if c == "" {
-		return PICK_CACHE
-	}
-	PICK_CACHE = c
-	LAST_PICK = now
-	return PICK_CACHE
 }

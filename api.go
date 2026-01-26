@@ -21,8 +21,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
-
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/gzip"
@@ -33,7 +31,6 @@ import (
 	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 var worker = NewWorker(1)
@@ -542,7 +539,7 @@ func InitHTTP() {
 	r.GET("/trace", func(c *gin.Context) {
 		var room = c.Query("room")
 		livesMutex.Lock()
-		lives[room] = &Status{RemainTrying: 40000}
+		lives[room] = &Status{RemainTrying: 40}
 		lives[room].LiveRoom = room
 		livesMutex.Unlock()
 		worker.AddTask(func() {
@@ -795,11 +792,8 @@ ORDER BY t.updated_at DESC, t.id DESC
 		var total = 0
 		var queryOrder = ""
 		var tableName = "live_actions"
-
-		var db0 *gorm.DB
 		if showEnter != "" {
-			tableName = "enter_actions"
-			db0 = clickDb
+			tableName = "enter_action"
 		} else {
 			if order == "timeDesc" {
 				queryOrder = "order by live_actions.id desc"
@@ -807,7 +801,6 @@ ORDER BY t.updated_at DESC, t.id DESC
 			if order == "money" {
 				queryOrder = "order by gift_price desc"
 			}
-			db0 = db
 		}
 
 		if queryOrder == "" {
@@ -851,35 +844,10 @@ ORDER BY t.updated_at DESC, t.id DESC
 		}
 		offset := (page - 1) * pageSize
 		var dst []CustomLiveAction
-		if showEnter == "" {
-			err = db0.Raw(
-				fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
-				uid, pageSize, offset,
-			).Scan(&dst).Error
-		} else {
-			err = db0.Raw("select * from enter_actions where from_id = ? order by created_at desc limit ? offset ? ", uid, pageSize, (page-1)*pageSize).Scan(&dst).Error
-
-			var mu0 sync.Mutex
-			var map0 = make(map[int]Live)
-			var pool = pool2.New().WithMaxGoroutines(8)
-			for _, i := range lo.UniqBy(dst, func(item CustomLiveAction) int {
-				return item.LiveRoom
-			}) {
-				pool.Go(func() {
-					var l Live
-					db.Raw("select * from lives where room_id = ? limit 1", i.LiveRoom).Scan(&l)
-					mu0.Lock()
-					map0[i.LiveRoom] = l
-					mu0.Unlock()
-				})
-
-			}
-			pool.Wait()
-			for i, _ := range dst {
-				dst[i].UserName = map0[dst[i].LiveRoom].UserName
-				dst[i].UserID = map0[dst[i].LiveRoom].UserID
-			}
-		}
+		err := db.Raw(
+			fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
+			uid, pageSize, offset,
+		).Scan(&dst).Error
 
 		if err != nil {
 			context.JSON(http.StatusInternalServerError, gin.H{
@@ -889,10 +857,10 @@ ORDER BY t.updated_at DESC, t.id DESC
 			return
 		}
 		if showEnter != "" {
-			db0.Raw("select count(*) from enter_actions where from_id = ?", uid).Scan(&total)
+			db.Raw("select count(*) from enter_action where from_id = ?", uid).Scan(&total)
 		} else {
 			if room != "" {
-				db0.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
+				db.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
 					uid, room).Scan(&total)
 			} else {
 				db.Raw("select count(*) from live_actions where from_id = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery, uid).Scan(&total)

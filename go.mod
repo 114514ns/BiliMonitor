@@ -18,7 +18,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/resend/resend-go/v2 v2.14.0
 	github.com/robfig/cron/v3 v3.0.0
-	github.com/samber/lo v1.52.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/xuri/excelize/v2 v2.10.0
 	golang.org/x/net v0.49.0
@@ -34,6 +33,7 @@ require (
 	github.com/ClickHouse/ch-go v0.61.5 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.30.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
+	github.com/bufbuild/protocompile v0.14.1 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
@@ -51,7 +51,6 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
 	github.com/jhump/protoreflect v1.18.0 // indirect
-	github.com/jhump/protoreflect/v2 v2.0.0-beta.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -64,7 +63,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/paulmach/orb v0.11.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
-	github.com/petermattis/goid v0.0.0-20260113132338-7c7de50cc741 // indirect
 	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/richardlehane/mscfb v1.0.4 // indirect
