@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import {Route, Routes, useNavigate} from 'react-router-dom';
 import './App.css'
 import LivePage from "./pages/LivePage.jsx";
@@ -30,7 +30,6 @@ import GeoPage from "./pages/GeoPage";
 import ReactionPage from "./pages/ReactionPage";
 import SettingDialog from "./components/SettingDialog";
 import DemoPage from "./pages/DemoPage";
-import {useTheme} from "next-themes";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -39,10 +38,8 @@ const calcHeight = () => {
     return result;
 }
 
-function BasicLayout(props) {
+function BasicLayout() {
 
-
-    const { theme, setTheme } = useTheme()
 
     const menu = [{
         Name: 'Overview',
@@ -83,8 +80,6 @@ function BasicLayout(props) {
                 var last = localStorage.getItem("news")
                 if (last === null || last !== response.data) {
                     localStorage.setItem("news",response.data)
-                    fetchGuild(true)
-                    fetchMoney(true)
                     setTimeout(() => {
                         setShowNotice(true)
                     },3000)
@@ -114,8 +109,8 @@ function BasicLayout(props) {
                 setShowSettings(false)
             }}/>}
             {!hide && <Navbar style={{}}>
-                <NavbarContent style={{display: "flex", justifyContent: "center", "overflow": "scroll",width:vwToPx(100)}}
-                               className={'scrollbar-hide '}>
+                <NavbarContent style={{display: "flex", justifyContent: "center", "overflow": "scroll"}}
+                               className={'scrollbar-hide'}>
                     {
                         menu.map((item, index) => (
                             <NavbarItem isActive={index === ind} key={index}>
@@ -144,7 +139,6 @@ function BasicLayout(props) {
                                 setShowRank(true);
                             }}>Level Rank</DropdownItem>
                             <DropdownItem key="money-rank" onClick={() => {
-
                                 setShowMoneyRank(true);
                             }}>Money Rank</DropdownItem>
                             <DropdownItem key="notice" onClick={() => {
@@ -161,22 +155,6 @@ function BasicLayout(props) {
                             }}>Geo</DropdownItem>
                         </DropdownMenu>
                     </Dropdown>
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        className="w-6 h-6 text-black dark:text-white"
-                        fill="currentColor"
-                        onClick={() => {
-                            setTheme(theme === 'light'?'dark':'light')
-                            if (theme === 'dark') {
-                                document.documentElement.style.setProperty("--heroui-content1", "240 25% 95%");
-                            } else {
-                                document.documentElement.style.setProperty("--heroui-content1", "0 0% 0%");
-                            }
-                        }}
-                    >
-                        <path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5M2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1m18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1M11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1m0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1M5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0s.39-1.03 0-1.41zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41s1.03.39 1.41 0z"></path>
-                    </svg>
                 </NavbarContent>
             </Navbar>}
             <div className={`site-layout-background`} style={{padding: 24, width: '100%', height: `${calcHeight()}px`,opacity:parseInt(opacity)/100}}>
@@ -207,14 +185,14 @@ function BasicLayout(props) {
 
 function PageWrapper({children}) {
     return (
-     <motion.div
+        <motion.div
             initial={{opacity: 0, x: 20}}
             animate={{opacity: 1, x: 0}}
             exit={{opacity: 0, x: -20}}
             transition={{duration: 0.3}}
-            className="h-full">
-
-         {children}
+            className="h-full"
+        >
+            {children}
         </motion.div>
     );
 }

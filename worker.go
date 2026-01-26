@@ -4,16 +4,16 @@ import (
 	"sync"
 )
 
-type WorkerTask func()
+type Task func()
 
 type Worker struct {
-	taskQueue chan WorkerTask
+	taskQueue chan Task
 	wg        sync.WaitGroup
 }
 
 func NewWorker(poolSize int) *Worker {
 	w := &Worker{
-		taskQueue: make(chan WorkerTask, 10000),
+		taskQueue: make(chan Task, 10000),
 	}
 	for i := 0; i < poolSize; i++ {
 		w.wg.Add(1)
@@ -31,7 +31,7 @@ func (w *Worker) run() {
 	}
 }
 
-func (w *Worker) AddTask(task WorkerTask) {
+func (w *Worker) AddTask(task Task) {
 	w.taskQueue <- task
 }
 

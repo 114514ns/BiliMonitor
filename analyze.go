@@ -237,7 +237,7 @@ func RefreshLivers() {
 		FROM ranked e
 		JOIN ranked l ON e.user_id = l.user_id
 		WHERE e.rn_asc = 1 AND l.rn_desc = 1
-		ORDER BY monthly_growth ` + s + " limit 1000;").Scan(&dst)
+		ORDER BY monthly_growth ` + s + " limit 400;").Scan(&dst)
 		for _, diffStruct := range dst {
 			m[diffStruct.UserID] = diffStruct
 		}
