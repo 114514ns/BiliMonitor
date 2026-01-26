@@ -8,12 +8,12 @@ mkdir -p "$OUTPUT_DIR"
 
 
 declare -A TARGETS=(
-  #["windows_amd64"]="GOOS=windows GOARCH=amd64"
+  ["windows_amd64"]="GOOS=windows GOARCH=amd64"
   ["linux_amd64"]="GOOS=linux GOARCH=amd64"
-  #["linux_arm64"]="GOOS=linux GOARCH=arm64"
-  #["darwin_amd64"]="GOOS=darwin GOARCH=amd64"
-  #["darwin_arm64"]="GOOS=darwin GOARCH=arm64"
-  #["android_arm64"]="GOOS=android GOARCH=arm64"
+  ["linux_arm64"]="GOOS=linux GOARCH=arm64"
+  ["darwin_amd64"]="GOOS=darwin GOARCH=amd64"
+  ["darwin_arm64"]="GOOS=darwin GOARCH=arm64"
+  ["android_arm64"]="GOOS=android GOARCH=arm64"
 )
 
 for target in "${!TARGETS[@]}"; do
@@ -30,5 +30,4 @@ for target in "${!TARGETS[@]}"; do
     echo "Build failed: $target"
   fi
 done
-
 
