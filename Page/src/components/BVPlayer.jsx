@@ -1,80 +1,66 @@
-import React, {forwardRef, useEffect, useRef, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import axios from "axios";
+import {video} from "framer-motion/m";
 
+function BVPlayer(props) {
 
+    const [v,setV] = useState("");
 
-const BVPlayer = forwardRef(function BVPlayer(props, ref) {
-    const [v, setV] = useState("");
-    const [a, setA] = useState("");
+    const [a,setA] = useState("");
 
-    const videoRef = useRef(null);
-    const audioRef = useRef(null);
+    const videoRef = useRef(HTMLVideoElement);
+
+    const audioRef = useRef(HTMLAudioElement);
 
     useEffect(() => {
         if (props.bv !== '') {
-            const sp = props.bv.split("-");
-            const b = sp[0];
-            const c = sp.length === 2 ? sp[1] : '';
+            axios.get("/api/bv/view?bv=" + props.bv).then((res) => {
+                var dash = res.data.data.dash
 
-            axios
-                .get(`/api/bv/view?bv=${b}&cid=${c}`)
-                .then((res) => {
-                    const dash = res.data.data.dash;
-                    setV(`https://stream-proxy.ikun.dev?url=${btoa(dash.video[0].base_url)}`);
-                    setA(`https://stream-proxy.ikun.dev?url=${btoa(dash.audio[0].base_url)}`);
-                });
+                setV(`https://stream-proxy.ikun.dev?url=${btoa(dash.video[0].base_url)}`)
+                setA(`https://stream-proxy.ikun.dev?url=${btoa(dash.audio[0].base_url)}`)
+            })
         }
-    }, [props.bv]);
+
+    },[props.bv])
 
     useEffect(() => {
-        if (!videoRef.current || !audioRef.current) return;
-
-        const video = videoRef.current;
-        const audio = audioRef.current;
-
-        const onPlay = () => audio.play();
-        const onPause = () => audio.pause();
-        const onWaiting = () => audio.pause();
-        const onPlaying = () => {
-            if (!video.paused) audio.play();
-        };
-        const onSeeked = () => {
-            audio.currentTime = video.currentTime;
-            if (!video.paused && video.readyState >= 3) {
+        if (videoRef.current && audioRef.current) {
+            const video = videoRef.current;
+            const audio = audioRef.current;
+            video.addEventListener('play', () => {
                 audio.play();
-            }
-        };
+            });
+            video.addEventListener('pause', () => {
+                audio.pause();
+            });
 
-        video.addEventListener('play', onPlay);
-        video.addEventListener('pause', onPause);
-        video.addEventListener('waiting', onWaiting);
-        video.addEventListener('playing', onPlaying);
-        video.addEventListener('seeked', onSeeked);
+            video.addEventListener('waiting', () => {
+                audio.pause();
+            });
 
-        return () => {
-            video.removeEventListener('play', onPlay);
-            video.removeEventListener('pause', onPause);
-            video.removeEventListener('waiting', onWaiting);
-            video.removeEventListener('playing', onPlaying);
-            video.removeEventListener('seeked', onSeeked);
-        };
-    }, []);
-
+            video.addEventListener('playing', () => {
+                if (!video.paused) {
+                    audio.play();
+                }
+            });
+            video.addEventListener('seeked', () => {
+                audio.currentTime = video.currentTime;
+                if (!video.paused) {
+                    if (video.readyState >= 3) {
+                        audio.play();
+                    }
+                }
+            });
+        }
+    },[])
     return (
-        <div ref={ref} className={props.className}>
-            <video
-                ref={videoRef}
-                src={v}
-                controls
-                className="w-full"
-            />
-            <audio
-                ref={audioRef}
-                src={a}
-                className="hidden"
-            />
+        <div>
+            <video ref={videoRef} src={v} controls/>
+
+            <audio ref={audioRef} src={a} className={'hidden'}/>
         </div>
-    );
-});
+    )
+}
 
 export default BVPlayer;

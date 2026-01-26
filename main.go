@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	bili "github.com/114514ns/BiliClient"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
@@ -306,10 +305,6 @@ var consoleLogger = log.New(os.Stdout, "", log.LstdFlags) //用于在控制台�
 
 var queryClient = resty.New()
 
-var biliClient = bili.NewAnonymousClient(bili.ClientOptions{
-	ProxyURL: config.QueryProxy,
-})
-
 func loadConfig() {
 	content, err := os.ReadFile("config.json")
 	if err != nil {
@@ -410,20 +405,14 @@ func setupHTTPClient() {
 		if rand.Int()%100 == 1 {
 			r.Header.Set("Connection", "close")
 		}
-		if r.Header.Get("User-Agent") == "" {
-			r.Header.Set("User-Agent", randomUserAgent())
-		}
+		r.Header.Set("User-Agent", UserAgents[rand.Uint32()%uint32(len(UserAgents))])
 		return nil
 	})
 	if config.QueryProxy != "" {
 		queryClient.SetProxy(config.QueryProxy)
 	}
 	queryClient.OnBeforeRequest(func(c *resty.Client, request *resty.Request) error {
-
-		request.Header.Set("Referer", "https://www.bilibili.com/")
-		request.Header.Set("Accept-Language", "zh-CN,zh;q=0.9")
-		request.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-
+		request.Header.Set("User-Agent", randomUserAgent())
 		return nil
 	})
 
@@ -487,9 +476,6 @@ func main() {
 		}()
 	}
 }
-
-var lastInsert int64 = 0
-var lastInsertCount = 0
 
 func main0() {
 	loadConfig()
@@ -623,7 +609,7 @@ func main0() {
 		go func() {
 			time.Sleep(900 * time.Second)
 			RefreshMessagePoints()
-			//RefreshLivers()
+			RefreshLivers()
 			RefreshWatcher()
 		}()
 		go func() {
@@ -648,7 +634,7 @@ func main0() {
 			}
 		})
 
-		//c.AddFunc("@every 60m", RefreshLivers)
+		c.AddFunc("@every 60m", RefreshLivers)
 		c.AddFunc("@every 60m", RefreshMessagePoints)
 		c.AddFunc("@every 120m", RefreshWatcher)
 
@@ -673,8 +659,6 @@ func main0() {
 
 			var batch1 []LiveAction
 
-			var start = time.Now().UnixMilli()
-
 			actionMutex.Lock()
 			if len(cacheAction) > 0 {
 				batch1 = cacheAction
@@ -697,8 +681,6 @@ func main0() {
 			if len(batch2) > 0 {
 				db.Save(&batch2)
 			}
-			lastInsert = time.Now().UnixMilli() - start
-			lastInsertCount = len(batch1) + len(batch2)
 		}
 	}()
 	select {}

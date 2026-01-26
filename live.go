@@ -25,12 +25,9 @@ import (
 	"gorm.io/gorm"
 )
 
-var REGION = ""
-
 type SelfInfo struct {
 	Data struct {
-		Mid    int64  `json:"mid"`
-		Region string `json:"ip_region"`
+		Mid int64 `json:"mid"`
 	} `json:"data"`
 }
 
@@ -42,7 +39,6 @@ func SelfUID(cookie string) int64 {
 	}
 	var self = SelfInfo{}
 	sonic.Unmarshal(res.Body(), &self)
-	REGION = self.Data.Region
 	return self.Data.Mid
 }
 func GetServerState(room string) bool {
@@ -352,11 +348,7 @@ func TraceArea(parent int, full bool) {
 		u, _ := url.Parse(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?area_id=0&build=1001016004&device=win&page=%d&parent_area_id=%d&platform=web&web_location=bilibili-electron&sort_type=%s", page, parent, typo))
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
-		var ck = config.Cookie
-		if config.LoginMode == "pool" {
-			ck = PickCookie()
-		}
-		res, _ := RandomPick(cPools).R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", ck).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
+		res, _ := RandomPick(cPools).R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
 		obj := AreaLiverListResponse{}
 		var m = make([]SortInfo, 0)
 		sonic.Unmarshal(res.Body(), &obj)
@@ -572,25 +564,10 @@ func TraceArea(parent int, full bool) {
 	working = false
 }
 func BuildAuthMessage(room string) string {
-
-	var ck = ""
-
-	if config.LoginMode == "cookie" || config.LoginMode == "mix" {
-		ck = config.Cookie
-	}
-
-	var u0 = ""
-	if config.LoginMode == "cookie" || config.LoginMode == "mix" {
-		url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8&isGaiaAvoided=true"
-		query, _ := url.Parse(url0)
-		signed, _ := wbi.SignQuery(query.Query(), time.Now())
-		u0 = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode()
-	}
-	if config.LoginMode == "pool" {
-		u0 = config.PoolEndPoint + "live/conn?room=" + room
-	}
-
-	res, e := client.R().SetHeader("Cookie", ck).SetHeader("User-Agent", USER_AGENT).Get(u0)
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8&isGaiaAvoided=true"
+	query, _ := url.Parse(url0)
+	signed, _ := wbi.SignQuery(query.Query(), time.Now())
+	res, e := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
 	if e != nil {
 		fmt.Println(e)
 	}
@@ -600,26 +577,22 @@ func BuildAuthMessage(room string) string {
 		log.Println(res.String())
 	}
 	var cer = Certificate{}
-	if config.LoginMode == "cookie" || config.LoginMode == "mix" {
-		cer.Uid = SelfUID(ck)
-	} else {
-		cer.Uid = liveInfo.Data.UID
-	}
-
+	cer.Uid = SelfUID(config.Cookie)
 	id, _ := strconv.Atoi(room)
 	cer.RoomId = id
 	cer.Type = 2
 	cer.Key = liveInfo.Data.Token
-	cer.Buvid = strings.Replace(PickCookie(), "buvid3=", "", 1)
-	if config.LoginMode == "pool" {
-		cer.Buvid = liveInfo.Data.Buvid
-	}
+	//cer.Cookie = strings.Replace(config.Cookie, "buvid3=", "", 1)
+	//cer.Cookie = strings.ToUpper(uuid.NewString()) + "infoc"
+	cer.Cookie = "5332ebe5-50f8-4909-87c2-752229442472infoc"
 	cer.Protover = 3
 	cer.Platform = "web"
 	cer.Scene = "room"
 	cer.SupportAck = true
 	json, _ := sonic.Marshal(&cer)
 	return string(json)
+
+	//return "{\"uid\":2,\"roomid\":1947277414,\"protover\":3,\"buvid\":\"C52EFC9A-79ED-5520-5C6F-DF7F7ED084CA74383infoc\",\"support_ack\":true,\"queue_uuid\":\"0qjllhga\",\"scene\":\"room\",\"platform\":\"web\",\"type\":2,\"key\":\"ct61u1UwTk6G2Rl91m_34m4kDvaurB1VAZHW8yeuh4xpadK3FTj_ltQDRCC7zWQGhr_W9lq0mUkqEI9DD5fLL8HaDe_gxtLFiCZmcdoMFQYiL41hNPEKRY3QE1HsAn36EqolvMYCKo1x-a0wTzUoL88iKloZc7jII6eFGQsnnS658drwDGIxQ-JK4t8aZodsQdLzBAYMTdzbTtt6BsKdj2EcUlzsYsAEGLQt2MlrEjqQgvSXatl-zxbcQSGrIL8DlcW53fA5HbBy54BQGIyd6V-GwA==\"}"
 
 }
 
@@ -644,32 +617,10 @@ func setLive(roomId string, live bool) {
 		s.Live = live
 	}
 }
+func RandomHost() string {
+	var HOST = []string{"zj-cn-live-comet.chat.bilibili.com", "bd-bj-live-comet-06.chat.bilibili.com", "bd-sz-live-comet-10.chat.bilibili.com", "broadcastlv.chat.bilibili.com"}
+	return HOST[rand.Intn(len(HOST))]
 
-var (
-	CACHED_HOST = ""
-)
-
-func RandomHost(room string) string {
-	var u0 = ""
-	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8&isGaiaAvoided=true"
-	query, _ := url.Parse(url0)
-	signed, _ := wbi.SignQuery(query.Query(), time.Now())
-	u0 = "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode()
-	res, e := client.R().
-		SetHeader("Cookie", PickCookie()).
-		SetHeader("User-Agent", USER_AGENT).
-		Get(u0)
-	if e != nil {
-		return CACHED_HOST
-	}
-	var liveInfo = LiveInfo{}
-	err := sonic.Unmarshal(res.Body(), &liveInfo)
-	if err != nil || len(liveInfo.Data.HostList) == 0 {
-		log.Println("解析失败或列表为空:", res.String())
-		return CACHED_HOST
-	}
-	CACHED_HOST = (liveInfo.Data.HostList)[0].Host
-	return CACHED_HOST
 }
 
 var actionMutex sync.Mutex
@@ -688,7 +639,7 @@ func TraceLive(roomId string) {
 	}()
 
 	var WS_HEADER = http.Header{}
-	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
 	WS_HEADER.Add("Origin", "https://live.bilibili.com")
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
@@ -796,15 +747,18 @@ func TraceLive(roomId string) {
 			dbLiveId = int(new.ID)
 		}
 	}
-	var host = RandomHost(roomId) + ":2245"
 
-	//host = "broadcastlv.chat.bilibili.com:2245"
-
-	if REGION != "CN" {
-		host = "hw-sg-live-comet-01.chat.bilibili.com:2245"
+	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + roomId + "&web_location=444.8&isGaiaAvoided=true"
+	query, _ := url.Parse(url0)
+	signed, _ := wbi.SignQuery(query.Query(), time.Now())
+	res, _ := client.R().SetHeader("Cookie", config.Cookie).SetHeader("User-Agent", USER_AGENT).Get("https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?" + signed.Encode())
+	var liveInfo = LiveInfo{}
+	sonic.Unmarshal(res.Body(), &liveInfo)
+	if len(liveInfo.Data.HostList) == 0 {
+		log.Println("error,break" + res.String())
+		return
 	}
-
-	u := url.URL{Scheme: "wss", Host: host, Path: "/sub"}
+	u := url.URL{Scheme: "wss", Host: liveInfo.Data.HostList[0].Host + ":2245", Path: "/sub"}
 	var dialer = &websocket.Dialer{
 		Proxy:            nil,
 		HandshakeTimeout: 45 * time.Second,
@@ -821,7 +775,7 @@ func TraceLive(roomId string) {
 	if err != nil {
 		log.Println("["+liver+"]  "+"Dial:", err)
 	}
-	ticker := time.NewTicker(30 * time.Second)
+	ticker := time.NewTicker(45 * time.Second)
 
 	SafeGoRetry(func() {
 		if lives[roomId].Live {
@@ -1101,9 +1055,6 @@ func TraceLive(roomId string) {
 		case <-ticker.C:
 			if isLive(roomId) {
 				err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
-				if err != nil {
-					err = c.WriteMessage(websocket.TextMessage, BuildMessage("[object Object]", 2))
-				}
 				//lives[roomId].LastActive = time.Now().Unix() + 3600*8
 				if err != nil {
 					log.Printf("[%s] write:  %v", liver, err)
@@ -1116,7 +1067,7 @@ func TraceLive(roomId string) {
 				}
 			}
 			url := "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=" + roomId
-			res, _ := client.R().Get(url)
+			res, _ = client.R().Get(url)
 			status := LiveStatusResponse{}
 			sonic.Unmarshal(res.Body(), &status)
 
@@ -1195,7 +1146,7 @@ func TraceLive(roomId string) {
 					return
 				}
 			} else {
-				if rand.Int()%2 == 0 {
+				if rand.Int()%5 == 0 {
 					go func() {
 						if dbLiveId != 0 {
 							var msg = 0
@@ -1229,15 +1180,13 @@ func TraceLive(roomId string) {
 					}()
 				}
 				if isLive(roomId) || (ok && e.Live) {
-					if rand.Int()%2 == 2 {
-						_, count := GetOnline(roomId, liverId)
-						var obj = OnlineStatus{
-							Live:  dbLiveId,
-							Count: count,
-							Time:  time.Now(),
-						}
-						db.Save(&obj)
+					_, count := GetOnline(roomId, liverId)
+					var obj = OnlineStatus{
+						Live:  dbLiveId,
+						Count: count,
+						Time:  time.Now(),
 					}
+					db.Save(&obj)
 				}
 			}
 		}
@@ -1272,7 +1221,7 @@ func FillGiftPrice(room string, area int, parent int) {
 		var item = gift.Data.GiftConfig.BaseConfig.List[i]
 
 		if strings.Contains(item.Name, "盲盒") {
-			res, _ := client.R().SetHeader("Cookie", PickCookie()).Get("https://api.live.bilibili.com/xlive/general-interface/v1/blindFirstWin/getInfo?gift_id=" + strconv.Itoa(item.ID))
+			res, _ := client.R().SetHeader("Cookie", config.Cookie).Get("https://api.live.bilibili.com/xlive/general-interface/v1/blindFirstWin/getInfo?gift_id=" + strconv.Itoa(item.ID))
 
 			var box = GiftBox{}
 			sonic.Unmarshal(res.Body(), &box)
@@ -1303,16 +1252,14 @@ type Certificate struct {
 	RoomId     int    `json:"roomid"`
 	Key        string `json:"key"`
 	Protover   int    `json:"protover"`
+	Cookie     string `json:"buvid"`
 	Type       int    `json:"type"`
-	Buvid      string `json:"buvid"`
 	Platform   string `json:"platform"`
 	Scene      string `json:"scene"`
 	SupportAck bool   `json:"support_ack"`
 }
 type LiveInfo struct {
 	Data struct {
-		Buvid            string  `json:"buvid"`
-		UID              int64   `json:"uid"`
 		Group            string  `json:"group"`
 		BusinessID       int     `json:"business_id"`
 		RefreshRowFactor float64 `json:"refresh_row_factor"`
@@ -1529,7 +1476,6 @@ func SafeGoRetry(fn func(), maxRetries int, retryDelay time.Duration) {
 				defer func() {
 					if r := recover(); r != nil {
 						log.Printf("goroutine panic (attempt %d): %v", i+1, r)
-						debug.PrintStack()
 					}
 				}()
 

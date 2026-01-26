@@ -10,7 +10,3 @@
 body {
   font-weight: normal;
 }
-
-@view-transition {
-  navigation: auto;
-}
