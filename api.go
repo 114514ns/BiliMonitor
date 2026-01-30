@@ -21,6 +21,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
+
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/gzip"
@@ -31,6 +33,7 @@ import (
 	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 var worker = NewWorker(1)
@@ -700,7 +703,7 @@ func InitHTTP() {
 			wg.Done()
 		}()
 		go func() {
-			db.Raw("SELECT live_room,COUNT(live_room) as count,user_id as liver_id,user_name as liver  FROM live_actions,lives where from_id = ? and live_actions.live = lives.id  GROUP BY live_room limit 100", uid).Scan(&rooms)
+			db.Raw("SELECT live_room,COUNT(live_room) as count,user_id as liver_id,user_name as liver  FROM live_actions,lives where from_id = ? and live_actions.live = lives.id and action_type = 1  GROUP BY live_room limit 100", uid).Scan(&rooms)
 			var totalCount = 0
 			for _, room := range rooms {
 				totalCount += room.Count
@@ -792,8 +795,11 @@ ORDER BY t.updated_at DESC, t.id DESC
 		var total = 0
 		var queryOrder = ""
 		var tableName = "live_actions"
+
+		var db0 *gorm.DB
 		if showEnter != "" {
-			tableName = "enter_action"
+			tableName = "enter_actions"
+			db0 = clickDb
 		} else {
 			if order == "timeDesc" {
 				queryOrder = "order by live_actions.id desc"
@@ -801,6 +807,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 			if order == "money" {
 				queryOrder = "order by gift_price desc"
 			}
+			db0 = db
 		}
 
 		if queryOrder == "" {
@@ -844,10 +851,18 @@ ORDER BY t.updated_at DESC, t.id DESC
 		}
 		offset := (page - 1) * pageSize
 		var dst []CustomLiveAction
-		err := db.Raw(
-			fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
-			uid, pageSize, offset,
-		).Scan(&dst).Error
+		if showEnter == "" {
+			err = db0.Raw(
+				fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
+				uid, pageSize, offset,
+			).Scan(&dst).Error
+		} else {
+			err = db0.Raw("select * from enter_actions where from_id = ? limit ? offset ?", uid, pageSize, (page-1)*pageSize).Scan(&dst).Error
+
+			lo.UniqBy(dst, func(item CustomLiveAction) int {
+				return item.LiveRoom
+			})
+		}
 
 		if err != nil {
 			context.JSON(http.StatusInternalServerError, gin.H{
@@ -857,13 +872,13 @@ ORDER BY t.updated_at DESC, t.id DESC
 			return
 		}
 		if showEnter != "" {
-			db.Raw("select count(*) from enter_action where from_id = ?", uid).Scan(&total)
+			db0.Raw("select count(*) from enter_action where from_id = ?", uid).Scan(&total)
 		} else {
 			if room != "" {
-				db.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
+				db0.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
 					uid, room).Scan(&total)
 			} else {
-				db.Raw("select count(*) from live_actions where from_id = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery, uid).Scan(&total)
+				db0.Raw("select count(*) from live_actions where from_id = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery, uid).Scan(&total)
 			}
 		}
 
@@ -2606,37 +2621,6 @@ ORDER BY money DESC;
 
 	//创建模糊查询粉丝牌任务
 
-	r.POST("/task/medal", func(c *gin.Context) {
-		var query = c.Query("query")
-		var fuzz = c.Query("fuzz")
-
-		if query == "" {
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "bad params",
-			})
-			return
-		}
-
-		var guid = uuid.New().String()
-
-		taskMutex.Lock()
-		tasks[guid] = Task{
-			Type:    "medal-search",
-			UUID:    guid,
-			Created: time.Now(),
-			Arg: gin.H{
-				"Query": query,
-				"Fuzz":  fuzz == "true",
-			},
-		}
-		taskMutex.Unlock()
-
-		go func() {
-
-		}()
-
-	})
-
 	r.GET("/online/chart", func(c *gin.Context) {
 
 	})
@@ -2690,6 +2674,26 @@ ORDER BY money DESC;
 					UName: faceMap.UName,
 				})
 			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"list": dst,
+		})
+	})
+
+	r.GET("/history", func(c *gin.Context) {
+		var roomStr = c.Query("room")
+		var room = toInt(roomStr)
+		if room <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+		var dst []LiveAction = make([]LiveAction, 0)
+		var id int
+		db.Raw("select id from lives where room_id = ?", room).Scan(&id)
+		if id > 0 {
+			db.Raw("select * from live_actions where live = ? order by id desc ", id).Scan(&dst)
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"list": dst,

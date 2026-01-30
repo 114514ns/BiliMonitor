@@ -64,6 +64,10 @@ function PlayBackForm(props) {
             var mapping = []
 
             async function handle() {
+                if (link.includes("CONVERT.mp4") || link.includes("CONERT.mp4") || link.includes("COVERT")) {
+                    videoRef.current.src = link
+                    return;
+                }
                 if (cacheMapping.current.has(link.replace(".mp4", ".json")) ) {
                     mapping = cacheMapping.current.get(link.replace(".mp4", ".json"));
                 } else {

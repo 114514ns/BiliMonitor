@@ -1,5 +1,4 @@
 import china from '../cn.json';
-import * as echarts from 'echarts'; //全局引入 ，可按需引入
 import React, { useEffect, useRef , useState } from 'react';
 import axios from "axios";
 import {Modal, ModalHeader,ModalBody,ModalFooter,Button,ModalContent} from "@heroui/react";
