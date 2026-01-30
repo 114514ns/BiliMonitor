@@ -63,9 +63,9 @@ function UserPage(props) {
                 <div className={'sm:w-[75vw] lg:overflow-x-hidden '}>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
                         <div
-                            className=" bg-blue-100 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
+                            className=" bg-blue-100 dark:bg-gray-500 p-2 rounded-xl transition-transform transform duration-200 hover:scale-105 hover:shadow-lg cursor-pointer ">
                             <span className="text-blue-600"></span>
-                            <div className='flex flex-row items-center text-blue-600' onClick={() => {
+                            <div className='flex flex-row items-center text-blue-600 dark:text-stone-100' onClick={() => {
                                 toSpace(id)
                             }}>
                                 <img
@@ -76,35 +76,43 @@ function UserPage(props) {
 
                         </div>
                         <div
-                            className="rounded-xl bg-gray-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">首次出现<br />
+                            className="rounded-xl bg-gray-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">首次出现<br />
                             <span
                                 className="font-semibold">{new Date(space.FirstSeen).toLocaleString()}</span>
                         </div>
                         <div
-                            className="rounded-xl bg-pink-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">最后出现<br />
+                            className="rounded-xl bg-pink-100 dark:bg-gray-500  p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">最后出现<br />
                             <span
                                 className="font-semibold">{new Date(space.LastSeen).toLocaleString()}</span>
                         </div>
                     </div>
                     <div className={'grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm mt-4'}>
                         <div
-                            className="rounded-xl bg-green-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">弹幕<br />
+                            className="rounded-xl bg-green-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">弹幕<br />
                             <span
                                 className="font-semibold">{space.Message}</span>
                         </div>
-                        <div
-                            className="rounded-xl bg-orange-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">消费<br />
-                            <span
-                                className="font-semibold">{space.Money}</span>
-                        </div>
+                        <Tooltip     content={<div>
+                            <p>大航海：{space.GuardMoney && space.GuardMoney.toLocaleString()}</p>
+                            <p>礼物/SC：{space.GiftMoney && space.GiftMoney.toLocaleString()}</p>
+                        </div>}>
+                            <div
+                                className="rounded-xl bg-orange-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">消费<br />
+
+                                <span
+                                    className="font-semibold">{(space.GiftMoney + space.GuardMoney).toLocaleString()}</span>
+
+                            </div>
+
+                        </Tooltip>
                         <Tooltip content={<HoverMedals mid={id} />} isOpen={showMedal} onOpenChange={(o) => {
                             setShowMedal(o)
                         }}>
                             <div
-                                className="rounded-xl bg-red-100 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg " onContextMenu={() => {
-                                    console.log("context menu")
-                                    setShowMedal(true)
-                                }} >最高粉丝牌等级<br />
+                                className="rounded-xl bg-red-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg " onContextMenu={() => {
+                                console.log("context menu")
+                                setShowMedal(true)
+                            }} >最高粉丝牌等级<br />
                                 <span
                                     className="font-semibold">{space.HighestLevel}</span>
                             </div>
@@ -122,19 +130,19 @@ function UserPage(props) {
                                     key: 'msg',
                                     value: "Message"
                                 },
-                                {
-                                    key: 'gift',
-                                    value: "Gift"
+                                    {
+                                        key: 'gift',
+                                        value: "Gift"
 
-                                },
-                                {
-                                    key: 'guard',
-                                    value: "Membership"
-                                },
-                                {
-                                    key: 'sc',
-                                    value: "SuperChat"
-                                }
+                                    },
+                                    {
+                                        key: 'guard',
+                                        value: "Membership"
+                                    },
+                                    {
+                                        key: 'sc',
+                                        value: "SuperChat"
+                                    }
                                 ]}
                                 label="Filter by"
                                 onSelectionChange={e => {
@@ -151,11 +159,11 @@ function UserPage(props) {
                                     key: 'money',
                                     value: "Money"
                                 },
-                                {
-                                    key: 'timeDesc',
-                                    value: "Time Desc"
+                                    {
+                                        key: 'timeDesc',
+                                        value: "Time Desc"
 
-                                },
+                                    },
                                 ]}
                                 label="Sort by"
                                 onSelectionChange={e => {

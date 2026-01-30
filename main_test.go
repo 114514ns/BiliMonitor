@@ -62,7 +62,7 @@ func TestHttp(test *testing.T) {
 	loadDB()
 	go func() {
 		for {
-			cachedToken = GetAlistToken()
+			//cachedToken = GetAlistToken()
 			time.Sleep(120 * time.Minute)
 		}
 	}()

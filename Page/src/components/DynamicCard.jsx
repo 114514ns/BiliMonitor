@@ -1,7 +1,5 @@
 import React, {useState} from "react";
-import {Button, Input, Image, Card} from "@heroui/react";
-import axios from "axios";
-import { Heart, MessageCircle, Share2, MoreVertical } from 'lucide-react';
+import {Button, Image, Card} from "@heroui/react";
 
 
 function ForwardIcon() {

@@ -172,7 +172,7 @@ function BasicLayout() {
                         <Route path="/raw" element={<PageWrapper><RawPage/></PageWrapper>}/>
                         <Route path="/pk" element={<PageWrapper><ComparePage/></PageWrapper>}/>
                         <Route path="/geo" element={<PageWrapper><GeoPage/></PageWrapper>}/>
-                        <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>
+                 {/*       <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>*/}
                         <Route path="/demo" element={<PageWrapper><DemoPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
