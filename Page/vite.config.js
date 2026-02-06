@@ -50,6 +50,7 @@ export default defineConfig({
     },
     build: {
         sourcemap: true,
+        /*
         rollupOptions: {
             external: (id) => {
                 if (id.includes("react-aria")) {
@@ -96,11 +97,17 @@ export default defineConfig({
 
                     }
                 },
+
+
             }
 
 
 
+
+
         }
+
+         */
     },
     esbuild: {
         sourcemap: true,
