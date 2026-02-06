@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"sort"
 	"strconv"
@@ -61,6 +62,9 @@ func MockRefreshLivers() {
 func TestHttp(test *testing.T) {
 	loadDB()
 	go func() {
+		http.ListenAndServe("0.0.0.0:8899", nil)
+	}()
+	go func() {
 		for {
 			//cachedToken = GetAlistToken()
 			time.Sleep(120 * time.Minute)
@@ -70,6 +74,7 @@ func TestHttp(test *testing.T) {
 	//MockRefreshLivers()
 
 	//RefreshFlow()
+	config.ConnectionPoolSize = 1
 	setupHTTPClient()
 	go func() {
 		//RefreshLivers()
@@ -94,6 +99,7 @@ func TestGenMoneyRankList(test *testing.T) {
 		MedalName string
 		Level     int
 		LiverID   int64
+		Type      int
 	}
 	var array []Struct
 	db.Raw("SELECT from_id,gift_price from live_actions WHERE action_type > 1").Scan(&dst)
@@ -117,12 +123,50 @@ func TestGenMoneyRankList(test *testing.T) {
 
 	array = array[:10000]
 
-	for i := range array {
+	for i := range array[:1000] {
 		var obj DBGuard
 		db.Raw("select * from fans_clubs where uid = ? order by level desc limit 1", array[i].UID).Scan(&obj)
-		var amount = array[i].Amount
 		copier.Copy(&array[i], &obj)
-		array[i].Amount = amount
+		array[i].MedalName = obj.MedalName
+		array[i].Level = int(obj.Level)
+		array[i].Type = int(obj.Type)
+
+		var livers []int64
+		db.Raw("select liver_id from fans_clubs where uid = ? and level >= 21", array[i].UID).Scan(&livers)
+
+		var areas []AreaLiver
+
+		db.Raw(`
+SELECT *
+FROM (
+  SELECT al.*,
+         ROW_NUMBER() OVER (
+           PARTITION BY al.uid, DATE_FORMAT(al.updated_at, '%Y-%m')
+           ORDER BY al.updated_at DESC, al.id DESC
+         ) rn
+  FROM area_livers al
+  WHERE al.uid IN (?)
+) t
+WHERE t.rn = 1
+ORDER BY t.updated_at DESC, t.id DESC
+`, livers).Scan(&areas)
+
+		var m0 = [...]int{0, 19998, 1998, 138}
+		var guardSum = 0
+		for _, area := range areas {
+			var dg []DBGuard
+			sonic.Unmarshal([]byte(area.GuardList), &dg)
+			for _, guard := range dg {
+				if guard.UID == array[i].UID {
+					guardSum += m0[guard.Type]
+				}
+			}
+		}
+
+		var gift = 0.0
+		db.Raw("select sum(gift_price) from live_actions where from_id = ? and (action_type = 2 or action_type = 4)", array[i].UID).Scan(&gift)
+
+		array[i].Amount = gift + float64(guardSum)
 	}
 
 	bytes, _ := sonic.Marshal(&array)

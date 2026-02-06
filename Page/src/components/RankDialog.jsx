@@ -265,7 +265,7 @@ export default RankDialog;
 export const MoneyRankDialog = (props) => {
 
 
-    const array = JSON.parse(localStorage.getItem("money"))
+    const array = JSON.parse(localStorage.getItem("money")).sort((a,b) =>b.Amount-a.Amount)
 
     const PAGE_SIZE = 100
     

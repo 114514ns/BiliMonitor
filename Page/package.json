@@ -12,6 +12,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@heroui/react": "^2.8.3",
+    "@internationalized/date": "^3.11.0",
     "@react-stately/data": "^3.14.1",
     "@tailwindcss/postcss": "^4.0.8",
     "@tailwindcss/vite": "^4.1.11",

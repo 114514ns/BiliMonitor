@@ -3,11 +3,12 @@ import { useParams } from "react-router-dom";
 import axios from "axios";
 import {
     Autocomplete, AutocompleteItem, Avatar,
-    Tooltip, Button, Checkbox
+    Tooltip, Button, Checkbox, Modal, useDisclosure, ModalContent, ModalBody, ModalHeader, ModalFooter
 } from "@heroui/react";
 import ActionTable from "../components/ActionTable";
 import HoverMedals from "../components/HoverMedals";
 import { HeroUIPieChart } from "../components/PieChart";
+import {HeatContent} from "../components/HeatChart";
 
 
 function UserPage(props) {
@@ -48,9 +49,29 @@ function UserPage(props) {
     }, [order, filter, room, showEnter])
 
     const tableRef = React.createRef();
-
+    const {isOpen, onOpen, onOpenChange} = useDisclosure();
     return (
         <div>
+            <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader className="flex flex-col gap-1">Modal Title</ModalHeader>
+                            <ModalBody>
+                                <HeatContent uid={id}/>
+                            </ModalBody>
+                            <ModalFooter>
+                                <Button color="danger" variant="light" onPress={onClose}>
+                                    Close
+                                </Button>
+                                <Button color="primary" onPress={onClose}>
+                                    Action
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
             <div className={'flex flex-col sm:flex-row  h-[88vh] '}>
                 <HeroUIPieChart
                     width={isMobile() ? vwToPx(90) : vwToPx(35)}
@@ -76,7 +97,7 @@ function UserPage(props) {
 
                         </div>
                         <div
-                            className="rounded-xl bg-gray-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">首次出现<br />
+                            className="rounded-xl bg-gray-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg " onClick={onOpen}>首次出现<br />
                             <span
                                 className="font-semibold">{new Date(space.FirstSeen).toLocaleString()}</span>
                         </div>

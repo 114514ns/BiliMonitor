@@ -59,7 +59,7 @@ window.AVATAR_API = 'https://workers.vrp.moe/bilibili/avatar/'
 document.title = "Vtuber 数据"
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
-        config.url = config.url?.replace('/api', '');
+        config.url = config.url?.replace('/api', '').replace('vtb.cat','api.vtb.cat')
         //config.url = config.url?.replace('live.ikun.dev', 'live-api.ikun.dev');
     }
     return config;
@@ -129,8 +129,8 @@ window.inspectGuard = (obj) => {
     return false
 
 }
-const fetchGuild = async () => {
-    if (!localStorage.getItem("guild")) {
+const fetchGuild = async (force) => {
+    if (!localStorage.getItem("guild") || force) {
         const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/bili_guild_infos.json?sign=Jgd-iZ5deklFU3Jbjq4lp2-TVdD1h44aNA5XUsi79n4=:0',{
             referrerPolicy: "no-referrer"
         });
@@ -139,8 +139,8 @@ const fetchGuild = async () => {
         localStorage.setItem("guild", dec.decode(arrayBuffer).substring(0));
     }
 }
-const fetchMoney = async () => {
-    if (!localStorage.getItem("money")) {
+const fetchMoney = async (force) => {
+    if (!localStorage.getItem("money") || force) {
         const response = await fetch('https://storage.ikun.dev/d/Microsoft365/static/rank.json?sign=bOejKONpD3-QV8TtS64DwgtZEwbZy2yt3uCkNn2yolc=:0',{
             referrerPolicy: "no-referrer"
         });
@@ -149,6 +149,8 @@ const fetchMoney = async () => {
         localStorage.setItem("money", dec.decode(arrayBuffer).substring(0));
     }
 }
+window.fetchMoney = fetchMoney
+window.fetchGuild = fetchGuild
 axios.interceptors.request.use(function (config) {
     config.url = config.url.replaceAll('%20','').replaceAll(' ','') //UserPage的room不知道为啥，第一次请求的时候room会是一个空格而不是空字符串，先这样吧
     return config;

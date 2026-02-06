@@ -850,6 +850,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 			pageSize = 5000
 		}
 		offset := (page - 1) * pageSize
+		var m = make(map[int]AreaLiver)
 		var dst []CustomLiveAction
 		if showEnter == "" {
 			err = db0.Raw(
@@ -857,11 +858,20 @@ ORDER BY t.updated_at DESC, t.id DESC
 				uid, pageSize, offset,
 			).Scan(&dst).Error
 		} else {
-			err = db0.Raw("select * from enter_actions where from_id = ? limit ? offset ?", uid, pageSize, (page-1)*pageSize).Scan(&dst).Error
+			err = db0.Raw("select * from enter_actions where from_id = ? order by created_at limit ? offset ?", uid, pageSize, (page-1)*pageSize).Scan(&dst).Error
 
-			lo.UniqBy(dst, func(item CustomLiveAction) int {
+			for _, i := range lo.UniqBy(dst, func(item CustomLiveAction) int {
 				return item.LiveRoom
-			})
+			}) {
+
+				var a AreaLiver
+				db.Raw("select uid,u_name from area_livers where room = ? order by id desc limit 1", i.LiveRoom).Scan(&a)
+				m[i.LiveRoom] = a
+			}
+			for i := range dst {
+				dst[i].UserID = strconv.FormatInt(m[dst[i].LiveRoom].UID, 10)
+				dst[i].UserName = m[dst[i].LiveRoom].UName
+			}
 		}
 
 		if err != nil {
@@ -872,7 +882,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 			return
 		}
 		if showEnter != "" {
-			db0.Raw("select count(*) from enter_action where from_id = ?", uid).Scan(&total)
+			db0.Raw("select count(*) from enter_actions where from_id = ?", uid).Scan(&total)
 		} else {
 			if room != "" {
 				db0.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
@@ -2625,12 +2635,11 @@ ORDER BY money DESC;
 
 	})
 
-	type User struct {
-		UID   int64
-		UName string
-	}
-
 	r.GET("/liver/follow", func(c *gin.Context) {
+		type User struct {
+			UID   int64
+			UName string
+		}
 		var midStr = c.Query("mid")
 		var dst []User
 		if toInt64(midStr) <= 0 {
@@ -2656,6 +2665,10 @@ ORDER BY money DESC;
 
 	})
 	r.GET("/liver/followed", func(c *gin.Context) {
+		type User struct {
+			UID   int64
+			UName string
+		}
 		var midStr = c.Query("mid")
 		var dst []User
 		if toInt64(midStr) <= 0 {
@@ -2680,7 +2693,7 @@ ORDER BY money DESC;
 		})
 	})
 
-	r.GET("/history", func(c *gin.Context) {
+	r.GET("/history/room", func(c *gin.Context) {
 		var roomStr = c.Query("room")
 		var room = toInt(roomStr)
 		if room <= 0 {
@@ -2697,6 +2710,186 @@ ORDER BY money DESC;
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"list": dst,
+		})
+	})
+
+	r.GET("/history/bio", func(c *gin.Context) {
+		var midStr = c.Query("mid")
+		var mid = toInt64(midStr)
+		if mid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		var dst []User
+		db.Raw(`
+SELECT *
+FROM (
+    SELECT *,
+           ROW_NUMBER() OVER (
+               PARTITION BY bio
+               ORDER BY id
+           ) AS rn
+    FROM users
+    WHERE user_id = ? and bio is not null
+) t
+WHERE rn = 1
+order by id;
+
+`, mid).Scan(&dst)
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
+	r.GET("/history/box", func(c *gin.Context) {
+		var yearStr = c.Query("year")
+		var monthStr = c.Query("month")
+		var dayStr = c.Query("day")
+
+		if toInt64(yearStr) <= 0 || (toInt(monthStr) >= 13 || toInt(monthStr) <= 0) || (toInt(dayStr) >= 32 || toInt(dayStr) <= 0) {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		var dst []LiveAction
+		db.Raw(`
+SELECT extra, gift_amount, gift_price
+                     FROM live_actions
+                     WHERE action_type = 2
+                       AND created_at >= '?-?-? 00:00:00'
+                       AND created_at <= '?-?-? 23:59:59'
+                       AND extra LIKE '%盲盒%'
+                     ORDER BY live DESC;
+`, yearStr, monthStr, dayStr, yearStr, monthStr, dayStr).Scan(&dst)
+
+		type Probe struct {
+			Name         string
+			Price        float64
+			ExceptChance float64
+			ActualChance float64
+		}
+
+		type BoxResult struct {
+			BoxName  string
+			BoxPrice float64
+
+			BoxID    int
+			ProbeMap []Probe
+		}
+
+		var boxes []BoxResult
+
+		for i := range dst {
+			split := strings.Split(dst[i].Extra, ",")
+			var boxName = split[0]
+			//var boxPrice = toFloat64(split[1])
+
+			var index = -1
+			for j := range boxes {
+				if boxes[j].BoxName == boxName {
+					index = j
+					break
+				}
+			}
+			if index >= 0 {
+
+			}
+		}
+
+	})
+
+	r.GET("/user/activity", func(c *gin.Context) {
+		var start = c.Query("start")
+		var end = c.Query("end")
+		var uid = c.Query("uid")
+		if toInt64(uid) <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+		type CustomLiveAction struct {
+			LiveAction
+			UserName string
+			UserID   int64
+		}
+		var dst []CustomLiveAction
+
+		type Liver struct {
+			UID   int64
+			UName string
+		}
+		type Block struct {
+			Message int
+			Money   float64
+			Livers  []Liver
+		}
+		var blockDst []Block = make([]Block, 168)
+		db.Raw(`
+select 
+    live_actions.created_at,
+    lives.user_name,
+    live_actions.gift_price,
+    live_actions.action_type,
+    user_id
+from 
+    live_actions, lives 
+where 
+    from_id = ? 
+    and live_actions.live = lives.id 
+    and live_actions.created_at > DATE_ADD(?, INTERVAL 8 HOUR) 
+    and live_actions.created_at < DATE_ADD(?, INTERVAL 8 HOUR)
+`, uid, start, end).Scan(&dst)
+
+		startTime, _ := time.Parse("2006-01-02", start)
+		for _, i := range dst {
+			at := i.CreatedAt
+			var hour = int(at.Sub(startTime).Hours())
+			var target = blockDst[hour]
+			if target.Message == 0 && target.Money == 0 {
+				if i.ActionType == Message {
+					blockDst[hour] = Block{
+						Message: 1,
+						Money:   0,
+						Livers:  []Liver{},
+					}
+					blockDst[hour].Livers = append(blockDst[hour].Livers, Liver{UName: i.UserName, UID: i.UserID})
+				}
+				if i.ActionType == Gift || i.ActionType == SuperChat || i.ActionType == Guard {
+					blockDst[hour] = Block{
+						Message: 0,
+						Money:   i.GiftPrice.Float64,
+						Livers:  []Liver{},
+					}
+					blockDst[hour].Livers = append(blockDst[hour].Livers, Liver{UName: i.UserName, UID: i.UserID})
+				}
+			} else {
+				if i.ActionType == Message {
+					blockDst[hour].Message++
+				}
+				if i.GiftPrice.Valid && i.GiftPrice.Float64 > 0 {
+					blockDst[hour].Money += i.GiftPrice.Float64
+				}
+				var found = false
+				for _, j := range blockDst[hour].Livers {
+					if j.UID == i.UserID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					blockDst[hour].Livers = append(blockDst[hour].Livers, Liver{UName: i.UserName, UID: i.UserID})
+				}
+			}
+
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": blockDst,
 		})
 	})
 

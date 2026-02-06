@@ -30,6 +30,7 @@ import GeoPage from "./pages/GeoPage";
 import ReactionPage from "./pages/ReactionPage";
 import SettingDialog from "./components/SettingDialog";
 import DemoPage from "./pages/DemoPage";
+import BoxPage from "./pages/BoxPage";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -80,9 +81,9 @@ function BasicLayout() {
                 var last = localStorage.getItem("news")
                 if (last === null || last !== response.data) {
                     localStorage.setItem("news",response.data)
-                    setTimeout(() => {
-                        setShowNotice(true)
-                    },3000)
+                    fetchMoney(true)
+                    fetchGuild(true)
+                    setShowNotice(true)
                 }
             }
 
@@ -90,7 +91,7 @@ function BasicLayout() {
         })
     }, [])
 
-    const hide = location.href.includes("hide")
+    const hide = location.href.includes("hide") || window.parent !== window
     return (
 
         <div>
@@ -147,9 +148,9 @@ function BasicLayout() {
                             <DropdownItem key="setting" onClick={() => {
                                 setShowSettings(true);
                             }}>Setting</DropdownItem>
-                            <DropdownItem key="reaction" onClick={() => {
+                 {/*           <DropdownItem key="reaction" onClick={() => {
                                 redirect("/reactions")
-                            }}>Reaction</DropdownItem>
+                            }}>Reaction</DropdownItem>*/}
                             <DropdownItem key="geo" onClick={() => {
                                 redirect("/geo")
                             }}>Geo</DropdownItem>
@@ -172,8 +173,9 @@ function BasicLayout() {
                         <Route path="/raw" element={<PageWrapper><RawPage/></PageWrapper>}/>
                         <Route path="/pk" element={<PageWrapper><ComparePage/></PageWrapper>}/>
                         <Route path="/geo" element={<PageWrapper><GeoPage/></PageWrapper>}/>
-                 {/*       <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>*/}
+                        <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>
                         <Route path="/demo" element={<PageWrapper><DemoPage/></PageWrapper>}/>
+                        <Route path="/box" element={<PageWrapper><BoxPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 

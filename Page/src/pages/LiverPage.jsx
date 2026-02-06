@@ -20,6 +20,7 @@ import LiveStatisticCard from "../components/LiveStatisticCard";
 import {AnimatePresence,motion} from "framer-motion";
 import {FansChart, GuardChart} from "../components/LineChart";
 import DynamicCard from "../components/DynamicCard";
+import HoverBioHistory from "../components/HoverBioHistory";
 
 function calcValid(array) {
     var count = 0
@@ -77,6 +78,8 @@ function LiverPage(props) {
     const listRef = React.useRef()
 
     const [showAmount,setShowAmount] = React.useState(false);
+
+    const [showHistoryBio,setShowHistoryBio] = React.useState(false);
 
 
     let {id} = useParams();
@@ -273,7 +276,14 @@ function LiverPage(props) {
                         </div>
                     }
                     {guild && <span className={'font-thin text-sm'}>公会：{guild}</span>}
-                    <span className={'font-thin text-sm'}>{space.Bio}</span>
+                    <Tooltip content={<HoverBioHistory uid={id}/>} isOpen={showHistoryBio} onOpenChange={() => {
+                        setShowHistoryBio(!showHistoryBio)
+                    }}>
+                        <span className={'font-thin text-sm'} onContextMenu={(e) => {
+                            e.preventDefault()
+                            setShowHistoryBio(!showHistoryBio)
+                        }} >{space.Bio}</span>
+                    </Tooltip>
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
