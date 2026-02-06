@@ -59,7 +59,10 @@ window.AVATAR_API = 'https://workers.vrp.moe/bilibili/avatar/'
 document.title = "Vtuber 数据"
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
-        config.url = config.url?.replace('/api', '').replace('vtb.cat','api.vtb.cat')
+        config.url = config.url?.replace('/api', '')
+        var url = new URL(config.url);
+        url.host = 'vtb.cat'
+        config.url = url.toString()
         //config.url = config.url?.replace('live.ikun.dev', 'live-api.ikun.dev');
     }
     return config;
