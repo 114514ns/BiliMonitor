@@ -23,11 +23,14 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/glebarez/sqlite"
 	"github.com/go-resty/resty/v2"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
+	"github.com/jhump/protoreflect/desc"
 	"github.com/jinzhu/copier"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -491,8 +494,18 @@ func main() {
 
 var lastInsert int64 = 0
 var lastInsertCount = 0
+var INTERACT_WORD_MSG *desc.MessageDescriptor
 
+func loadPb() {
+	fdSet := &descriptorpb.FileDescriptorSet{}
+	proto.Unmarshal(INTERACT_WORD_PB, fdSet)
+	files, _ := desc.CreateFileDescriptorsFromSet(fdSet)
+	fileDesc := files["word.proto"]
+	INTERACT_WORD_MSG = fileDesc.FindMessage("InteractWordV2")
+}
 func main0() {
+
+	loadPb()
 	loadConfig()
 	setupHTTPClient()
 	clickDb, _ = gorm.Open(clickhouse.Open(config.ClickServer))

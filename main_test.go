@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"sort"
 	"strconv"
@@ -14,8 +16,12 @@ import (
 
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
+	"github.com/golang/protobuf/proto"
+	"github.com/jhump/protoreflect/desc"
+	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
+	"google.golang.org/protobuf/types/descriptorpb"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
@@ -201,6 +207,17 @@ func TestTraceArea(t *testing.T) {
 	db, _ = gorm.Open(sqlite.Open("database.db"))
 	man = NewSlaverManager([]string{})
 	TraceArea(9, true)
+}
+
+func TestTraceLive(t *testing.T) {
+	loadPb()
+	loadConfig()
+	loadDB()
+	go func() {
+		config.Port = 8080
+		InitHTTP()
+	}()
+	select {}
 }
 
 func TestAnalyzeWatcher(test *testing.T) {
@@ -457,4 +474,16 @@ func TestExportBox(test *testing.T) {
 	db.Raw("SELECT extra,gift_amount,gift_price FROM live_actions where action_type = 2 and extra like '%盲盒%' ").Scan(&dst)
 	marshal, _ := sonic.Marshal(dst)
 	os.WriteFile("box.json", marshal, os.ModePerm)
+}
+
+func TestPB(t *testing.T) {
+	fdSet := &descriptorpb.FileDescriptorSet{}
+	proto.Unmarshal(INTERACT_WORD_PB, fdSet)
+	files, _ := desc.CreateFileDescriptorsFromSet(fdSet)
+	fileDesc := files["word.proto"] // 或者是你遍历找到的某个文件
+	wordMsg := fileDesc.FindMessage("InteractWordV2")
+	dm := dynamic.NewMessage(wordMsg)
+	bytes, _ := base64.StdEncoding.DecodeString("CJTwwNEBEgpTdGFyU2VhMjQ2IgIDASgBMNWgITispaTDBkDUubHe/jJKLAiv8CkQEhoG55Sf5oCBIKS6ngYopLqeBjCkup4GOKS6ngZAAWDVoCFo9JQRYgB4gZ/v1tmc1qcYmgEAsgHPAQiU8MDRARJYCgpTdGFyU2VhMjQ2EkpodHRwczovL2kwLmhkc2xiLmNvbS9iZnMvZmFjZS8xMDliNzg3YzVmMTEzYzRhM2M3NDE1YmI5YmY2YjgyYmMzM2JjNGUyLmpwZxpnCgbnlJ/mgIEQEhikup4GIKS6ngYopLqeBjCkup4GOP/hAUgBUK/wKWD0lBF6CSNEQzZCNkI5OYIBCSNEQzZCNkI5OYoBCSNEQzZCNkI5OZIBCSNGRkZGRkZGRpoBCSM4MTAwMUY5OSICCAkyALoBAA==")
+	dm.Unmarshal(bytes)
+	fmt.Println(dm.String())
 }

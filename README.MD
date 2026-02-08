@@ -23,13 +23,14 @@ https://github.com/114514ns/BiliMonitor/actions
 
 # Screenshots
 
-<img src="https://i0.hdslb.com/bfs/im_new/8af2a36a95a2f751a29a5b4e6befdedc2.png" referrerpolicy="no-referrer">
-<img src="https://i0.hdslb.com/bfs/im_new/9fc25943eb8f4784bf42d94fb2b55e7d2.png" referrerpolicy="no-referrer">
-<img src="https://i0.hdslb.com/bfs/im_new/58427e14f36256886036c6b16d18857a2.png" referrerpolicy="no-referrer">
-<img src="https://i0.hdslb.com/bfs/im_new/5b1f2717000cab771dd47ca1edd1dcd72.png" referrerpolicy="no-referrer">
-<img src="https://i0.hdslb.com/bfs/im_new/cee41796ff8f9b50c8528da9a367a0a32.png" referrerpolicy="no-referrer">
-<img src="https://i0.hdslb.com/bfs/im_new/7a6fa2331e38977b7726e089e769b8ee2.png" referrerpolicy="no-referrer">
-<img src="https://i0.hdslb.com/bfs/im_new/729f4b893070869edb09ca307a833a502.png" referrerpolicy="no-referrer">
+![](https://r2.ikun.dev/images/RAGT(%7BA%7DRAA2EX%7BVW_%608%25TL.png)
+
+![](https://r2.ikun.dev/images/8XI1%403%5BGD7%25FN9M%5B%404T2OUB.png)
+
+![](https://r2.ikun.dev/images/%40(0~FKH0QPLGD%5DFB0MSMQWM.png)
+
+![](https://r2.ikun.dev/images/4YERHYH13HR025V~5ILRLB1.png)
+
 
 # Known issues
 - 暂不支持mips64架构

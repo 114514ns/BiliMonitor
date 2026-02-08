@@ -14,11 +14,11 @@ function StatusPage(props) {
     const color = 'success'
     const [msg, setMsg] = React.useState([]);
     useEffect(() => {
-        var prefix = 'api'
+        var prefix = '/api'
         if (import.meta.env.PROD) {
             prefix = ""
         }
-        let ws = new WebSocket(`${prefix}/status`);
+        let ws = new WebSocket(`https://api.vtb.cat/${prefix}status`);
         ws.onclose = () => {
             console.log('WebSocket disconnected');
         }

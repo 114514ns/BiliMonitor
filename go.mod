@@ -14,6 +14,7 @@ require (
 	github.com/go-resty/resty/v2 v2.17.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/jhump/protoreflect v1.18.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/resend/resend-go/v2 v2.14.0
@@ -50,7 +51,6 @@ require (
 	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
-	github.com/jhump/protoreflect v1.18.0 // indirect
 	github.com/jhump/protoreflect/v2 v2.0.0-beta.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect

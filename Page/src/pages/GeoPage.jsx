@@ -1,4 +1,4 @@
-import china from '../cn.json';
+
 import React, { useEffect, useRef , useState } from 'react';
 import axios from "axios";
 import {Modal, ModalHeader,ModalBody,ModalFooter,Button,ModalContent} from "@heroui/react";
@@ -81,7 +81,7 @@ const GeoElement = (props) => {
         });
     };
     const loadingChina = () => {
-        mapOption('china', china); //初始化-创建中国地图
+        mapOption('china', props.template); //初始化-创建中国地图
     };
 
     useEffect(() => {
@@ -98,6 +98,7 @@ const GeoPage = (props) => {
     const [show,setShow] = useState(false)
     const [province,setProvince] = useState('')
     const [livers,setLivers] = useState([])
+    const [mapTemplate,setMapTemplate] = useState()
     useEffect(() => {
         axios.get("/api/api/geo").then((res) => {
             var tmp = res.data.data
@@ -109,6 +110,11 @@ const GeoPage = (props) => {
                 })
             })
             setData(objects)
+        })
+        fetch('https://storage.ikun.dev/d/Microsoft365/static/cn.json').then(res => {
+            res.json().then(obj => {
+                setMapTemplate(obj)
+            })
         })
     },[])
     useEffect(() => {
@@ -159,7 +165,7 @@ const GeoPage = (props) => {
                     </>
                 </ModalContent>
             </Modal>}
-            {data.length && <GeoElement data={data} onClick={(e) => {
+            {data.length && mapTemplate &&  <GeoElement template={mapTemplate} data={data} onClick={(e) => {
                 setShow(true)
                 setProvince(e)
             }}/>}

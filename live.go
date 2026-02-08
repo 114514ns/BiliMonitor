@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -19,8 +20,11 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/bytedance/sonic"
+	_ "github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
+	"github.com/jhump/protoreflect/dynamic"
 	pool2 "github.com/sourcegraph/conc/pool"
+	_ "google.golang.org/protobuf/types/descriptorpb"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -679,7 +683,6 @@ var extraList []LiveAction
 var extraAction sync.Mutex
 
 func TraceLive(roomId string) {
-
 	defer func() {
 		if r := recover(); r != nil {
 			debug.PrintStack()
@@ -998,11 +1001,25 @@ func TraceLive(roomId string) {
 						db.Create(&action)
 					}()
 					consoleLogger.Printf("[%s] %s 投喂了 %d 个 %s，%.2f元", liver, info.Data.Uname, info.Data.Num, info.Data.GiftName, price)
-				} else if strings.Contains(obj, "INTERACT_WORD") { //进入直播间
+				} else if text.Cmd == "INTERACT_WORD" { //进入直播间
+
 					var enter = EnterLive{}
 					sonic.Unmarshal(msgData, &enter)
 					action.FromId = enter.Data.UID
 					action.FromName = enter.Data.Uname
+					action.ActionName = "enter"
+					actionMutex.Lock()
+					cacheAction = append(cacheAction, action)
+					actionMutex.Unlock()
+				} else if text.Cmd == "INTERACT_WORD_V2" {
+
+					dm := dynamic.NewMessage(INTERACT_WORD_MSG)
+					var v InteractWordV2
+					sonic.Unmarshal(msgData, &v)
+					byts, _ := base64.StdEncoding.DecodeString(v.Data.Pb)
+					dm.Unmarshal(byts)
+					action.FromName = dm.GetFieldByNumber(2).(string)
+					action.FromId = int64(dm.GetFieldByNumber(1).(uint64))
 					action.ActionName = "enter"
 					actionMutex.Lock()
 					cacheAction = append(cacheAction, action)
@@ -1479,7 +1496,11 @@ type EnterLive struct {
 		} `json:"fans_medal"`
 	} `json:"data"`
 }
-
+type InteractWordV2 struct {
+	Data struct {
+		Pb string `json:"pb"`
+	} `json:"data"`
+}
 type LiverInfo struct {
 	Data struct {
 		Info struct {

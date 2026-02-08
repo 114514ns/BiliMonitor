@@ -60,10 +60,12 @@ document.title = "Vtuber 数据"
 axios.interceptors.request.use((config) => {
     if (import.meta.env.PROD) {
         config.url = config.url?.replace('/api', '')
+        if (config.url.startsWith('/')) {
+            config.url = 'https://api.vtb.cat' + config.url;
+        }
         var url = new URL(config.url);
-        url.host = 'vtb.cat'
+        url.host = 'api.vtb.cat'
         config.url = url.toString()
-        //config.url = config.url?.replace('live.ikun.dev', 'live-api.ikun.dev');
     }
     return config;
 });

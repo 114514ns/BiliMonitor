@@ -2465,7 +2465,9 @@ ORDER BY money DESC;
 				var sp = strings.Split(v0.Title, "年")
 				if len(sp) >= 2 {
 					var o = sp[len(sp)-2]
-
+					if len(o) < 4 {
+						return
+					}
 					var year = o[len(o)-4:]
 
 					var o0 = sp[len(sp)-1]

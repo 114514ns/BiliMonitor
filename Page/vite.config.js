@@ -50,16 +50,17 @@ export default defineConfig({
     },
     build: {
         sourcemap: true,
-        /*
+
         rollupOptions: {
+
+
             external: (id) => {
+
                 if (id.includes("react-aria")) {
                     //console.log(id)
                 }
-
+                return false
                 return (
-
-
                     id === "react" ||
                     id === "react-dom" ||
                     id === "react-dom/client" ||
@@ -67,20 +68,16 @@ export default defineConfig({
                     id === "motion-dom"
                     ||
 
-
-
-
                     id === "parse5" ||
                     id === "axios" ||
                     id.includes("heroui/theme") ||
                     id === "react-markdown"
-
-
-
-
                 );
             },
+
+
             output: {
+
                 manualChunks(id) {
 
                     //console.log(id)
@@ -90,24 +87,33 @@ export default defineConfig({
                         if (id.includes('heroui')) {
                             return "heroui"
                         }
-                        if (id.includes('recharts')) {
-                            return "recharts"
+                        if (id .includes( "react" )||
+                            id .includes( "react-dom" )||
+                            id .includes( "react-dom/client" )
+
+                        ){
+                            return "react"
                         }
-                        return 'react-vendor'
+                        /*
+                        if (   id.includes('recharts') ||            id .includes( "motion") ||
+                            id .includes( "parse5") ||
+                            id .includes( "axios" )) {
+                            return "deps"
+                        }
+
+                         */
+                        //return 'vendor'
 
                     }
                 },
 
 
             }
-
-
-
-
-
         }
 
-         */
+
+
+
     },
     esbuild: {
         sourcemap: true,
