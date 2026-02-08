@@ -22,14 +22,10 @@ https://github.com/114514ns/BiliMonitor/actions
 当大部分功能完成后会发布release，现在先用actions
 
 # Screenshots
-
-![](https://r2.ikun.dev/images/RAGT(%7BA%7DRAA2EX%7BVW_%608%25TL.png)
-
-![](https://r2.ikun.dev/images/8XI1%403%5BGD7%25FN9M%5B%404T2OUB.png)
-
-![](https://r2.ikun.dev/images/%40(0~FKH0QPLGD%5DFB0MSMQWM.png)
-
-![](https://r2.ikun.dev/images/4YERHYH13HR025V~5ILRLB1.png)
+![](https://r2.ikun.dev/images/PixPin_2026-02-08_14-30-33.png)
+![](https://r2.ikun.dev/images/PixPin_2026-02-08_14-31-00.png)
+![](https://r2.ikun.dev/images/PixPin_2026-02-08_14-32-10.png)
+![](https://r2.ikun.dev/images/PixPin_2026-02-08_14-31-17.png)
 
 
 # Known issues
