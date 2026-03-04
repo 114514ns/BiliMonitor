@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
@@ -175,37 +176,25 @@ func RefreshLivers() {
 
 	var start = time.Now()
 	log.Println("[RefreshLivers] Start")
+	var result0 []FrontAreaLiver
 	var result []FrontAreaLiver
-	var ids []int64
-	var idMap = make(map[int64][]FrontAreaLiver)
-	db.Raw(`SELECT uid FROM area_livers GROUP BY uid`).Find(&ids)
-	var wg = pool2.New().WithMaxGoroutines(6)
-	var mutex sync.Mutex
-	for _, id := range ids {
-		id := id
-		wg.Go(func() {
-			var dst []FrontAreaLiver
+	db.Raw(`
+SELECT   uid,u_name,fans,guard
+FROM (
+    SELECT
+        uid,u_name,fans,guard,
+        ROW_NUMBER() OVER (PARTITION BY uid ORDER BY updated_at DESC) as rn
+    FROM
+        area_livers
+    where fans > 500
+) t
+WHERE t.rn = 1;
+`).Scan(&result0)
 
-			db.Raw(`select uid,fans,updated_at,guard,u_name,room from area_livers where uid=?`, id).Find(&dst)
-			mutex.Lock()
-			if len(dst) == 0 {
-				time.Sleep(time.Millisecond * 100)
-			}
-			idMap[id] = dst
-
-			mutex.Unlock()
-		})
-	}
-	wg.Wait()
-	for _, livers := range idMap {
-		if len(livers) > 0 {
-			if livers[len(livers)-1].Fans > 1000 {
-				if !Has(config.BlackAreaLiver, livers[len(livers)-1].UID) {
-					result = append(result, livers[len(livers)-1])
-				}
-			}
+	for _, i := range result0 {
+		if !Has(config.BlackAreaLiver, i.UID) {
+			result = append(result, i)
 		}
-
 	}
 
 	type DiffStruct struct {
@@ -245,7 +234,7 @@ func RefreshLivers() {
 
 	for i, liver := range result {
 
-		liverMap[liver.Room] = liver
+		liverMap[liver.UID] = liver
 		var dst User
 		db.Raw("select * from users where user_id=? order by id desc limit 1", liver.UID).Scan(&dst)
 		if dst.ID != 0 && dst.Fans > 1000 {
@@ -286,11 +275,15 @@ func RefreshLivers() {
 		List: cachedLivers,
 	})
 
-	UploadBytes(bytes, "/Microsoft365/static/areaLivers.json")
+	UploadBytes(bytes, "/Local/areaLivers.json")
 
-	ListFile("/Microsoft365/static/")
+	ListFile("/Local/")
 
 	time.Sleep(5 * time.Second)
+
+	bytes, _ = json.Marshal(liverMap)
+
+	os.WriteFile("liver_map.json", bytes, os.ModePerm)
 
 	//listRef = GetFile("/139/Msic/areaLivers.json")
 
@@ -355,7 +348,7 @@ WHERE MONTH(t.updated_at) = ?
 }
 
 func RefreshWatcher() {
-	db.Raw("select u_name,uid,medal_name,level from fans_clubs group by uid order by level desc ").Scan(&cachedWatcher)
+	db.Raw("select u_name,uid,medal_name,level,type from fans_clubs group by uid order by level desc ").Scan(&cachedWatcher)
 	time.Now()
 }
 func MinuteMessageCount(minute int64) int64 {
@@ -374,4 +367,4 @@ func TotalMessage() int64 {
 }
 
 var cachedLivers = make([]FrontAreaLiver, 0)
-var liverMap = make(map[int]FrontAreaLiver)
+var liverMap = make(map[int64]FrontAreaLiver)

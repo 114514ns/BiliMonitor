@@ -6,6 +6,8 @@ import {BrowserRouter} from "react-router-dom";
 import {HeroUIProvider, ToastProvider} from "@heroui/react";
 import axios from "axios";
 
+import {ThemeProvider as NextThemesProvider, useTheme} from "next-themes";
+
 window.debug = true
 
 //https://github.com/heroui-inc/heroui/discussions/2080?sort=top#discussioncomment-9207779
@@ -202,11 +204,15 @@ window.prefetch = (url) => {
     link.href = url;
     document.head.appendChild(link);
 }
-
+window.getSystemTheme = () =>{
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>
-                  <App />
+              <NextThemesProvider attribute="class" defaultTheme={getSystemTheme()}>
+                  <App/>
+              </NextThemesProvider>
           </BrowserRouter>
       </HeroUIProvider>
 )

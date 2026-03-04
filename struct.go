@@ -350,3 +350,11 @@ type ChargeInfo struct {
 	Price float64
 	Count int
 }
+
+type Post struct {
+	Session   string
+	CreatedAt time.Time
+	ID        int `gorm:"primaryKey"`
+	Title     string
+	Text      string
+}

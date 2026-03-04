@@ -1,29 +1,30 @@
 <div style="display: flex; flex-direction: column">
 <div style="display: flex ;justify-content: center">
 <img src="/telegram.svg" style="width:24px;height:24px"></img>
-<a classname="ml-2" href="https://t.me/aicu_buzz" target="_blank">Telegram群组</a>
+<a classname="ml-2" href="https://t.me/aicu_buzz" target="_blank">Telegram群组(AICU聊天群)</a>
 </div>
 <div style="display: flex ;justify-content: center" class="mt-2">
 <img src="/mail.svg" style="width:24px;height:24px"></img>
 <a classname="ml-2" href="mailto:admin@shiohix.resend.app" target="_blank">邮箱</a>
 </div>
+<div style="display: flex ;justify-content: center" class="mt-2">
+<a classname="ml-2" href="https://vtb.fider.io/" target="_blank">bug反馈/追踪</a>
+</div>
 </div>
 
-<img src="laplace.jpg">
+不是哥们，你们是哪里找到这个网站的，来了这么多人给我整不会了.
 
-主播页面可以显示历史签名，长按或者鼠标悬浮查看。接口会返回第一次检测到的日期，但是前端页面放不下了，有需要可以自行f12查看。
-
-更新打米排行榜，可以看看。(应该是更新了，如果你这边看到的还是空白的  可以留言板反馈) 
+- 可能修好了ios设备无法触发首页用户Chip的长按事件。俺是安卓人，没法测试，应该是修好了
 
 
+关注[麻尤米](https://www.bilibili.com/video/BV1hs4y1J7x2/)喵
+<img src="https://vtb.cat/mayumi.png">
 
-## Notice
-- 不建议公开宣传本站
-- 有任何建议，问题，想要的功能，欢迎在首页右下角留言
 
 
 ## Features
-- 只记录虚拟区，如果虚拟主播（比如taffy）在其他区开播，也不会被记录
+- **这坨文字里说的功能都是可以用的，如果你发现不能用，可以在留言板反馈一下**
+- 只记录虚拟区，如果虚拟主播（比如taffy）在其他区开播，不会被记录
 - 用户事件查询（弹幕，礼物，SC,上舰，进房）
 - 直播场次数据查询（同接趋势，流水，开播/下播时间，本场直播事件）
   -  点击直播详情页面的**观众数**，可查看每分钟直播间在线人数
@@ -32,7 +33,7 @@
   - 点击主播页面大航海趋势图上的点，可查看当时在舰成员
     - 打开Diff开关，可以对比两个时间段掉舰成员，新上舰成员
     - 打开Inspect开关，可以检查成员活跃度，一般来说被划掉的就是买的舰。此功能比较耗时，勾上后需要等一会。
-- 虚拟区主播列表，支持按总督数量/大航海数量/粉丝/月增粉丝/月减粉丝/月粉丝增幅排序
+- 虚拟区主播列表，支持按总督数量/大航海数量/粉丝/月增粉丝/月减粉丝/月粉丝增幅排序（2025年4月之前的数据来自vtbs.moe）
   - 粉丝数据每日更新，大航海数据在每次开播后尝试更新，如36小时内更新过则跳过。如果长期没有开播，显示的数据就是最后一次被记录到的数据
   - 在虚拟区开播一次后
 - 每月主播流水排行（斗虫）
@@ -47,6 +48,16 @@
 - 主播历史动态查询
   - 从2025.11.18开始记录，20分钟更新一次，1000粉丝以上可被记录,主播删除动态不影响本站显示（**点主播页面的动态数量进入**）
 ## Changelog
+
+### 26.2.28
+
+- 新的首页
+
+
+### 26.2.26
+
+- 饼状图显示问题应该修好了。
+- 修复用户的大航海图标显示错误
 
 ### 25.12.8
 
@@ -108,10 +119,10 @@
 * 空闲时期降低被爬取主播的粉丝要求，5000粉丝即可被记录。
 
 ### 25.8.30
- * 修复月增排行的一些错误
- * 添加这个更新日志的对话框
- * 更新React到19.1.1
- * 使用React Compiler
+* 修复月增排行的一些错误
+* 添加这个更新日志的对话框
+* 更新React到19.1.1
+* 使用React Compiler
 
 ### 25.8.27
 - 白嫖b站的cdn，前端加载速度大幅提高

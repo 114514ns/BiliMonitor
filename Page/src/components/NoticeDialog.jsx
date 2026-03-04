@@ -25,15 +25,15 @@ function NoticeDialog(props) {
     })
 
     return (
-        <div className={'max-h-2/3'} data-nosnippet>
-            <Modal onClose={seconds <=0 && props.onClose} isOpen={true} size={'lg'} className={'max-h-1/2 sm:max-h-2/3'} scrollBehavior={'inside'} backdrop={'blur'} isDismissable={seconds<=0}>
+        <div className={'h-[66vh]'} data-nosnippet>
+            <Modal onClose={seconds <=0 && props.onClose} isOpen={true} size={isMobile()?'full':'2xl'} className={'max-h-2/3 sm:h-[75vh]'} scrollBehavior={'inside'} backdrop={'blur'} isDismissable={seconds<=0}>
                 <ModalContent>
                     <ModalHeader>
                         About & Notice
 
                     </ModalHeader>
                     <ModalBody>
-                        <div className={'markdown-body  max-h-1/3 overflow-scroll list-disc' }>
+                        <div className={'markdown-body  overflow-scroll list-disc' }>
                             <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}
                                       components={{
                                           ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />

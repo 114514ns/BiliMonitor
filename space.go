@@ -272,3 +272,10 @@ func GetCharge(uid int64) []ChargeInfo {
 
 	return array
 }
+
+func checkBlock(upper, watch int64) bool {
+	res, _ := client.R().Get(fmt.Sprintf("https://api.live.bilibili.com/xlive/app-ucenter/v2/card/user?ruid=%d&uid=%d", upper, watch))
+	var obj map[string]interface{}
+	sonic.Unmarshal(res.Body(), &obj)
+	return getInt(obj, "data.is_black") == 1
+}

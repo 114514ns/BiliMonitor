@@ -6,8 +6,8 @@ def query():
     cursor.execute("""SELECT extra, gift_amount, gift_price
                      FROM live_actions
                      WHERE action_type = 2
-                       AND created_at >= '2026-02-03 00:00:00'
-                       AND created_at <= '2026-02-03 23:59:59'
+                       AND created_at >= '2026-02-12 00:00:00'
+                       AND created_at <= '2026-02-12 23:59:59'
                        AND extra LIKE '%盲盒%'
                      ORDER BY live DESC;""")
     array = cursor.fetchall()

@@ -6,8 +6,7 @@ import HeatMap, {HeatContent} from "../components/HeatChart";
 function DemoPage(props) {
     return (
         <div>
-           {/* <BVPlayer bv={'BV1Md2EBDEtZ'}/>*/}
-            <HeatContent uid={3691006776052082}/>
+            <div className="dark:text-white dark:p-4 dark:font-bold">测试</div>
         </div>
     );
 }

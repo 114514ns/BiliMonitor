@@ -42,6 +42,10 @@ var tasks = make(map[string]Task)
 
 var taskMutex sync.Mutex
 
+var relationAmount = 0
+
+var relationMutex sync.Mutex
+
 type FrontAreaLiver struct {
 	AreaLiver
 	LastActive  time.Time
@@ -526,7 +530,7 @@ func InitHTTP() {
 
 		*/
 
-		c.Redirect(http.StatusTemporaryRedirect, GetFile("/Microsoft365/static/areaLivers.json"))
+		c.Redirect(http.StatusTemporaryRedirect, strings.Replace(GetFile("/Local/areaLivers.json"), "http://storage.vtb.cat", "https://storage.vtb.cat", 1))
 
 	})
 	//获取直播流
@@ -554,6 +558,21 @@ func InitHTTP() {
 		})
 		log.Printf("从[%s]接收到任务：%s", c.RemoteIP(), room)
 	})
+
+	r.GET("/schedule", func(c *gin.Context) {
+		var room = c.Query("room")
+		if toInt64(room) <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"msg": "scheduled",
+		})
+		man.AddTask(room)
+	})
+
 	r.GET("/ping", func(c *gin.Context) {
 		c.String(http.StatusOK, "pong")
 	})
@@ -659,12 +678,13 @@ func InitHTTP() {
 
 	r.GET("/user/space", func(context *gin.Context) {
 		var uidStr = context.DefaultQuery("uid", "")
-		if uidStr == "" {
+		if uidStr == "" || toInt64(uidStr) <= 0 {
 			context.JSON(http.StatusOK, gin.H{
 				"message": "invalid uid",
 			})
 			return
 		}
+
 		var uid = toInt64(uidStr)
 		var wg sync.WaitGroup
 		var totalMessage = 0
@@ -703,7 +723,7 @@ func InitHTTP() {
 			wg.Done()
 		}()
 		go func() {
-			db.Raw("SELECT live_room,COUNT(live_room) as count,user_id as liver_id,user_name as liver  FROM live_actions,lives where from_id = ? and live_actions.live = lives.id and action_type = 1  GROUP BY live_room limit 100", uid).Scan(&rooms)
+			db.Raw("SELECT live_room,COUNT(live_room) as count,user_id as liver_id,user_name as liver  FROM live_actions,lives where from_id = ? and live_actions.live = lives.id and action_type = 1  GROUP BY live_room order by count desc limit 100", uid).Scan(&rooms)
 			var totalCount = 0
 			for _, room := range rooms {
 				totalCount += room.Count
@@ -731,6 +751,7 @@ func InitHTTP() {
 
 			if len(livers) == 0 {
 				areas = []AreaLiver{}
+				wg.Done()
 				return
 			}
 			db.Raw(`
@@ -759,6 +780,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 				}
 			}
 
+			log.Println(8)
 			wg.Done()
 		}()
 
@@ -785,6 +807,13 @@ ORDER BY t.updated_at DESC, t.id DESC
 		}
 
 		var uidStr = context.DefaultQuery("uid", "")
+
+		if toInt64(uidStr) <= 0 {
+			context.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
 		var pageSizeStr = context.DefaultQuery("pageSize", "10")
 		var pageStr = context.DefaultQuery("page", "1")
 		var order = context.DefaultQuery("order", "time")
@@ -901,6 +930,21 @@ ORDER BY t.updated_at DESC, t.id DESC
 		})
 	})
 
+	r.GET("/user/info", func(c *gin.Context) {
+		var uids = c.Query("uids")
+		var split = strings.Split(uids, ",")
+		if len(split) > 5000 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "too many uids",
+			})
+		}
+		var dst []bili.User
+		clickDb.Raw("select uid, u_name,archives, fans, face, verify,like,level,bio,verify_type from users where uid in ?", split).Scan(&dst)
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
 	//一场直播内每分钟弹幕数
 	r.GET("/chart/live", func(c *gin.Context) {
 		var id = c.Query("id")
@@ -926,84 +970,210 @@ ORDER BY t.updated_at DESC, t.id DESC
 		})
 	})
 
-	r.GET("/chart/fans", func(context *gin.Context) {
+	/*
+			r.GET("/chart/fans", func(context *gin.Context) {
 
-		var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
-		const POINT = 30
-		var end = time.Now()
-		var start = end.AddDate(0, int(month)*-1, 0)
+				var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
+				const POINT = 30
+				var end = time.Now()
+				var start = end.AddDate(0, int(month)*-1, 0)
 
-		var uid = context.DefaultQuery("uid", "")
-		if uid == "" {
-			context.JSON(http.StatusOK, gin.H{
-				"message": "invalid uid",
+				var uid = context.DefaultQuery("uid", "")
+				if uid == "" {
+					context.JSON(http.StatusOK, gin.H{
+						"message": "invalid uid",
+					})
+
+					return
+				}
+				var result []User
+				//gemini写的
+				db.Raw(`
+		WITH TimeRange AS (
+		    -- 第一步：获取指定时间范围内的最小和最大时间戳
+		    SELECT
+		        MIN(created_at) AS min_time,
+		        MAX(created_at) AS max_time
+		    FROM
+		        users
+		    WHERE
+		        user_id = ? -- Placeholder for user_id
+		        AND created_at BETWEEN ? AND ? -- Placeholders for start_date and end_date
+		),
+		TimeBuckets AS (
+		    -- 第二步：为每一行数据计算它所属的时间桶 (time bucket)
+		    SELECT
+		        u.fans,
+		        u.created_at,
+		        -- 计算总时间跨度（秒），然后将每条记录的相对时间位置映射到对应的桶中
+		        -- 使用 GREATEST 防止当 min_time 和 max_time 相同时出现除以零的错误
+		        FLOOR(
+		            TIMESTAMPDIFF(SECOND, tr.min_time, u.created_at) * ? / -- Placeholder for num_points
+		            GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
+		        ) AS time_bucket
+		    FROM
+		        users u,
+		        TimeRange tr
+		    WHERE
+		        u.user_id = ? -- Placeholder for user_id
+		        AND u.created_at BETWEEN ? AND ? -- Placeholders for start_date and end_date
+		        AND tr.min_time IS NOT NULL -- 确保时间范围内有数据
+		),
+		RankedByBucket AS (
+		    -- 第三步：在每个时间桶内，根据时间顺序为记录编号
+		    SELECT
+		        fans,
+		        created_at,
+		        time_bucket,
+		        ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY created_at ASC) AS rn
+		    FROM
+		        TimeBuckets
+		)
+		-- 第四步：从每个时间桶中只选取第一条记录
+		SELECT
+		    fans ,
+		    created_at
+		FROM
+		    RankedByBucket
+		WHERE
+		    rn = 1
+		ORDER BY
+		    created_at;
+
+			`, uid, start, end, 30, uid, start, end).Scan(&result)
+
+				context.JSON(http.StatusOK, gin.H{
+					"data": result,
+				})
 			})
 
+
+	*/var CUTOFF_DATE = time.Date(2025, 4, 9, 0, 0, 0, 0, time.Local)
+	r.GET("/chart/fans", func(c *gin.Context) {
+
+		uid := c.Query("uid")
+		if uid == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "uid required"})
 			return
 		}
+		monthStr := c.DefaultQuery("month", "3")
+		month, err := strconv.Atoi(monthStr)
+		if err != nil || month <= 0 {
+			month = 3
+		}
+		var TOTAL_POINTS = 10 * month
+		end := time.Now()
+		start := end.AddDate(0, -month, 0)
 		var result []User
-		//gemini写的
-		db.Raw(`
-WITH TimeRange AS (
-    -- 第一步：获取指定时间范围内的最小和最大时间戳
-    SELECT
-        MIN(created_at) AS min_time,
-        MAX(created_at) AS max_time
-    FROM
-        users
-    WHERE
-        user_id = ? -- Placeholder for user_id
-        AND created_at BETWEEN ? AND ? -- Placeholders for start_date and end_date
-),
-TimeBuckets AS (
-    -- 第二步：为每一行数据计算它所属的时间桶 (time bucket)
-    SELECT
-        u.fans,
-        u.created_at,
-        -- 计算总时间跨度（秒），然后将每条记录的相对时间位置映射到对应的桶中
-        -- 使用 GREATEST 防止当 min_time 和 max_time 相同时出现除以零的错误
-        FLOOR(
-            TIMESTAMPDIFF(SECOND, tr.min_time, u.created_at) * ? / -- Placeholder for num_points
-            GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
-        ) AS time_bucket
-    FROM
-        users u,
-        TimeRange tr
-    WHERE
-        u.user_id = ? -- Placeholder for user_id
-        AND u.created_at BETWEEN ? AND ? -- Placeholders for start_date and end_date
-        AND tr.min_time IS NOT NULL -- 确保时间范围内有数据
-),
-RankedByBucket AS (
-    -- 第三步：在每个时间桶内，根据时间顺序为记录编号
-    SELECT
-        fans,
-        created_at,
-        time_bucket,
-        ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY created_at ASC) AS rn
-    FROM
-        TimeBuckets
-)
--- 第四步：从每个时间桶中只选取第一条记录
-SELECT
-    fans ,
-    created_at
-FROM
-    RankedByBucket
-WHERE
-    rn = 1
-ORDER BY
-    created_at;
-
-	`, uid, start, end, 30, uid, start, end).Scan(&result)
-
-		context.JSON(http.StatusOK, gin.H{
+		if end.Before(CUTOFF_DATE) {
+			result = fetchChartData(db, "vtbs_users", uid, start, end, TOTAL_POINTS)
+		} else if start.After(CUTOFF_DATE) {
+			result = fetchChartData(db, "users", uid, start, end, TOTAL_POINTS)
+		} else {
+			totalSeconds := end.Sub(start).Seconds()
+			oldDuration := CUTOFF_DATE.Sub(start).Seconds()
+			ratio := oldDuration / totalSeconds
+			oldPoints := int(math.Round(float64(TOTAL_POINTS) * ratio))
+			newPoints := TOTAL_POINTS - oldPoints
+			var oldData, newData []User
+			if oldPoints > 0 {
+				oldData = fetchChartData(db, "vtbs_users", uid, start, CUTOFF_DATE, oldPoints)
+			}
+			if newPoints > 0 {
+				newData = fetchChartData(db, "users", uid, CUTOFF_DATE, end, newPoints)
+			}
+			result = append(oldData, newData...)
+		}
+		c.JSON(http.StatusOK, gin.H{
 			"data": result,
 		})
 	})
+	/*
+			r.GET("/chart/guard", func(context *gin.Context) {
+				var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
+				var uidStr = context.DefaultQuery("uid", "")
+				if uidStr == "" || toInt64(uidStr) == 0 {
+					context.JSON(http.StatusOK, gin.H{
+						"message": "invalid uid",
+					})
+					return
+				}
+				var uid = toInt64(uidStr)
+				var dst []AreaLiver
+				db.Raw(`
+		WITH TimeRange AS (
+		    -- 第一步：获取指定时间范围内的最小和最大时间戳
+		    SELECT
+		        MIN(updated_at) AS min_time,
+		        MAX(updated_at) AS max_time
+		    FROM
+		        area_livers
+		    WHERE
+		        uid = @user_id
+		        AND updated_at BETWEEN @start_date AND @end_date
+		),
+		TimeBuckets AS (
+		    -- 第二步：为每一行数据计算它所属的时间桶 (time bucket)
+		    SELECT
+		        u.guard,
+		        u.updated_at,
+				u.id,
+		        -- 计算总时间跨度（秒），然后将每条记录的相对时间位置映射到对应的桶中
+		        -- 使用 GREATEST 防止当 min_time 和 max_time 相同时出现除以零的错误
+		        FLOOR(
+		            TIMESTAMPDIFF(SECOND, tr.min_time, u.updated_at) * @num_points /
+		            GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
+		        ) AS time_bucket
+		    FROM
+		        area_livers u,
+		        TimeRange tr
+		    WHERE
+		        u.uid = @user_id
+		        AND u.updated_at BETWEEN @start_date AND @end_date
+		        AND tr.min_time IS NOT NULL -- 确保时间范围内有数据
+		),
+		RankedByBucket AS (
+		    -- 第三步：在每个时间桶内，根据时间顺序为记录编号
+		    SELECT
+		        guard,
+		        updated_at,
+				id,
+		        time_bucket,
+		        ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY updated_at ASC) AS rn
+		    FROM
+		        TimeBuckets
+		)
+		-- 第四步：从每个时间桶中只选取第一条记录
+		SELECT
+		    guard,
+		    updated_at,
+			id
+		FROM
+		    RankedByBucket
+		WHERE
+		    rn = 1
+		ORDER BY
+		    updated_at;
 
+		`, map[string]interface{}{
+					"user_id":    uid,
+					"start_date": time.Now().AddDate(0, int(month)*-1, 0),
+					"end_date":   time.Now(),
+					"num_points": 30,
+				}).Scan(&dst)
+
+				context.JSON(http.StatusOK, gin.H{
+					"data": dst,
+				})
+
+			})
+
+	*/
 	r.GET("/chart/guard", func(context *gin.Context) {
 		var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
+		if month < 0 {
+			month = -month
+		}
 		var uidStr = context.DefaultQuery("uid", "")
 		if uidStr == "" || toInt64(uidStr) == 0 {
 			context.JSON(http.StatusOK, gin.H{
@@ -1013,72 +1183,85 @@ ORDER BY
 		}
 		var uid = toInt64(uidStr)
 		var dst []AreaLiver
-		db.Raw(`
-WITH TimeRange AS (
-    -- 第一步：获取指定时间范围内的最小和最大时间戳
-    SELECT
-        MIN(updated_at) AS min_time,
-        MAX(updated_at) AS max_time
-    FROM
-        area_livers
-    WHERE
-        uid = @user_id
-        AND updated_at BETWEEN @start_date AND @end_date
-),
-TimeBuckets AS (
-    -- 第二步：为每一行数据计算它所属的时间桶 (time bucket)
-    SELECT
-        u.guard,
-        u.updated_at,
-		u.id,
-        -- 计算总时间跨度（秒），然后将每条记录的相对时间位置映射到对应的桶中
-        -- 使用 GREATEST 防止当 min_time 和 max_time 相同时出现除以零的错误
-        FLOOR(
-            TIMESTAMPDIFF(SECOND, tr.min_time, u.updated_at) * @num_points /
-            GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
-        ) AS time_bucket
-    FROM
-        area_livers u,
-        TimeRange tr
-    WHERE
-        u.uid = @user_id
-        AND u.updated_at BETWEEN @start_date AND @end_date
-        AND tr.min_time IS NOT NULL -- 确保时间范围内有数据
-),
-RankedByBucket AS (
-    -- 第三步：在每个时间桶内，根据时间顺序为记录编号
+
+		// 计算开始时间
+		startDate := time.Now().AddDate(0, int(month)*-1, 0)
+		endDate := time.Now()
+
+		// 2. SQL 修改：使用 UNION ALL 合并两张表
+		// 注意：为了性能，我们在 UNION 内部就先把 uid 和 时间范围 过滤掉，
+		// 这样能利用索引，避免全表 UNION。
+		sqlQuery := `
+    WITH UnifiedData AS (
+        -- 0. 合并新旧表数据，并预先过滤，利用索引加速
+        SELECT guard, updated_at, id, uid
+        FROM area_livers
+        WHERE uid = @user_id AND updated_at BETWEEN @start_date AND @end_date
+        
+        UNION ALL
+        
+        SELECT guard, updated_at, id, uid
+        FROM vtbs_area_livers
+        WHERE uid = @user_id AND updated_at BETWEEN @start_date AND @end_date
+    ),
+    TimeRange AS (
+        -- 第一步：基于合并后的数据获取最小和最大时间戳
+        SELECT
+            MIN(updated_at) AS min_time,
+            MAX(updated_at) AS max_time
+        FROM
+            UnifiedData
+    ),
+    TimeBuckets AS (
+        -- 第二步：计算时间桶
+        SELECT
+            u.guard,
+            u.updated_at,
+            u.id,
+            FLOOR(
+                TIMESTAMPDIFF(SECOND, tr.min_time, u.updated_at) * @num_points /
+                GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
+            ) AS time_bucket
+        FROM
+            UnifiedData u, -- 这里改为从 UnifiedData 查询
+            TimeRange tr
+        WHERE
+            tr.min_time IS NOT NULL
+    ),
+    RankedByBucket AS (
+        -- 第三步：桶内排序
+        SELECT
+            guard,
+            updated_at,
+            id,
+            time_bucket,
+            ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY updated_at ASC) AS rn
+        FROM
+            TimeBuckets
+    )
+    -- 第四步：取每个桶的第一条
     SELECT
         guard,
         updated_at,
-		id,
-        time_bucket,
-        ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY updated_at ASC) AS rn
+        id
     FROM
-        TimeBuckets
-)
--- 第四步：从每个时间桶中只选取第一条记录
-SELECT
-    guard,
-    updated_at,
-	id
-FROM
-    RankedByBucket
-WHERE
-    rn = 1
-ORDER BY
-    updated_at;
+        RankedByBucket
+    WHERE
+        rn = 1
+    ORDER BY
+        updated_at;
+    `
 
-`, map[string]interface{}{
+		db.Raw(sqlQuery, map[string]interface{}{
 			"user_id":    uid,
-			"start_date": time.Now().AddDate(0, int(month)*-1, 0),
-			"end_date":   time.Now(),
-			"num_points": 30,
+			"start_date": startDate,
+			"end_date":   endDate,
+			"num_points": month * 10,
 		}).Scan(&dst)
 
 		context.JSON(http.StatusOK, gin.H{
 			"data": dst,
 		})
-
 	})
 
 	r.GET("/chart/msg", func(context *gin.Context) {
@@ -1367,6 +1550,7 @@ ORDER BY
 			ExtraInt   int64
 			MedalLevel int
 			MedalName  string
+			Type       int
 		}
 
 		var dst []Response
@@ -1423,6 +1607,7 @@ ORDER BY
 						UID:        club.UID,
 						MedalLevel: int(club.Level),
 						MedalName:  club.MedalName,
+						Type:       int(club.Type),
 					})
 				}
 			}
@@ -1455,8 +1640,8 @@ ORDER BY
 		if err != nil || pageSize <= 0 {
 			pageSize = 10
 		}
-		if pageSize > 100 { // 限制最大页面大小
-			pageSize = 100
+		if pageSize > 500 { // 限制最大页面大小
+			pageSize = 500
 		}
 
 		pageNum, err := strconv.Atoi(page)
@@ -1925,17 +2110,14 @@ ORDER BY money DESC;
 		}
 
 		var dst []ProvinceResponse
-		db.Raw(`
-        SELECT u.user_id AS uid, MAX(u.fans) AS fans, u.name
-        FROM users u
-        JOIN locations l ON u.user_id = l.uid
-        WHERE l.location = ?
-        GROUP BY u.user_id
-        ORDER BY fans DESC
-        LIMIT 1000;
-    `, province).Scan(&dst)
-
-		cacheProvince[province] = dst
+		db.Raw("select * from locations where location = ?", province).Scan(&dst)
+		for i, _ := range dst {
+			dst[i].Fans = liverMap[dst[i].UID].Fans
+			dst[i].Name = liverMap[dst[i].UID].UName
+		}
+		sort.Slice(dst, func(i, j int) bool {
+			return dst[i].Fans > dst[j].Fans
+		})
 
 		c.JSON(http.StatusOK, gin.H{
 			"data": dst,
@@ -2084,7 +2266,7 @@ ORDER BY money DESC;
 			return
 		}
 
-		if len(text) <= 0 || len(text) > 200 {
+		if len(text) <= 0 || len(text) > 1000 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"msg": "invalid text",
 			})
@@ -2116,8 +2298,8 @@ ORDER BY money DESC;
 		if err != nil || sizeInt < 1 {
 			sizeInt = 10
 		}
-		if sizeInt > 100 {
-			sizeInt = 100
+		if sizeInt > 10000 {
+			sizeInt = 10000
 		}
 		offset := (pageInt - 1) * sizeInt
 		var comments []Comment
@@ -2666,33 +2848,78 @@ ORDER BY money DESC;
 		})
 
 	})
-	r.GET("/liver/followed", func(c *gin.Context) {
+	r.GET("/relation/fans", func(c *gin.Context) {
 		type User struct {
 			UID   int64
 			UName string
+			Fans  int
+			Bio   string
 		}
 		var midStr = c.Query("mid")
 		var dst []User
-		if toInt64(midStr) <= 0 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": "bad params",
-			})
-		}
 
-		var ids []int64
-		db.Raw("select uid from relations where target_id = ?", toInt64(midStr)).Scan(&ids)
-		for _, int64s := range chunkSlice(ids, 40) {
-			maps := biliClient.BatchGetFace(int64s)
-			for _, faceMap := range maps {
-				dst = append(dst, User{
-					UID:   faceMap.UID,
-					UName: faceMap.UName,
-				})
+		var nameMap = make(map[int64]User)
+		var nameArr []User
+		clickDb.Raw("select * from relations where target_id = ? order by fans desc limit 200", toInt64(midStr)).Scan(&dst)
+		clickDb.Raw("select u_name,uid,bio from users where uid in ?", lo.Map(dst, func(item User, index int) int64 {
+			return item.UID
+		})).Scan(&nameArr)
+		for _, i := range nameArr {
+			nameMap[i.UID] = User{
+				UID:   i.UID,
+				UName: i.UName,
+				Bio:   i.Bio,
 			}
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"list": dst,
+		for i, _ := range dst {
+			dst[i].UName = nameMap[dst[i].UID].UName
+			dst[i].Bio = nameMap[dst[i].UID].Bio
+		}
+
+		sort.Slice(dst, func(i, j int) bool {
+			return dst[i].Fans > dst[j].Fans
 		})
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
+	r.GET("/relations/amount", func(c *gin.Context) {
+		relationMutex.Lock()
+		c.JSON(http.StatusOK, gin.H{
+			"amount": relationAmount,
+		})
+		relationMutex.Unlock()
+	})
+
+	r.POST("/relations/amount/add", func(c *gin.Context) {
+
+		if c.RemoteIP() == "127.0.0.1" {
+			relationMutex.Lock()
+			relationAmount++
+			relationMutex.Unlock()
+			c.JSON(http.StatusOK, gin.H{
+				"msg": "ok",
+			})
+		}
+	})
+
+	r.GET("/relations/fans", func(c *gin.Context) {
+		var uid = c.Query("uid")
+		relationMutex.Lock()
+		if relationAmount <= 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"msg": "no amount available",
+			})
+			relationMutex.Unlock()
+			return
+		}
+		relationAmount--
+		relationMutex.Unlock()
+		res, _ := localClient.R().Get("http://127.0.0.1:" + toString(int64(config.Port)) + "/relation/fans?mid=" + uid)
+		var obj map[string]interface{}
+		json.Unmarshal(res.Body(), &obj)
+		c.JSON(http.StatusOK, obj)
 	})
 
 	r.GET("/history/room", func(c *gin.Context) {
@@ -2893,8 +3120,78 @@ where
 		c.JSON(http.StatusOK, gin.H{
 			"data": blockDst,
 		})
+
+	})
+	r.GET("/black", func(c *gin.Context) {
+		var up = c.Query("up")
+		var user = c.Query("user")
+		if toInt64(user) <= 0 || toInt64(up) <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+		var result = checkBlock(toInt64(up), toInt64(user))
+		c.JSON(http.StatusOK, gin.H{
+			"result": result,
+		})
+	})
+	r.GET("/search/user", func(c *gin.Context) {
+		var key = c.Query("key")
+		user := biliClient.SearchUser(key)
+		c.JSON(http.StatusOK, gin.H{
+			"data": user,
+		})
 	})
 
+	r.GET("/search/uid", func(c *gin.Context) {
+		var typo = c.Query("type")
+		var uid = c.Query("uid")
+		if typo == "Liver" {
+			var dst AreaLiver
+			db.Raw("select fans,u_name from area_livers where uid = ? order by id desc limit 1", uid).Scan(&dst)
+			c.JSON(http.StatusOK, gin.H{
+				"name": dst.UName,
+				"fans": dst.Fans,
+			})
+			return
+		}
+		var dst FansClub
+		db.Raw("select * from fans_clubs where uid = ? order by level desc limit 1", uid).Scan(&dst)
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
+	r.GET("/post/list", func(c *gin.Context) {
+		var session = c.Query("session")
+		var dst []Post
+		db.Raw("select * from posts", session).Scan(&dst)
+		for i := range dst {
+			if dst[i].Session != session {
+				dst[i].Session = ""
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+	})
+
+	r.POST("/post/create", func(c *gin.Context) {
+		var session = c.PostForm("session")
+		if session == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "session is required",
+			})
+			return
+		}
+		var content = c.PostForm("content")
+		db.Create(&Post{
+			Session:   session,
+			Text:      content,
+			CreatedAt: time.Now(),
+		})
+	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }
 

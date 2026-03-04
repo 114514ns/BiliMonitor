@@ -25,7 +25,7 @@ function ReactionPage(props) {
             <ToastProvider placement={'top-right'}/>
             <div className={'flex flex-row items-center'}>
                 <Input label={'UID'} className={'max-w-xs'} value={uid} onValueChange={(e) => {
-                    setUid(e)
+                    setUid(e.replace('UID:',''))
                 }}></Input>
                 <Button className={'ml-2'} onClick={() => {
                     axios.get("/api/reaction?mid=" + uid).then(res =>{

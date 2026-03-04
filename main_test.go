@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"log"
 	"math/rand"
@@ -16,12 +15,8 @@ import (
 
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
-	"github.com/golang/protobuf/proto"
-	"github.com/jhump/protoreflect/desc"
-	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
-	"google.golang.org/protobuf/types/descriptorpb"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
@@ -58,7 +53,7 @@ func MockRefreshLivers() {
 	type Response struct {
 		List []FrontAreaLiver
 	}
-	get, _ := client.R().Get("https://live.ikun.dev/areaLivers")
+	get, _ := client.R().Get("https://api.vtb.cat/areaLivers")
 	var dst Response
 	sonic.Unmarshal(get.Body(), &dst)
 	var from = dst.List
@@ -77,18 +72,23 @@ func TestHttp(test *testing.T) {
 		}
 	}()
 
-	//MockRefreshLivers()
-
 	//RefreshFlow()
 	config.ConnectionPoolSize = 1
 	setupHTTPClient()
 	go func() {
-		//RefreshLivers()
+		for {
+			time.Sleep(120 * time.Minute)
+			//RefreshLivers()
+
+		}
 	}()
 	go func() {
-		//RefreshMessagePoints()
+		RefreshWatcher()
+		MockRefreshLivers()
+
 	}()
 	//clickDb = clickDb.Debug()
+	//config.Port = 8082
 	InitHTTP()
 
 }
@@ -476,14 +476,23 @@ func TestExportBox(test *testing.T) {
 	os.WriteFile("box.json", marshal, os.ModePerm)
 }
 
-func TestPB(t *testing.T) {
-	fdSet := &descriptorpb.FileDescriptorSet{}
-	proto.Unmarshal(INTERACT_WORD_PB, fdSet)
-	files, _ := desc.CreateFileDescriptorsFromSet(fdSet)
-	fileDesc := files["word.proto"] // 或者是你遍历找到的某个文件
-	wordMsg := fileDesc.FindMessage("InteractWordV2")
-	dm := dynamic.NewMessage(wordMsg)
-	bytes, _ := base64.StdEncoding.DecodeString("CJTwwNEBEgpTdGFyU2VhMjQ2IgIDASgBMNWgITispaTDBkDUubHe/jJKLAiv8CkQEhoG55Sf5oCBIKS6ngYopLqeBjCkup4GOKS6ngZAAWDVoCFo9JQRYgB4gZ/v1tmc1qcYmgEAsgHPAQiU8MDRARJYCgpTdGFyU2VhMjQ2EkpodHRwczovL2kwLmhkc2xiLmNvbS9iZnMvZmFjZS8xMDliNzg3YzVmMTEzYzRhM2M3NDE1YmI5YmY2YjgyYmMzM2JjNGUyLmpwZxpnCgbnlJ/mgIEQEhikup4GIKS6ngYopLqeBjCkup4GOP/hAUgBUK/wKWD0lBF6CSNEQzZCNkI5OYIBCSNEQzZCNkI5OYoBCSNEQzZCNkI5OZIBCSNGRkZGRkZGRpoBCSM4MTAwMUY5OSICCAkyALoBAA==")
-	dm.Unmarshal(bytes)
-	fmt.Println(dm.String())
+func TestBatchUser(test *testing.T) {
+	loadConfig()
+	loadDB()
+	var dst []int64
+	db.Raw("select distinct live_actions.from_id from live_actions limit 5000").Scan(&dst)
+	var query = ""
+	for j, i := range dst {
+		query = query + toString(i)
+		if j != 999 {
+			query = query + ","
+		}
+	}
+	fmt.Println(query)
+}
+
+func TestCheckBlack(test *testing.T) {
+	loadConfig()
+	setupHTTPClient()
+
 }

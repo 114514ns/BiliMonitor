@@ -78,12 +78,7 @@ function ListPage(props) {
 
     useEffect(() => {
         async function fetchData() {
-            const response = await fetch('https://i0.hdslb.com/bfs/im_new/8e9a54c0fb86a1f22a5da2a457205fcf2.png',{
-                referrerPolicy: "no-referrer"
-            });
-            const arrayBuffer = await response.arrayBuffer()
-            var dec = new TextDecoder();
-            guildData = (JSON.parse(dec.decode(arrayBuffer).substring(16569)))
+            guildData = (JSON.parse(localStorage.getItem("guild")))
         }
         fetchData();
         document.title = '哔哩哔哩 虚拟主播 列表'
@@ -376,9 +371,9 @@ function ListPage(props) {
 
             <div style={{height:`${calcHeight()-160}px`}} className={'overflow-y-scroll overflow-x-hidden'} ref={listRef}>
                 {filted.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map((item, index) => (
-                    <Tooltip content={<Button onClick={() => {
+                    <Tooltip content={<></>/*<Button onClick={() => {
                         axios.post("/api/black/add?mid=" + item.UID)
-                    }}>Add BlackList</Button>}>
+                    }}>Add BlackList</Button>*/}>
                         <div onClick={() => {
                             window.open(location.origin + "/liver/" + item.UID)
                         }} key={item.UID}>

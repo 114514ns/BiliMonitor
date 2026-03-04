@@ -121,7 +121,7 @@ export const HeroUIPieChart = ({
                                    data,
                                    dataKey = 'value',
                                    nameKey = 'name',
-                                   height =isMobile()?400:400*(innerWidth/1366),
+                                   height =isMobile()?400:600*(innerWidth/1366),
                                    showLegend = true,
                                    showTooltip = true,
                                    innerRadius = 0,
@@ -154,9 +154,19 @@ export const HeroUIPieChart = ({
         }
     };
 
+    const computedHeight = (() => {
+        //if (height !== undefined) return height;
+        const scale = isMobile() ? 1 : innerWidth*0.8 / 1366;
+        const baseHeight = 400 * scale;
+        const itemsPerRow = isMobile() ? 2 : 3;
+        const legendRows = Math.ceil(data.length / itemsPerRow);
+        const legendHeight = legendRows * 32*(isMobile()?0.55:0.3)
+        return baseHeight + legendHeight;
+    })();
+
     return (
         <div className={` ${className}`}>
-            <ResponsiveContainer width={isMobile()?vwToPx(90):vwToPx(35)} height={height}>
+            <ResponsiveContainer width={isMobile()?vwToPx(90):vwToPx(35)} height={computedHeight}>
                 <PieChart>
                     <Pie
                         activeIndex={activeIndex}

@@ -1,25 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import {
     Autocomplete, AutocompleteItem, Avatar,
-    Tooltip, Button, Checkbox, Modal, useDisclosure, ModalContent, ModalBody, ModalHeader, ModalFooter
+    Tooltip, Button, Checkbox, Modal, useDisclosure, ModalContent, ModalBody, ModalHeader, ModalFooter, Select,
+    SelectItem
 } from "@heroui/react";
 import ActionTable from "../components/ActionTable";
 import HoverMedals from "../components/HoverMedals";
 import { HeroUIPieChart } from "../components/PieChart";
 import {HeatContent} from "../components/HeatChart";
+import {useNavigate} from "react-router";
 
 
 function UserPage(props) {
     let { id } = useParams();
     const [space, setSpace] = useState({})
+    const redirect = useNavigate()
     useEffect(() => {
-        axios.get(`${protocol}://${host}:${port}/api/user/space?uid=${id}`).then((response) => {
-            setSpace(response.data);
-            document.title = response.data.UName + ' 的弹幕数据'
-            console.log(response.data);
-        })
+        const nums = id.match(/\d+/g)?.[0];
+        if (nums !== id) {
+            redirect('/user/' + nums)
+        } else {
+            axios.get(`${protocol}://${host}:${port}/api/user/space?uid=${id}`).then((response) => {
+                setSpace(response.data);
+                document.title = response.data.UName + ' 的弹幕数据'
+                console.log(response.data);
+            })
+        }
+
+
         return(() => {
             document.title = 'Vtuber 数据'
         })
@@ -50,6 +60,12 @@ function UserPage(props) {
 
     const tableRef = React.createRef();
     const {isOpen, onOpen, onOpenChange} = useDisclosure();
+
+    const chartWidth = useMemo(() => {
+        return isMobile() ? vwToPx(90) : vhToPx(80);
+    }, []); // 窗口尺寸在组件生命周期内一般不变，空依赖即可
+
+
     return (
         <div>
             <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
@@ -74,7 +90,7 @@ function UserPage(props) {
             </Modal>
             <div className={'flex flex-col sm:flex-row  h-[88vh] '}>
                 <HeroUIPieChart
-                    width={isMobile() ? vwToPx(90) : vwToPx(35)}
+                    width={chartWidth}
                     data={getPieData(space.Rooms)}
                     onSegmentClick={(data, index) => {
                         console.log(data); // 包含所有字段
@@ -143,11 +159,11 @@ function UserPage(props) {
 
                     <div className={'mt-4 ' } ref={tableRef}>
                         <div className='flex  items-center flex-col sm:flex-row '>
-                            <Autocomplete
+                            <Select
                                 isClearable
                                 onClear={() => setFilter('')}
                                 className="w-full sm:max-w-xs mt-4 mb-4"
-                                defaultItems={[{
+                                items={[{
                                     key: 'msg',
                                     value: "Message"
                                 },
@@ -167,16 +183,16 @@ function UserPage(props) {
                                 ]}
                                 label="Filter by"
                                 onSelectionChange={e => {
-                                    setFilter(e)
+                                    setFilter(e.currentKey)
                                 }}
                             >
-                                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-                            </Autocomplete>
-                            <Autocomplete
+                                {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                            </Select>
+                            <Select
                                 isClearable
                                 setOrder={() => setFilter('')}
                                 className="mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
-                                defaultItems={[{
+                                items={[{
                                     key: 'money',
                                     value: "Money"
                                 },
@@ -191,8 +207,8 @@ function UserPage(props) {
                                     setOrder(e)
                                 }}
                             >
-                                {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-                            </Autocomplete>
+                                {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                            </Select>
                             <Autocomplete
                                 isClearable
                                 setOrder={() => setRoom('')}

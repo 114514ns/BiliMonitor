@@ -2,22 +2,22 @@ import React, {useState} from 'react';
 import {useNavigate, useParams} from "react-router-dom";
 import axios from "axios";
 import {
-    addToast,
-    Avatar, Button,
-    Card,
-    CardBody,
-    CardHeader,
-    Image,
+    Avatar,
+    Button,
     Modal,
     ModalBody,
     ModalContent,
-    ModalHeader, Pagination, Select, SelectItem, Switch,
+    ModalHeader,
+    Pagination,
+    Select,
+    SelectItem,
+    Switch,
     Tooltip
 } from "@heroui/react";
 import HoverMedals from "../components/HoverMedals";
 import {FansList} from "../components/RankDialog";
 import LiveStatisticCard from "../components/LiveStatisticCard";
-import {AnimatePresence,motion} from "framer-motion";
+import {AnimatePresence, motion} from "framer-motion";
 import {FansChart, GuardChart} from "../components/LineChart";
 import DynamicCard from "../components/DynamicCard";
 import HoverBioHistory from "../components/HoverBioHistory";
@@ -36,7 +36,7 @@ function calcValid(array) {
 function parseCharge(str) {
     var sum = 0
     JSON.parse(str).forEach((item) => {
-        sum = sum + item.Count*item.Price
+        sum = sum + item.Count * item.Price
     })
     return sum
 }
@@ -55,31 +55,33 @@ function LiverPage(props) {
 
     const [guard, setGuard] = React.useState([]);
 
-    const [guardTime,setGuardTime] = React.useState("");
+    const [guardTime, setGuardTime] = React.useState("");
 
     const redirect = useNavigate();
 
-    const [orig,setOrig] = React.useState([]);
+    const [orig, setOrig] = React.useState([]);
 
     const [noDM, setNoDM] = React.useState(false);
 
-    const [month,setMonth] = useState(3)
+    const [month, setMonth] = useState(3)
 
-    const [stream,setStream] = React.useState({})
+    const [stream, setStream] = React.useState({})
 
-    const [guild,setGuild] = React.useState("");
+    const [guild, setGuild] = React.useState("");
 
-    const [guardId,setGuardId]  = React.useState('')
+    const [guardId, setGuardId] = React.useState('')
 
-    const [load,setLoad] = React.useState(false)
+    const [load, setLoad] = React.useState(false)
 
-    const [dynCount,setDynCount] = React.useState(0)
+    const [dynCount, setDynCount] = React.useState(0)
 
     const listRef = React.useRef()
 
-    const [showAmount,setShowAmount] = React.useState(false);
+    const [showAmount, setShowAmount] = React.useState(false);
 
-    const [showHistoryBio,setShowHistoryBio] = React.useState(false);
+    const [showHistoryBio, setShowHistoryBio] = React.useState(false);
+
+    const [hideName,setHideName]=useState(false)
 
 
     let {id} = useParams();
@@ -93,12 +95,12 @@ function LiverPage(props) {
             })
         }
 
-    },[])
+    }, [])
 
     React.useEffect(() => {
 
         axios.get(`${protocol}://${host}:${port}/api/chart/fans?uid=${id}&month=${month}`).then((response) => {
-            setFansChart(response.data.data??[]);
+            setFansChart(response.data.data ?? []);
         })
         axios.get(`${protocol}://${host}:${port}/api/liver/space?uid=${id}`).then((response) => {
             setSpace(response.data);
@@ -115,8 +117,8 @@ function LiverPage(props) {
                 })
 
             })
-            dst.sort((a,b) => a.Level > b.Level)
-            setGuardChart(dst??[])
+            dst.sort((a, b) => a.Level > b.Level)
+            setGuardChart(dst ?? [])
         })
         axios.get(`${protocol}://${host}:${port}/api/live?uid=${id}&limit=1000&no_dm=${noDM}`).then((response) => {
             setLives(response.data.lives);
@@ -125,32 +127,31 @@ function LiverPage(props) {
         axios.get("/api/dynamics/count?mid=" + id).then((response) => {
             setDynCount(response.data.count)
         })
-    }, [noDM,month])
+    }, [noDM, month])
 
-    const [diffMode,setDiffMode] = React.useState(false);
+    const [diffMode, setDiffMode] = React.useState(false);
 
-    const [inspectMode,setInspectMode] = React.useState(false);
+    const [inspectMode, setInspectMode] = React.useState(false);
 
-    const [showDyn,setShowDyn] = React.useState(false);
+    const [showDyn, setShowDyn] = React.useState(false);
 
-    const [dynList,setDynList] = React.useState([])
+    const [dynList, setDynList] = React.useState([])
 
-    const [dynPage,setDynPage] = React.useState(1)
+    const [dynPage, setDynPage] = React.useState(1)
 
     React.useEffect(() => {
         axios.get(`/api/guard?id=${guardId}&inspect=true`).then((response) => {
             var t = response.data.data
-            t.sort((a,b) => b.Level-a.Level)
+            t.sort((a, b) => b.Level - a.Level)
             setGuard(t)
             setOrig(t)
             if (inspectMode) {
                 setLoad(true)
             }
         })
-    },[inspectMode])
+    }, [inspectMode])
 
     const DYN_SIZE = 50
-
 
 
     return (
@@ -161,24 +162,24 @@ function LiverPage(props) {
                     setLoad(false)
                 }
                 setOpen(!open)
-            }}    className={` grid transition-[grid-template-rows] duration-300 ease-out ${
+            }} className={` grid transition-[grid-template-rows] duration-300 ease-out ${
                 diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] h-[70vh]'
             }`}>
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">
                         <span>{guardTime}</span>
-                        {inspectMode &&  load && <span>{inspectMode && `${calcValid(guard)} / ${guard.length}`}</span>}
+                        {inspectMode && load && <span>{inspectMode && `${calcValid(guard)} / ${guard.length}`}</span>}
                     </ModalHeader>
                     <ModalBody>
                         <div>
                             <div className={'flex flex-col'}>
-                                <Switch isSelected={diffMode}  onValueChange={(e => {
+                                <Switch isSelected={diffMode} onValueChange={(e => {
                                     setDiffMode(e)
                                     if (!e) {
                                         setGuard(orig)
                                     }
                                 })} isDisabled={inspectMode}>Diff</Switch>
-                                <Switch isSelected={inspectMode}  onValueChange={(e => {
+                                <Switch isSelected={inspectMode} onValueChange={(e => {
                                     setInspectMode(e)
                                 })} className={'mt-2'} isDisabled={diffMode}>Inspect</Switch>
                             </div>
@@ -186,10 +187,10 @@ function LiverPage(props) {
                                 {diffMode && (
                                     <motion.div
                                         key="select"
-                                        initial={{ opacity: 0, y: -5 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: -5 }}
-                                        transition={{ duration: 0.2 }}
+                                        initial={{opacity: 0, y: -5}}
+                                        animate={{opacity: 1, y: 0}}
+                                        exit={{opacity: 0, y: -5}}
+                                        transition={{duration: 0.2}}
                                     >
                                         <Select className="mt-2">
                                             {guardChart.filter(e => new Date(e.UpdatedAt).getTime() > new Date(guardTime).getTime()).map(e => {
@@ -202,11 +203,11 @@ function LiverPage(props) {
                                                             const newIds = new Set(dst.map(item => item.UID));
                                                             const added = dst
                                                                 .filter(item => !oldIds.has(item.UID))
-                                                                .map(item => ({ ...item, Label: 'add' }));
+                                                                .map(item => ({...item, Label: 'add'}));
 
                                                             const removed = orig
                                                                 .filter(item => !newIds.has(item.UID))
-                                                                .map(item => ({ ...item, Label: 'remove' }));
+                                                                .map(item => ({...item, Label: 'remove'}));
                                                             setGuard([...added, ...removed]);
 
                                                         })
@@ -228,21 +229,21 @@ function LiverPage(props) {
             </Modal>
             <Modal isOpen={showDyn} onOpenChange={() => {
                 setShowDyn(!showDyn)
-            }}    className={'overflow-x-hidden'} scrollBehavior={'inside'}>
+            }} className={'overflow-x-hidden'} scrollBehavior={'inside'}>
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">
                         <span>{space.UName}的历史动态</span>
                     </ModalHeader>
                     <ModalBody className={'overflow-x-hidden'}>
                         <div ref={listRef}>
-                            {dynList.slice((dynPage-1)*DYN_SIZE,dynPage*DYN_SIZE).map((item,i)=>{
+                            {dynList.slice((dynPage - 1) * DYN_SIZE, dynPage * DYN_SIZE).map((item, i) => {
                                 return (
                                     <DynamicCard item={item} key={i} onClick={() => {
                                         window.open("https://t.bilibili.com/" + item.IDStr)
                                     }}/>
                                 )
                             })}
-                            <Pagination initialPage={1} total={Math.ceil(dynList.length/DYN_SIZE)} onChange={(e) => {
+                            <Pagination initialPage={1} total={Math.ceil(dynList.length / DYN_SIZE)} onChange={(e) => {
                                 setDynPage(e)
                                 listRef.current.parentElement.scrollTo({
                                     top: 0,
@@ -282,17 +283,17 @@ function LiverPage(props) {
                         <span className={'font-thin text-sm'} onContextMenu={(e) => {
                             e.preventDefault()
                             setShowHistoryBio(!showHistoryBio)
-                        }} >{space.Bio}</span>
+                        }}>{space.Bio}</span>
                     </Tooltip>
                 </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
                 <div
-                    className="rounded-xl bg-green-50 dark:bg-gray-700 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝<br/>
+                    className="rounded-xl bg-green-50  p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg dark:bg-[#18181b] ">粉丝<br/>
                     <span className="font-semibold">{parseInt(space.Fans).toLocaleString()}</span>
                 </div>
                 <div
-                    className="rounded-xl bg-yellow-50 dark:bg-gray-600 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">大航海<br/>
+                    className="rounded-xl bg-yellow-50 dark:bg-[#18181b] p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">大航海<br/>
                     <span
                         className="font-semibold">{space.Guard}</span>
                 </div>
@@ -301,9 +302,12 @@ function LiverPage(props) {
                         onContextMenu={e => {
 
                         }}
-                        className="rounded-xl bg-pink-50 dark:bg-gray-400 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">粉丝牌<br/>
+                        onClick={() => {
+                            setHideName(!hideName)
+                        }}
+                        className="rounded-xl bg-pink-50 dark:bg-[#18181b] p-2 transition-transform duration-200  hover:shadow-lg ">粉丝牌<br/>
                         <span
-                            className="font-semibold">{space.Medal}</span>
+                            className="font-semibold">{hideName ? '*'.repeat((space.Medal ?? '').length) : space.Medal ?? ''}</span>
                     </div>
                 </Tooltip>
             </div>
@@ -312,20 +316,20 @@ function LiverPage(props) {
                     onClick={() => {
                         setShowDyn(true)
                         const start = new Date().getTime()
-                        axios.get("/api/dynamics?mid=" + id).then(res=>{
-                            console.log(new Date().getTime()-start) ;
+                        axios.get("/api/dynamics?mid=" + id).then(res => {
+                            console.log(new Date().getTime() - start);
                             var array = res.data.data
                             var m = new Map()
                             array.forEach(element => {
                                 m.set(element.ID, element)
                             })
-                            console.log(new Date().getTime()-start) ;
+                            console.log(new Date().getTime() - start);
                             array.forEach(element => {
                                 if (element.ForwardFrom !== 0) {
                                     element.ForwardDynamic = m.get(element.ForwardFrom)
                                 }
                             })
-                            console.log(new Date().getTime()-start) ;
+                            console.log(new Date().getTime() - start);
 
                             var newArray = []
                             var v0 = parseInt(id)
@@ -334,33 +338,49 @@ function LiverPage(props) {
                                     newArray.push(element)
                                 }
                             })
-                            console.log(new Date().getTime()-start) ;
+                            console.log(new Date().getTime() - start);
                             setDynList(newArray)
-                            console.log(new Date().getTime()-start) ;
+                            console.log(new Date().getTime() - start);
                         })
                     }}
-                    className="rounded-xl bg-blue-50 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
+                    className="rounded-xl bg-blue-50 dark:bg-[#18181b] p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
                     <span className="font-semibold">{parseInt(dynCount).toLocaleString()}</span>
                 </div>
-                <Tooltip content={<div>
-                    <p>直播收入 {parseInt(space.Amount).toLocaleString()}</p>
-                    {space && space.Charge && space.Charge!=='null' && <p>充电收入：{parseCharge(space.Charge).toLocaleString()}</p>}
-                </div>} isOpen={showAmount} onOpenChange={(o) => {
-                    setShowAmount(o)
+                <div className="rounded-xl bg-yellow-50 dark:bg-[#18181b] p-2 transition-transform duration-200" onMouseEnter={() => {
+                    setShowAmount(true)
+                }} onMouseLeave={() => {
+                    setShowAmount(false)
                 }}>
-                    <div
-                        onContextMenu={() => {
-                            setShowAmount(!showAmount)
-                        }}
-                        className="rounded-xl bg-yellow-50 dark:bg-gray-500 p-2 transition-transform duration-200 ">30日内流水<br/>
-                        <span
-                            className="font-semibold">{(((space && space.Charge && space.Charge!== 'null')?parseCharge(space.Charge):0 )+ parseInt(space.Amount)).toLocaleString()}</span>
-                    </div>
-                </Tooltip>
+                    30日内流水<br/>
+                    <Tooltip
+                        placement="right"
+                        offset={30}
+                        content={
+                            <div>
+                                <p>直播收入 {parseInt(space.Amount).toLocaleString()}</p>
+                                {space && space.Charge && space.Charge !== 'null' && (
+                                    <p>充电收入：{parseCharge(space.Charge).toLocaleString()}</p>
+                                )}
+                            </div>
+                        }
+                        isOpen={showAmount}
+                        onOpenChange={(o) => setShowAmount(o)}
+                    >
+        <span
+            className="font-semibold cursor-pointer"
+            onContextMenu={(e) => {
+                e.preventDefault(); // 推荐加上这行，防止浏览器弹出默认的右键菜单
+                setShowAmount(!showAmount);
+            }}
+        >
+            {((space && space.Charge && space.Charge !== 'null' ? parseCharge(space.Charge) : 0) + parseInt(space.Amount)).toLocaleString()}
+        </span>
+                    </Tooltip>
+                </div>
             </div>
             <div>
                 <Button onClick={e => {
-                    setMonth(month+3)
+                    setMonth(month + 3)
                 }} className={'mt-2'}>更多</Button>
             </div>
             <div className={'grid grid-cols-1 sm:grid-cols-2 w-full'}>
@@ -372,7 +392,7 @@ function LiverPage(props) {
                         setGuardTime(new Date(guardChart[index].UpdatedAt).toLocaleString())
                         axios.get(`/api/guard?id=${guardChart[index].ID}`).then((response) => {
                             var t = response.data.data
-                            t.sort((a,b) => b.Level-a.Level)
+                            t.sort((a, b) => b.Level - a.Level)
                             setGuard(t)
                             setOrig(t)
                             setOpen(true)
@@ -395,7 +415,6 @@ function LiverPage(props) {
         </div>
     );
 }
-
 
 
 export default LiverPage;

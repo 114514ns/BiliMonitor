@@ -18,7 +18,7 @@ function RawPage(props) {
 
     const [total,setTotal] = React.useState(0);
 
-    const [pageSize, setPageSize] = React.useState(10);
+    const [pageSize, setPageSize] = React.useState(parseInt(localStorage.getItem("defaultPageSize")));
     useEffect(() => {
         axios.get("/api/searchLiver?key=" + input).then((response) => {
             setRoomList(response.data.result??[])
@@ -95,17 +95,17 @@ function RawPage(props) {
                             </div>
                         </AutocompleteItem>}
                     </Autocomplete>
-                    <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={['10']}>
+                    <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={[(localStorage.getItem("defaultPageSize"))]}>
                         <SelectItem onClick={e => { setPageSize(10) }} key={'10'}>
                             10
                         </SelectItem>
-                        <SelectItem onClick={e => { setPageSize(50)}}>
+                        <SelectItem onClick={e => { setPageSize(50)}} key={'50'}>
                             50
                         </SelectItem>
-                        <SelectItem onClick={e => { setPageSize(200)}}>
+                        <SelectItem onClick={e => { setPageSize(200)}} key={'200'}>
                             200
                         </SelectItem>
-                        <SelectItem onClick={e => { setPageSize(500)}}>
+                        <SelectItem onClick={e => { setPageSize(500)}} key={'500'}>
                             500
                         </SelectItem>
                     </Select>

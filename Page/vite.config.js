@@ -54,15 +54,15 @@ export default defineConfig({
         rollupOptions: {
 
 
+            /*
             external: (id) => {
 
-                if (id.includes("react-aria")) {
-                    //console.log(id)
-                }
-                return false
                 return (
+
+
                     id === "react" ||
-                    id === "react-dom" ||
+                    id === "react-dom"
+                   ||
                     id === "react-dom/client" ||
 
                     id === "motion-dom"
@@ -72,8 +72,11 @@ export default defineConfig({
                     id === "axios" ||
                     id.includes("heroui/theme") ||
                     id === "react-markdown"
+
                 );
             },
+            
+             */
 
 
             output: {
@@ -86,13 +89,6 @@ export default defineConfig({
                     if (id.includes('node_modules')) {
                         if (id.includes('heroui')) {
                             return "heroui"
-                        }
-                        if (id .includes( "react" )||
-                            id .includes( "react-dom" )||
-                            id .includes( "react-dom/client" )
-
-                        ){
-                            return "react"
                         }
                         /*
                         if (   id.includes('recharts') ||            id .includes( "motion") ||

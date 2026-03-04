@@ -351,6 +351,9 @@ var cPools = make([]*resty.Client, 0)
 var requestCountMutex sync.Mutex
 
 func setupHTTPClient() {
+	localClient.SetTransport(&http.Transport{
+		Proxy: nil,
+	})
 	client.OnAfterResponse(func(c *resty.Client, response *resty.Response) error {
 		requestCountMutex.Lock()
 		totalRequests++
@@ -571,6 +574,7 @@ func main0() {
 	db.AutoMigrate(&FansClub{})
 	db.AutoMigrate(&FaceCache{})
 	db.AutoMigrate(&OnlineStatus{})
+	db.AutoMigrate(&Post{})
 	RemoveEmpty()
 	go InitHTTP()
 
@@ -669,9 +673,7 @@ func main0() {
 		if err != nil {
 			return
 		}
-		for i := range config.Tracing {
-			man.AddTask(config.Tracing[i])
-		}
+
 	}
 	if config.LoginMode == "cookie" {
 		c.AddFunc("@every 240m", RefreshCookie)

@@ -7,6 +7,7 @@
 /* Note: You may need to change the path to fit your project structure */
 @source '../../node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}';
 
+@config "..//tailwind.config.js";
 
 body {
   margin: 0;
@@ -20,3 +21,22 @@ body {
 
   list-style: disc !important;
 }
+
+
+.markdown-body p {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.markdown-body img,
+.markdown-body p,
+.markdown-body audio {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.markdown-body blockquote {
+  display: inline-block;
+}
+

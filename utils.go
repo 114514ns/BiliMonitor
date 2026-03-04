@@ -23,6 +23,7 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"golang.org/x/net/html"
+	"gorm.io/gorm"
 )
 
 type JsonType struct {
@@ -441,3 +442,45 @@ var INTERACT_WORD_PB = []uint8{ //https://web.archive.org/web/20251212084412/htt
 	0x64, 0x5F, 0x6C, 0x65, 0x76, 0x65, 0x6C, 0x42, 0x0D, 0x0A, 0x0B, 0x5F,
 	0x64, 0x61, 0x69, 0x6C, 0x79, 0x5F, 0x72, 0x61, 0x6E, 0x6B, 0x62, 0x06,
 	0x70, 0x72, 0x6F, 0x74, 0x6F, 0x33}
+
+func fetchChartData(db *gorm.DB, tableName string, uid string, start, end time.Time, points int) []User {
+	var result []User
+
+	if points <= 0 {
+		return result
+	}
+	query := fmt.Sprintf(`
+	WITH TimeRange AS (
+		SELECT
+			MIN(created_at) AS min_time,
+			MAX(created_at) AS max_time
+		FROM %s  
+		WHERE user_id = ? AND created_at BETWEEN ? AND ?
+	),
+	TimeBuckets AS (
+		SELECT
+			u.fans,
+			u.created_at,
+			FLOOR(
+				TIMESTAMPDIFF(SECOND, tr.min_time, u.created_at) * ? / 
+				GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
+			) AS time_bucket
+		FROM %s u, TimeRange tr
+		WHERE u.user_id = ? AND u.created_at BETWEEN ? AND ? AND tr.min_time IS NOT NULL
+	),
+	RankedByBucket AS (
+		SELECT
+			fans,
+			created_at,
+			ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY created_at ASC) AS rn
+		FROM TimeBuckets
+	)
+	SELECT fans, created_at FROM RankedByBucket WHERE rn = 1 ORDER BY created_at;
+	`, tableName, tableName)
+	db.Raw(query,
+		uid, start, end,
+		points,
+		uid, start, end,
+	).Scan(&result)
+	return result
+}

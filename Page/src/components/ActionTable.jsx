@@ -107,7 +107,7 @@ function ActionTable(props) {
                                     {item.FromName}
                                     {item.MedalLevel != 0 ? <Chip
                                         className={'basis-64'}
-                                        startContent={<CheckIcon size={18} />}
+                                        startContent={item.GuardLevel ?<img src={getGuardIcon(item.GuardLevel)}/>:<CheckIcon size={18}/> }
                                         variant="faded"
                                         onClick={() => {
                                             toSpace(item.MedalLiver);
@@ -135,7 +135,7 @@ function ActionTable(props) {
                             <TableCell>{new Date(item.CreatedAt).toLocaleString()}</TableCell>
                             <TableCell>{item.GiftPrice.Float64}</TableCell>
                             <TableCell onClick={() => {
-                                axios.get(`${protocol}://${host}:${port}/api/queryPage?id=${item.ID}&live=${item.Live}`).then((response) => {
+                                axios.get(`${protocol}://${host}:${port}/api/queryPage?id=${item.ID}&live=${item.Live}&size=${pageSize}`).then((response) => {
                                     redirect(`/lives/${item.Live}?page=${response.data.page}&highLight=${item.ID}`);
                                 });
                             }}>

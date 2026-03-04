@@ -6,10 +6,15 @@ import {
     ModalBody,
     ModalFooter,
     Button,
-    useDisclosure, Input,
+    useDisclosure, Input, addToast, ToastProvider,
 } from "@heroui/react";
 
 import axios from "axios";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, {defaultSchema} from 'rehype-sanitize'
+import {useTheme} from "next-themes";
 
 function DelectIcon() {
     return (
@@ -19,15 +24,28 @@ function DelectIcon() {
         </svg>
     )
 }
+function isNumber(str) {
+    return !isNaN(Number(str)) && str.trim() !== '';
+}
 
 function CommentForm(props) {
+    const sanitizeSchema = {
+        ...defaultSchema,
+        tagNames:[...(defaultSchema.tagNames || []), 'audio', 'video', 'source'],
+        attributes: {
+            ...defaultSchema.attributes,
+            audio:['src', 'controls', 'loop', 'muted', 'autoplay'],
+            video:['src', 'controls', 'width', 'height', 'loop', 'muted', 'autoplay', 'poster'],
+            source: ['src', 'type']
+        }
+    };
 
 
     const [text, setText] = useState('');
 
     const [page, setPage] = useState(1);
 
-    const [pageSize, setPageSize] = useState(50);
+    const [pageSize, setPageSize] = useState(500);
 
     const [list, setList] = useState([])
 
@@ -42,49 +60,76 @@ function CommentForm(props) {
 
     useEffect(() => {
         refresh();
-    },[page,pageSize])
+    },[page,pageSize,props.isOpen])
 
     useEffect(() => {
-        setInterval(() => {
-            //refresh();
-        },1000)
+        const ref = setInterval(() => {
+            refresh();
+        },1000*90)
+        return () => {
+            clearInterval(ref);
+        }
     },[])
+    const { theme } = useTheme();
 
+    const resolvedTheme = theme === "dark" ? "dark" : "light";
 
     return (
         <div className={'max-h-[60vh]'}>
+            <ToastProvider placement={'top-right'}/>
             <Modal isOpen={props.isOpen} onOpenChange={props.onChange} scrollBehavior={'inside'}>
                 <ModalContent>
                     <ModalHeader className="flex flex-col gap-1">Comments</ModalHeader>
                     <ModalBody>
-                        {list.map((item,i) => {
-                            return (
-                                <div className={'flex flex-row items-center'}>
-                                    <p>{item.DisplayName}: {item.Text}</p>
-                                    {item.Session !== '' && <Button isIconOnly startContent={<DelectIcon/>} onClick={() => {
-                                        axios.post('/api/comments/delete',
-                                            new URLSearchParams({
-                                                id: item.ID,
-                                                session: localStorage.getItem('session')
+                        <div className={'overflow-y-scroll max-h-[50vh]'}>
+                            {list.map((item,i) => {
+                                return (
+                                    <div className={'flex flex-row items-center markdown-body'  }>
+                                        {item.Text !== '' && <p>{item.DisplayName}: {  <Markdown remarkPlugins={[remarkGfm]}    rehypePlugins={[rehypeRaw,[rehypeSanitize, sanitizeSchema]]}
+                                                                                                 components={{
+                                                                                                     a: ({node, ...props}) => <a className="text-blue-500 hover:text-blue-700 hover:underline" target="_blank" rel="noreferrer" {...props} />,
+                                                                                                     p: 'span',
+                                                                                                     img: ({node, ...props}) => <img {...props} className="inline-block" />,
+                                                                                                     audio: ({node, ...props}) => <audio {...props} className="inline-block h-8" />,
+                                                                                                     ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />
+                                                                                                 }}
+                                        >{item.Text}</Markdown>}</p>}
+                                        {item.Session !== '' && <Button isIconOnly startContent={<DelectIcon/>} onClick={() => {
+                                            axios.post('/api/comments/delete',
+                                                new URLSearchParams({
+                                                    id: item.ID,
+                                                    session: localStorage.getItem('session')
+                                                })
+                                            ).then(() => {
+                                                refresh();
                                             })
-                                        ).then(() => {
-                                            refresh();
-                                        })
-                                    }} className={'ml-4'}/> }
-                                </div>
-                            )
-                        })}
+
+                                        }} className={'ml-4'}/> }
+                                    </div>
+                                )
+                            })}
+
+                        </div>
                         <div className={'flex flex-row items-center'}>
                             <Input label={'Texts'} onValueChange={text => setText(text)} value={text} />
                             <Button className={'ml-2'} onClick={() => {
-                                axios.post('/api/comments/send',
-                                    new URLSearchParams({
-                                        text: text,
-                                        session: localStorage.getItem('session')
+
+                                if (isNumber(text) || isNumber(text.replace('UID:',''))) {
+                                    addToast({
+                                        title: 'Alert',
+                                        description: 'DONT SPAM（不要发送无意义内容）',
+                                        color: 'danger',
                                     })
-                                ).then(() => {
-                                    refresh();
-                                })
+                                } else {
+                                    axios.post('/api/comments/send',
+                                        new URLSearchParams({
+                                            text: text,
+                                            session: localStorage.getItem('session')
+                                        })
+                                    ).then(() => {
+                                        refresh();
+                                    })
+                                }
                                 setText('')
                             }}>Send</Button>
                         </div>

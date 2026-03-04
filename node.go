@@ -61,9 +61,6 @@ func (man *SlaverManager) AddTask(task string) {
 
 	target := aliveNodes[rand.Intn(len(aliveNodes))]
 
-	if Has(config.Tracing, task) {
-		target = aliveNodes[0] //特别关注的直播间只应在主节点运行
-	}
 	target.Tasks = append(target.Tasks, task)
 
 	go func(addr string) {
