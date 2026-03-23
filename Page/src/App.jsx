@@ -32,6 +32,7 @@ import ReactionPage from "./pages/ReactionPage";
 import SettingDialog from "./components/SettingDialog";
 import DemoPage from "./pages/DemoPage";
 import BoxPage from "./pages/BoxPage";
+import HighLightPage from "./pages/HighLightPage";
 import BlackListPage from "./pages/BlackListPage";
 import CommentForm from "./components/CommentForm";
 import TracePage from "./pages/TracePage";
@@ -39,6 +40,7 @@ import FansPage from "./pages/FansPage";
 import IndexPage from "./pages/IndexPage";
 import {useTheme} from "next-themes";
 import DocsDialog from "./components/DocsDialog";
+import MysteryBoxStatistic from "./components/MysteryBoxStatistic";
 
 const calcHeight = () => {
     const vh = window.innerHeight;
@@ -95,6 +97,8 @@ function BasicLayout() {
     const [opacity,setOpacity] = React.useState(window.getOpacity())
 
     const [showDoc,setShowDoc] = React.useState(false)
+
+    const [showBox,setShowBox] = React.useState(false)
 
     useEffect(() => {
         const id = "github-markdown-css";
@@ -166,7 +170,7 @@ function BasicLayout() {
             }}/>}
             {!hide && <Navbar style={{}}>
                 <NavbarContent style={{display: "flex", justifyContent: "center", "overflow": "scroll"}}
-                               className={'scrollbar-hide'}>
+                               className={'scrollbar-hide overflow-hidden'}>
                     {
                         menu.map((item, index) => (
                             <NavbarItem isActive={index === ind} key={index}>
@@ -206,18 +210,15 @@ function BasicLayout() {
                             <DropdownItem key="reaction" onClick={() => {
                                 redirect("/reactions")
                             }}>点赞查询</DropdownItem>
+                            <DropdownItem key="reaction" onClick={() => {
+                                redirect("/highlight")
+                            }}>管人痴魅力时刻</DropdownItem>
+                            <DropdownItem key="dynamics" onClick={() => {
+                                redirect("/feeds")
+                            }}>动态查询</DropdownItem>
                             <DropdownItem key="geo" onClick={() => {
                                 redirect("/geo")
                             }}>Geo</DropdownItem>
-                            <DropdownItem key="blacklist" onClick={() => {
-                                redirect("/relation")
-                            }}>Relation</DropdownItem>
-                            <DropdownItem key="storage" onClick={() => {
-                                window.open('https://storage.vtb.cat/Microsoft365')
-                            }}>Storage</DropdownItem>
-                            <DropdownItem key="fans" onClick={() => {
-                                redirect("/fans")
-                            }}>Fans</DropdownItem>
                             <DropdownItem key="status" onClick={() => {
                                 redirect("/stat")
                             }}>Status</DropdownItem>
@@ -254,12 +255,14 @@ function BasicLayout() {
                         <Route path="/pk" element={<PageWrapper><ComparePage/></PageWrapper>}/>
                         <Route path="/geo" element={<PageWrapper><GeoPage/></PageWrapper>}/>
                         <Route path="/reactions" element={<PageWrapper><ReactionPage/></PageWrapper>}/>
+                        <Route path="/feeds" element={<PageWrapper><ReactionPage type={'feed'}/></PageWrapper>}/>
                         <Route path="/demo" element={<PageWrapper><DemoPage/></PageWrapper>}/>
                         <Route path="/box" element={<PageWrapper><BoxPage/></PageWrapper>}/>
                         <Route path="/relation" element={<PageWrapper><BlackListPage/></PageWrapper>}/>
                         <Route path="/traces" element={<PageWrapper><TracePage/></PageWrapper>}/>
                         <Route path="/fans" element={<PageWrapper><FansPage/></PageWrapper>}/>
                         <Route path="/index" element={<PageWrapper><IndexPage/></PageWrapper>}/>
+                        <Route path="/highlight" element={<PageWrapper><HighLightPage/></PageWrapper>}/>
                     </Routes>
                 </AnimatePresence>
 

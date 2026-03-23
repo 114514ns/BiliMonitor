@@ -43,9 +43,9 @@ function RawPage(props) {
         <ToastProvider/>
             <div className={'mt-4'}>
                 <div>
-                    <Autocomplete
+                    <Select
                         className="w-full sm:max-w-xs mt-4 mb-4"
-                        defaultItems={[{
+                        items={[{
                             key: '1', value: "Message"
                         }, {
                             key: '2', value: "Gift"
@@ -54,17 +54,19 @@ function RawPage(props) {
                             key: '3', value: "Membership"
                         }, {
                             key: '4', value: "SuperChat"
+                        },{
+                            'key': '5', value: 'MysteryBox'
                         }]}
                         label="Filter by"
                         onSelectionChange={e => {
-                            setFilter(e)
+                            setFilter(e.currentKey)
                         }}
                     >
-                        {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-                    </Autocomplete>
-                    <Autocomplete
+                        {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                    </Select>
+                    <Select
                         className="mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
-                        defaultItems={[{
+                        items={[{
                             key: 'money_desc', value: "Money"
                         }, {
                             key: 'created_at_desc', value: "Time Desc"
@@ -72,11 +74,11 @@ function RawPage(props) {
                         },]}
                         label="Sort by"
                         onSelectionChange={e => {
-                            setOrder(e)
+                            setOrder(e.currentKey)
                         }}
                     >
-                        {(f) => <AutocompleteItem key={f.key}>{f.value}</AutocompleteItem>}
-                    </Autocomplete>
+                        {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                    </Select>
                     <Autocomplete
                         className=" mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
                         label="Liver"
@@ -95,7 +97,7 @@ function RawPage(props) {
                             </div>
                         </AutocompleteItem>}
                     </Autocomplete>
-                    <Select className="max-w-xs mt-4 mb-4 ml-4" label={'Page Size'} defaultSelectedKeys={[(localStorage.getItem("defaultPageSize"))]}>
+                    <Select className="sm:max-w-xs mt-4 mb-4 sm:ml-4" label={'Page Size'} defaultSelectedKeys={[(localStorage.getItem("defaultPageSize"))]}>
                         <SelectItem onClick={e => { setPageSize(10) }} key={'10'}>
                             10
                         </SelectItem>

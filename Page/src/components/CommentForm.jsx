@@ -15,6 +15,8 @@ import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, {defaultSchema} from 'rehype-sanitize'
 import {useTheme} from "next-themes";
+import DynamicCard from "./DynamicCard";
+import BVPlayer from "./BVPlayer";
 
 function DelectIcon() {
     return (
@@ -31,12 +33,13 @@ function isNumber(str) {
 function CommentForm(props) {
     const sanitizeSchema = {
         ...defaultSchema,
-        tagNames:[...(defaultSchema.tagNames || []), 'audio', 'video', 'source'],
+        tagNames:[...(defaultSchema.tagNames || []), 'audio', 'video', 'source','bv-player'],
         attributes: {
             ...defaultSchema.attributes,
             audio:['src', 'controls', 'loop', 'muted', 'autoplay'],
             video:['src', 'controls', 'width', 'height', 'loop', 'muted', 'autoplay', 'poster'],
-            source: ['src', 'type']
+            source: ['src', 'type'],
+            'bv-player':['bv'],
         }
     };
 
@@ -91,7 +94,13 @@ function CommentForm(props) {
                                                                                                      p: 'span',
                                                                                                      img: ({node, ...props}) => <img {...props} className="inline-block" />,
                                                                                                      audio: ({node, ...props}) => <audio {...props} className="inline-block h-8" />,
-                                                                                                     ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />
+                                                                                                     ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />,
+                                                                                                     "bili-dynamic-card": ({ node, ...props }) => {
+                                                                                                         return <DynamicCard OID={props.OID}></DynamicCard>;
+                                                                                                     },
+                                                                                                     "bv-player": ({ node, ...props }) => {
+                                                                                                         return <BVPlayer bv={props.bv}></BVPlayer>
+                                                                                                     }
                                                                                                  }}
                                         >{item.Text}</Markdown>}</p>}
                                         {item.Session !== '' && <Button isIconOnly startContent={<DelectIcon/>} onClick={() => {

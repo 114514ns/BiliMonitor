@@ -51,6 +51,14 @@ function LiveDetailPage(props) {
     const [stream, setStream] = useState('');
     useEffect(() => {
         refreshData(currentPage, pageSize)
+        setTimeout(() => {
+            if (highLight !== '') {
+                const element = document.getElementById(highLight);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth',block:'center' });
+                }
+            }
+        },1000)
     }, [])
     const p = parseInt(params.get("page"))
     const [currentPage, setCurrentPage] = useState(isNaN(p) ? 1 : p)
@@ -240,14 +248,14 @@ function LiveDetailPage(props) {
 
     return (
         <div>
-            {showOnline && <OnlineChart id={id} onClose={() => {
+            {!!showOnline && <OnlineChart id={id} onClose={() => {
                 setShowOnline(false)
             }} />}
-            {showMinuteChart &&                          <LiveMessageChart data={msgData} onClose={() => {
+            {!!showMinuteChart &&                          <LiveMessageChart data={msgData} onClose={() => {
             setShowMinuteChart(false)
         }} id={id}/>}
-            {liveInfo && liveInfo.EndAt && liveInfo.EndAt !== 0 && <PlayBackForm items={playBack} id={id}/>}
-            <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md overflow-scroll dark:bg-black  ">
+            {!!(liveInfo && liveInfo.EndAt && liveInfo.EndAt !== 0 )&& <PlayBackForm items={playBack} id={id}/>}
+            <div className="flex  space-x-4 rounded-2xl bg-white p-4 shadow-md overflow-scroll dark:bg-black  scrollbar-hide">
                 <div className="flex-1 space-y-2">
                     <h2 className="text-xl font-bold">{liveInfo.Title}</h2>
                     <div className="grid  grid-cols-1 sm:grid-cols-3 gap-2 text-sm ">
@@ -321,10 +329,7 @@ function LiveDetailPage(props) {
                     isClearable
                     onClear={() => setOrder('')}
                     className="max-w-xs mt-4 mb-4 ml-4 sm:ml-0"
-                    items={[{
-                        key: 'ascend',
-                        value: "Ascend"
-                    },
+                    items={[
                     {
                         key: 'descend',
                         value: "Descend"
@@ -335,7 +340,7 @@ function LiveDetailPage(props) {
                         value: "Time"
                     }
                     ]}
-                    label="Sort by"
+                    label="Sort By"
                     onSelectionChange={e => {
                         console.log(e)
                         setOrder(e.currentKey)
@@ -365,7 +370,7 @@ function LiveDetailPage(props) {
                         value: "SuperChat"
                     }
                     ]}
-                    label="Filter by"
+                    label="Filter"
                     onSelectionChange={e => {
                         console.log(e)
                         setFilter(e.currentKey)
@@ -392,7 +397,7 @@ function LiveDetailPage(props) {
                     setUser={() => setOrder('')}
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={user}
-                    label="Search Watcher"
+                    label="Liver"
                     onSelectionChange={e => {
                         setMid(e)
                     }}
@@ -429,7 +434,12 @@ function LiveDetailPage(props) {
                 </div>
             }
                    isStriped
-                   className={(showMinuteChart || showOnline || showPlayBack)?'':'min-w-[800px] '}
+                   classNames={{
+                       // wrapper 是表格的外部卡片容器，开启横向滚动
+                       wrapper: "max-w-full overflow-x-auto",
+                       // table 是实际的 <table> 标签，给一个最小宽度（根据你其他列的宽度估算一个值，比如 600px）
+                       table: "min-w-[600px]"
+                   }}
             >
 
                 <TableHeader>
@@ -444,8 +454,8 @@ function LiveDetailPage(props) {
                         <TableRow key={index} onClick={() => {
 
                         }}>
-                            <TableCell>
-                                <NavLink className={'flex sm:flex-row items-center'} to={"/user/" + item.FromId}>
+                            <TableCell className={`whitespace-nowrap min-w-[${250+((item.FromName).length-4)*12}px]`}>
+                                <NavLink className={'flex sm:flex-row items-center '} to={"/user/" + item.FromId}>
                                     <img
                                         className={'w-[40px] h-[40px] rounded-full mr-2'}
                                         src={`${AVATAR_API}${item.FromId}`}
@@ -473,11 +483,15 @@ function LiveDetailPage(props) {
                                 </NavLink>
                             </TableCell>
                             {/*<TableCell>{item.Liver}</TableCell>*/}
-                            <TableCell>{item.CreatedAt}</TableCell>
+                            <TableCell className={'whitespace-nowrap'}>{new Date(item.CreatedAt).toLocaleTimeString()}</TableCell>
                             <TableCell className={
                                 (item.ActionName !== "msg" ? "font-bold" : "") +
-                                (item.ID == highLight ? "bg-yellow-200" : "")
-                            }>{item.Extra}{item.ActionName !== "msg" && <span>*{item.GiftAmount.Int16 || ''}  ￥{item.GiftPrice}</span>}</TableCell>
+                                (item.ID === parseInt(highLight )? "bg-yellow-200" : "") + ' whitespace-nowrap'
+                            }>
+                                <div id={item.ID}>
+                                    {item.Extra}{item.ActionName !== "msg" && <span>*{item.GiftAmount.Int16 || ''}  ￥{item.GiftPrice}</span>}
+                                </div>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

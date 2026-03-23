@@ -326,6 +326,8 @@ var guardWorker = NewWorker(1)
 
 var guardWorkerMap = make(map[int64]time.Time)
 
+var validMap sync.Map
+
 func TraceArea(parent int, full bool) {
 	log.Println("begin TraceArea")
 	var lock sync.Mutex
@@ -370,51 +372,54 @@ func TraceArea(parent int, full bool) {
 			log.Println(res.String())
 		}
 		go func() {
-			var sum = 0
-			for _, node := range man.Nodes {
-				sum += len(node.Tasks)
-			}
-			for _, s2 := range obj.Data.List {
-				if sum <= MAX_TASK*len(man.Nodes) {
-					o := AreaLiver{}
-					db.Model(&AreaLiver{}).Where("uid = ?", s2.UID).Last(&o)
-					var fans = o.Fans
-					if fans == 0 {
-						user := FetchUser(strconv.FormatInt(s2.UID, 10), nil)
-						fans = user.Fans
-					}
-					var hour = time.Now().Hour()
-					var guards = 0
-					for _, i := range strings.Split(o.Guard, ",") {
-						guards += int(toInt64(i))
-					}
-					//必须先满足舰长数量大于1
-					//白天2500粉丝以上被爬取.2舰长以上被爬取，晚上4000粉以上，10舰长以上
-					if fans > 3000 && guards >= 2 { //大于3000粉丝
-						if hour >= 20 { //晚上需要10舰长
-
-							if guards >= 10 {
-								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
-							}
-						} else {
-							m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)}) //白天只要满足上面的要求即可
+			if config.ScheduleTask && config.Mode == "Master" {
+				var sum = 0
+				for _, node := range man.Nodes {
+					sum += len(node.Tasks)
+				}
+				for _, s2 := range obj.Data.List {
+					if sum <= MAX_TASK*len(man.Nodes) {
+						o := AreaLiver{}
+						db.Model(&AreaLiver{}).Select("guard,fans").Where("uid = ?", s2.UID).Last(&o)
+						var fans = o.Fans
+						if fans == 0 {
+							user := FetchUser(strconv.FormatInt(s2.UID, 10), nil)
+							fans = user.Fans
 						}
+						var hour = time.Now().Hour()
+						var guards = 0
+						for _, i := range strings.Split(o.Guard, ",") {
+							guards += int(toInt64(i))
+						}
+						//必须先满足舰长数量大于1
+						//白天2500粉丝以上被爬取.2舰长以上被爬取，晚上4000粉以上，10舰长以上
+						if fans > 3000 && guards >= 2 { //大于3000粉丝
+							validMap.Store(s2.UID, 0)
+							if hour >= 20 { //晚上需要10舰长
 
-					} else {
-						if hour >= 1 && hour <= 17 {
-							if fans > 1000 && guards >= 2 { //白天，1000粉以上，2个舰长以上
-								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
+								if guards >= 10 {
+									m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
+								}
+							} else {
+								m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)}) //白天只要满足上面的要求即可
+							}
+
+						} else {
+							if hour >= 1 && hour <= 17 {
+								if fans > 1000 && guards >= 2 { //白天，1000粉以上，2个舰长以上
+									m = append(m, SortInfo{Room: strconv.Itoa(s2.Room)})
+								}
 							}
 						}
 					}
 				}
-			}
-			for _, info := range m {
-				man.AddTask(info.Room)
+				for _, info := range m {
+					man.AddTask(info.Room)
+				}
 			}
 		}()
 
-		if full {
+		if full && config.RecordLiverInfo && config.Mode == "Master" {
 			for _, s2 := range obj.Data.List {
 				t, ok := guardWorkerMap[s2.UID]
 				if !ok || time.Since(t).Hours() > 12 {
@@ -691,7 +696,7 @@ func TraceLive(roomId string) {
 	}()
 
 	var WS_HEADER = http.Header{}
-	WS_HEADER.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+	WS_HEADER.Add("User-Agent", randomUserAgent())
 	WS_HEADER.Add("Origin", "https://live.bilibili.com")
 	var roomUrl = "https://api.live.bilibili.com/room/v1/Room/get_info?room_id=" + roomId
 	var rRes, _ = client.R().Get(roomUrl)
@@ -901,6 +906,7 @@ func TraceLive(roomId string) {
 				action.LiveRoom, _ = strconv.Atoi(roomId)
 				action.GiftPrice = sql.NullFloat64{Float64: 0, Valid: false}
 				action.GiftAmount = sql.NullInt16{Int16: 0, Valid: false}
+				action.CreatedAt = time.Now()
 				var text = LiveText{}
 				sonic.Unmarshal(msgData, &text)
 				var front = FrontLiveAction{}
@@ -1106,10 +1112,8 @@ func TraceLive(roomId string) {
 
 			}
 			if !strings.Contains(msg, "[object") {
-
 				//log.Printf("Received: %s", substr(msg, 16, len(msg)))
 			}
-
 		}
 	}, 5, time.Second*10)
 

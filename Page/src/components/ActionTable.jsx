@@ -86,11 +86,14 @@ function ActionTable(props) {
                         }}
                     />
                 </div>
-            } isStriped ref={tableRef}>
+            } isStriped ref={tableRef} classNames={{
+                wrapper: "max-w-full overflow-x-auto",
+                table: "min-w-[600px]"
+            }}>
 
                 <TableHeader>
                     {columns.map((col, index) => (
-                        <TableColumn key={index}>{col.title}</TableColumn>
+                        <TableColumn key={index} className={''}>{col.title}</TableColumn>
 
                     ))}
                 </TableHeader>
@@ -101,7 +104,7 @@ function ActionTable(props) {
 
                         }}>
                             <TableCell>
-                                <div className={'hover:text-gray-500 flex items-center'} onClick={() => {
+                                <div className={'hover:text-gray-500 flex items-center whitespace-nowrap min-w-[250px]'} onClick={() => {
                                     toSpace(item.FromId)
                                 }}>
                                     {item.FromName}
@@ -122,7 +125,7 @@ function ActionTable(props) {
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <NavLink className={'flex hover:text-gray-500'} to={"/liver/" + item.UserID}>
+                                <NavLink className={'flex hover:text-gray-500 whitespace-nowrap'} to={"/liver/" + item.UserID}>
                                     {!isMobile() && <Avatar
                                         className={'w-[40px] h-[40px]'}
                                         src={`${AVATAR_API}${item.UserID}`}
@@ -139,7 +142,7 @@ function ActionTable(props) {
                                     redirect(`/lives/${item.Live}?page=${response.data.page}&highLight=${item.ID}`);
                                 });
                             }}>
-                                <div className={'transition-transform hover:text-gray-500'}>
+                                <div className={'transition-transform hover:text-gray-500 whitespace-nowrap'}>
                                     <Tooltip content={'点击跳转'} placement='left'>
                                         <span>
                                             {item.GiftName || item.Extra}

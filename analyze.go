@@ -368,3 +368,33 @@ func TotalMessage() int64 {
 
 var cachedLivers = make([]FrontAreaLiver, 0)
 var liverMap = make(map[int64]FrontAreaLiver)
+
+var cachedHighLight = make(map[string][]LiveActionWithUser)
+
+type LiveActionWithUser struct {
+	LiveAction
+	UserName string
+	UserID   int64
+}
+
+func RefreshHighLight() {
+	for _, i := range config.HighLight {
+
+		tx := db.Model(&LiveAction{}).
+			Select("live_actions.*, lives.user_name,lives.user_id").
+			Joins("LEFT JOIN lives ON lives.id = live_actions.live").
+			Where("live_actions.action_type = 1")
+
+		if i.Room != 0 {
+			tx = tx.Where("live_actions.live_room = ?", i.Room)
+		}
+
+		var tmp []LiveActionWithUser
+		tx.Where("live_actions.extra like ?", "%"+i.Keyword+"%").
+			Order("live_actions.id desc").
+			Limit(100).
+			Scan(&tmp)
+		cachedHighLight[i.Keyword] = tmp
+
+	}
+}

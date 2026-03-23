@@ -21,6 +21,7 @@ import {AnimatePresence, motion} from "framer-motion";
 import {FansChart, GuardChart} from "../components/LineChart";
 import DynamicCard from "../components/DynamicCard";
 import HoverBioHistory from "../components/HoverBioHistory";
+import MysteryBoxStatistic from "../components/MysteryBoxStatistic";
 
 function calcValid(array) {
     var count = 0
@@ -124,7 +125,7 @@ function LiverPage(props) {
             setLives(response.data.lives);
         })
 
-        axios.get("/api/dynamics/count?mid=" + id).then((response) => {
+        axios.get("/api/liver/dynamics/count?mid=" + id).then((response) => {
             setDynCount(response.data.count)
         })
     }, [noDM, month])
@@ -153,25 +154,30 @@ function LiverPage(props) {
 
     const DYN_SIZE = 50
 
+    const [showBox,setShowBox]=useState(false)
+
 
     return (
         <div>
+            <MysteryBoxStatistic type={'liver'} uid={id} isOpen={showBox} onClose={()=>{
+                setShowBox(false)
+            }}/>
             <Modal isOpen={open} onOpenChange={() => {
                 if (open === true) {
                     setInspectMode(false);
                     setLoad(false)
                 }
                 setOpen(!open)
-            }} className={` grid transition-[grid-template-rows] duration-300 ease-out ${
-                diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] h-[70vh]'
-            }`}>
+            }} className={`  grid transition-[grid-template-rows] duration-300 ease-out ${
+                diffMode ? 'grid-rows-[1fr]' : 'grid-rows-[0fr] h-[75vh]'
+            }`} scrollBehavior={'inside'}>
                 <ModalContent>
-                    <ModalHeader className="flex flex-col gap-1">
+                    <ModalHeader className="flex flex-col gap-1 ">
                         <span>{guardTime}</span>
                         {inspectMode && load && <span>{inspectMode && `${calcValid(guard)} / ${guard.length}`}</span>}
                     </ModalHeader>
                     <ModalBody>
-                        <div>
+                        <div className={'scrollbar-hide'}>
                             <div className={'flex flex-col'}>
                                 <Switch isSelected={diffMode} onValueChange={(e => {
                                     setDiffMode(e)
@@ -238,7 +244,7 @@ function LiverPage(props) {
                         <div ref={listRef}>
                             {dynList.slice((dynPage - 1) * DYN_SIZE, dynPage * DYN_SIZE).map((item, i) => {
                                 return (
-                                    <DynamicCard item={item} key={i} onClick={() => {
+                                    <DynamicCard item={item} key={item.OID || item.ID} onClick={() => {
                                         window.open("https://t.bilibili.com/" + item.IDStr)
                                     }}/>
                                 )
@@ -316,7 +322,7 @@ function LiverPage(props) {
                     onClick={() => {
                         setShowDyn(true)
                         const start = new Date().getTime()
-                        axios.get("/api/dynamics?mid=" + id).then(res => {
+                        axios.get("/api/liver/dynamics?mid=" + id).then(res => {
                             console.log(new Date().getTime() - start);
                             var array = res.data.data
                             var m = new Map()
@@ -344,12 +350,14 @@ function LiverPage(props) {
                         })
                     }}
                     className="rounded-xl bg-blue-50 dark:bg-[#18181b] p-2 transition-transform duration-200 hover:scale-102 hover:shadow-lg ">动态<br/>
-                    <span className="font-semibold">{parseInt(dynCount).toLocaleString()}</span>
+                    <span className="font-semibold">{parseInt(space.DynCount).toLocaleString()}</span>
                 </div>
                 <div className="rounded-xl bg-yellow-50 dark:bg-[#18181b] p-2 transition-transform duration-200" onMouseEnter={() => {
                     setShowAmount(true)
                 }} onMouseLeave={() => {
                     setShowAmount(false)
+                }} onClick={() => {
+                    setShowBox(true)
                 }}>
                     30日内流水<br/>
                     <Tooltip

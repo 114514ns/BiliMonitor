@@ -64,12 +64,22 @@ func (man *SlaverManager) AddTask(task string) {
 	target.Tasks = append(target.Tasks, task)
 
 	go func(addr string) {
-		res, err := localClient.R().
-			Get(addr + "/trace?room=" + task)
+		var RETRY = 20
+		for {
+			res, err := localClient.R().
+				Get(addr + "/trace?room=" + task)
 
-		log.Printf("[%s]  responsed with  %d", task, res.StatusCode())
-		if err != nil && man.OnErr != nil {
-			man.OnErr([]string{task})
+			log.Printf("[%s]  responsed with  %d", task, res.StatusCode())
+			if err != nil && man.OnErr != nil {
+				man.OnErr([]string{task})
+				RETRY--
+			} else {
+				break
+			}
+			time.Sleep(time.Second * 3)
+			if RETRY <= 0 {
+				break
+			}
 		}
 	}(target.Address)
 }

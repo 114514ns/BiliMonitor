@@ -862,6 +862,9 @@ ORDER BY t.updated_at DESC, t.id DESC
 		if typo == "guard" {
 			typeQuery = "and action_name = 'guard'"
 		}
+		if typo == "box" {
+			typeQuery = "and action_type = 2 and extra like '%盲盒%' "
+		}
 		if room != "" {
 			typeQuery = typeQuery + "and live_room =  '" + room + "'"
 		}
@@ -1284,7 +1287,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 		var l AreaLiver
 		var wg sync.WaitGroup
 		var medal = ""
-		wg.Add(5)
+		wg.Add(6)
 		go func() {
 
 			db.Raw("select u_name,fans,guard,updated_at,area from area_livers where uid = ?  order by id desc", mid).Scan(&l)
@@ -1306,26 +1309,44 @@ ORDER BY t.updated_at DESC, t.id DESC
 
 			var dst []Live
 			db.Raw("SELECT * FROM lives WHERE user_id = ? and created_at >= (NOW() + INTERVAL 8 HOUR) - INTERVAL 720 HOUR", mid).Scan(&dst)
-			var wgInner sync.WaitGroup
-			wgInner.Add(len(dst))
-			var m1 sync.Mutex
-			for _, live := range dst {
-				go func() {
-					var t = live.Money
-					var sub = 0.0
-					db.Raw("select sum(gift_price) from live_actions where live = ? and action_type = 3", live.ID).Scan(&sub)
-					m1.Lock()
-					sum = t - sub + sum
-					m1.Unlock()
-					wgInner.Done()
-				}()
-			}
-			wgInner.Wait()
+
+			var guardM = 0.0
+			db.Raw("select sum(guard_money) from lives where id in ?", lo.Map(dst, func(item Live, index int) int {
+				return int(item.ID)
+			})).Scan(&guardM)
+
+			var liveAmount = 0.0
+			db.Raw("select sum(money) from lives where id in ?", lo.Map(dst, func(item Live, index int) int {
+				return int(item.ID)
+			})).Scan(&liveAmount)
+
+			sum = liveAmount - guardM
+
+			/*
+				for _, live := range dst {
+					go func() {
+						var t = live.Money
+						var sub = 0.0
+						db.Raw("select sum(gift_price) from live_actions where live = ? and action_type = 3", live.ID).Scan(&sub)
+						m1.Lock()
+						sum = t - sub + sum
+						m1.Unlock()
+						wgInner.Done()
+					}()
+				}
+
+			*/
+
 			wg.Done()
 		}()
 		var charge = ""
 		go func() {
 			db.Raw("select charge from area_livers where uid = ? order by id desc limit 1", mid).Scan(&charge)
+			wg.Done()
+		}()
+		var dynCount = 0
+		go func() {
+			db.Raw("select count(*) from dynamics where uid = ?", mid).Scan(&dynCount)
 			wg.Done()
 		}()
 		wg.Wait()
@@ -1346,17 +1367,18 @@ ORDER BY t.updated_at DESC, t.id DESC
 		}
 
 		context.JSON(http.StatusOK, gin.H{
-			"message": "ok",
-			"UName":   l.UName,
-			"Fans":    user.Fans,
-			"Guard":   l.Guard,
-			"Time":    l.UpdatedAt,
-			"Area":    l.Area,
-			"Bio":     user.Bio,
-			"Verify":  user.Verify,
-			"Medal":   medal,
-			"Amount":  sum,
-			"Charge":  charge,
+			"message":  "ok",
+			"UName":    l.UName,
+			"Fans":     user.Fans,
+			"Guard":    l.Guard,
+			"Time":     l.UpdatedAt,
+			"Area":     l.Area,
+			"Bio":      user.Bio,
+			"Verify":   user.Verify,
+			"Medal":    medal,
+			"Amount":   sum,
+			"Charge":   charge,
+			"DynCount": dynCount,
 		})
 	})
 	r.GET("/queryPage", func(context *gin.Context) {
@@ -1560,7 +1582,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 				if count > 30 {
 					break
 				}
-				if strings.Contains(liver.UName, key) {
+				if strings.Contains(strings.ToLower(liver.UName), strings.ToLower(key)) {
 					count++
 					dst = append(dst, Response{
 						UName:    liver.UName,
@@ -1600,7 +1622,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 				if count > 30 {
 					break
 				}
-				if strings.Contains(club.UName, key) {
+				if strings.Contains(strings.ToLower(club.UName), strings.ToLower(key)) {
 					count++
 					dst = append(dst, Response{
 						UName:      club.UName,
@@ -1661,11 +1683,18 @@ ORDER BY t.updated_at DESC, t.id DESC
 
 		if room != "" {
 			query += " AND la.live_room = ?"
+
 			args = append(args, room)
 		}
 		if typo != "" {
 			query += " AND la.action_type = ?"
-			args = append(args, typo)
+			if typo != "5" {
+				args = append(args, typo)
+			} else {
+				args = append(args, "2 ")
+				query += " and gift_price >1 and extra like '%盲盒%'"
+			}
+
 		}
 
 		// 添加排序
@@ -1771,7 +1800,13 @@ ORDER BY t.updated_at DESC, t.id DESC
 				}
 				if typo != "" {
 					countQuery += " AND action_type = ?"
-					countArgs = append(countArgs, typo)
+					if typo != "5" {
+						countArgs = append(countArgs, typo)
+					} else {
+						countArgs = append(countArgs, 2)
+						countQuery = countQuery + " and extra like '%盲盒%'"
+					}
+
 				}
 
 				ctx, cancel := context.WithTimeout(rootCtx, CountTimeout)
@@ -1841,6 +1876,21 @@ ORDER BY t.updated_at DESC, t.id DESC
 			"data": dst,
 		})
 	})
+	type ActionItemResponse struct {
+		UName      string
+		UID        int64
+		TargetID   int64
+		OID        string
+		Text       string
+		CreatedAt  time.Time
+		Title      string
+		Type       string
+		TargetName string
+		Images     string
+		Like       int
+		Comments   int
+		BV         string
+	}
 	r.GET("/reaction", func(c *gin.Context) {
 		var midStr = c.Query("mid")
 		var id = int(toInt64(midStr))
@@ -1854,22 +1904,6 @@ ORDER BY t.updated_at DESC, t.id DESC
 		}
 		if size == 0 {
 			size = 3000
-		}
-
-		type ActionItemResponse struct {
-			UName      string
-			UID        int64
-			TargetID   int64
-			OID        string
-			Text       string
-			CreatedAt  time.Time
-			Title      string
-			Type       string
-			TargetName string
-			Images     string
-			Like       int
-			Comments   int
-			BV         string
 		}
 
 		type Dynamic struct {
@@ -1888,7 +1922,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 
 		if id >= 1 {
 			var dst []bili.ActionItem
-			clickDb.Raw("select * from action_items where uid = ?  limit ? offset ?", id, size, (size * (page - 1))).Scan(&dst)
+			clickDb.Raw("select * from action_items where uid = ?  limit ? offset ?", id, size, size*(page-1)).Scan(&dst)
 			var m0 = make(map[int64][]int64)
 			seen := make(map[int64]bool)
 			var result []bili.ActionItem
@@ -1982,7 +2016,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 			Guild          string
 		}
 		if month == 0 {
-			month = int((time.Now().Month()))
+			month = int(time.Now().Month())
 		}
 		var dst []Scanned
 		if guild == 0 {
@@ -2034,7 +2068,7 @@ ORDER BY money DESC;
 
 `, guild, month)).Scan(&dst)
 		}
-		for i, _ := range dst {
+		for i := range dst {
 			dst[i].Money = math.Round(dst[i].Money*100) / 100
 			dst[i].Hours = math.Round(dst[i].Hours*100) / 100
 			dst[i].BoxDiff = math.Round(dst[i].BoxDiff*100) / 100
@@ -2111,7 +2145,7 @@ ORDER BY money DESC;
 
 		var dst []ProvinceResponse
 		db.Raw("select * from locations where location = ?", province).Scan(&dst)
-		for i, _ := range dst {
+		for i := range dst {
 			dst[i].Fans = liverMap[dst[i].UID].Fans
 			dst[i].Name = liverMap[dst[i].UID].UName
 		}
@@ -2164,7 +2198,7 @@ ORDER BY money DESC;
 		})
 	})
 
-	r.GET("/dynamics", func(c *gin.Context) {
+	r.GET("/liver/dynamics", func(c *gin.Context) {
 		var midStr = c.Query("mid")
 		var mid = toInt64(midStr)
 
@@ -2207,22 +2241,49 @@ ORDER BY money DESC;
 			"data": d,
 		})
 	})
-	r.GET("/dynamics/count", func(c *gin.Context) {
-		var midStr = c.Query("mid")
-		var mid = toInt64(midStr)
-
-		if mid <= 0 {
+	r.GET("/dynamics", func(c *gin.Context) {
+		type Dynamic struct {
+			Top         bool
+			UName       string
+			UID         int64
+			Face        string
+			Images      string
+			Type        string
+			Title       string
+			Text        string
+			ID          int64
+			BV          string
+			Comments    int
+			Like        int
+			Forward     int
+			CommentID   int64
+			CommentType int
+			CreateAt    time.Time
+			ForwardFrom int64
+			RawResponse string
+			Forwarded   bool
+			IDStr       string
+		}
+		var mid = c.Query("mid")
+		if toInt64(mid) <= 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"msg": "invalid mid",
+				"msg": "bad params",
 			})
 			return
 		}
-
-		var count = 0
-		db.Raw("select count(*) from dynamics where uid = ? ", mid).Scan(&count)
-		c.JSON(http.StatusOK, gin.H{
-			"count": count,
+		var dst []Dynamic
+		clickDb.Raw("select * from dynamics where uid = ? order by id desc limit 6000", toInt64(mid)).Scan(&dst)
+		sort.Slice(dst, func(i, j int) bool {
+			return time.Since(dst[i].CreateAt).Seconds() < time.Since(dst[j].CreateAt).Seconds()
 		})
+		for i := range dst {
+			dst[i].IDStr = toString(dst[i].ID)
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": dst,
+		})
+
 	})
 
 	r.POST("/comments/delete", func(c *gin.Context) {
@@ -2595,7 +2656,7 @@ ORDER BY money DESC;
 					Text:      item.Text,
 					Sender:    o.Data,
 					CreatedAt: time.Unix(toInt64(strings.Split(item.P, ",")[4]), 0),
-					Offset:    int((toFloat64(strings.Split(item.P, ",")[0]))),
+					Offset:    int(toFloat64(strings.Split(item.P, ",")[0])),
 				})
 				lck.Unlock()
 
@@ -2848,12 +2909,75 @@ ORDER BY money DESC;
 		})
 
 	})
+	r.GET("/relation/follow", func(c *gin.Context) {
+		var midStr = c.Query("mid")
+		var SIZE = 40
+		if toInt64(midStr) <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+		var page = toInt(c.Query("page"))
+		if page <= 0 {
+			page = 1
+		}
+		res, _ := client.R().Get("https://vc.ikun.dev/feed/v1/feed/get_attention_list?uid=" + toString(toInt64(c.Query("mid"))))
+		var obj map[string]interface{}
+		json.Unmarshal(res.Body(), &obj)
+
+		var ids0 = getArray(obj, "data.list")[SIZE*(page-1) : SIZE*page]
+
+		var ids []int64
+		for i := range ids0 {
+			if ids0[i] != nil {
+				ids = append(ids, int64(ids0[i].(float64)))
+			}
+
+		}
+
+		maps := biliClient.BatchGetFace(ids)
+
+		var users []bili.User
+
+		clickDb.Raw("select uid,bio from users where uid in (?)", ids).Scan(&users)
+
+		for i := range maps {
+
+			for j := range users {
+				if maps[i].UID == users[j].UID {
+					maps[j].Bio = users[j].Bio
+					break
+				}
+			}
+		}
+		resultMap := map[int64]bili.User{}
+		for _, row := range users {
+			for j := range maps {
+				if row.UID == maps[j].UID {
+					row.UName = maps[j].UName
+					row.Face = maps[j].Face
+					break
+				}
+			}
+			resultMap[row.UID] = row
+		}
+		var results []bili.User
+		for _, uid := range ids {
+			results = append(results, resultMap[uid])
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": results,
+		})
+
+	})
 	r.GET("/relation/fans", func(c *gin.Context) {
 		type User struct {
 			UID   int64
 			UName string
 			Fans  int
 			Bio   string
+			Face  string
 		}
 		var midStr = c.Query("mid")
 		var dst []User
@@ -2871,7 +2995,7 @@ ORDER BY money DESC;
 				Bio:   i.Bio,
 			}
 		}
-		for i, _ := range dst {
+		for i := range dst {
 			dst[i].UName = nameMap[dst[i].UID].UName
 			dst[i].Bio = nameMap[dst[i].UID].Bio
 		}
@@ -2879,47 +3003,31 @@ ORDER BY money DESC;
 		sort.Slice(dst, func(i, j int) bool {
 			return dst[i].Fans > dst[j].Fans
 		})
+		var m = make(map[int64]bili.FaceMap)
+		var wg sync.WaitGroup
+		var mutex sync.Mutex
+		for _, i := range lo.Chunk(dst, 50) {
+			wg.Add(1)
+			go func() {
+
+				var array = biliClient.BatchGetFace(lo.Map(i, func(item User, index int) int64 {
+					return item.UID
+				}))
+				mutex.Lock()
+				for _, i2 := range array {
+					m[i2.UID] = i2
+				}
+				mutex.Unlock()
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+		for i := range dst {
+			dst[i].Face = m[dst[i].UID].Face
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"data": dst,
 		})
-	})
-
-	r.GET("/relations/amount", func(c *gin.Context) {
-		relationMutex.Lock()
-		c.JSON(http.StatusOK, gin.H{
-			"amount": relationAmount,
-		})
-		relationMutex.Unlock()
-	})
-
-	r.POST("/relations/amount/add", func(c *gin.Context) {
-
-		if c.RemoteIP() == "127.0.0.1" {
-			relationMutex.Lock()
-			relationAmount++
-			relationMutex.Unlock()
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "ok",
-			})
-		}
-	})
-
-	r.GET("/relations/fans", func(c *gin.Context) {
-		var uid = c.Query("uid")
-		relationMutex.Lock()
-		if relationAmount <= 0 {
-			c.JSON(http.StatusOK, gin.H{
-				"msg": "no amount available",
-			})
-			relationMutex.Unlock()
-			return
-		}
-		relationAmount--
-		relationMutex.Unlock()
-		res, _ := localClient.R().Get("http://127.0.0.1:" + toString(int64(config.Port)) + "/relation/fans?mid=" + uid)
-		var obj map[string]interface{}
-		json.Unmarshal(res.Body(), &obj)
-		c.JSON(http.StatusOK, obj)
 	})
 
 	r.GET("/history/room", func(c *gin.Context) {
@@ -2931,7 +3039,7 @@ ORDER BY money DESC;
 			})
 			return
 		}
-		var dst []LiveAction = make([]LiveAction, 0)
+		var dst = make([]LiveAction, 0)
 		var id int
 		db.Raw("select id from lives where room_id = ?", room).Scan(&id)
 		if id > 0 {
@@ -3058,7 +3166,7 @@ SELECT extra, gift_amount, gift_price
 			Money   float64
 			Livers  []Liver
 		}
-		var blockDst []Block = make([]Block, 168)
+		var blockDst = make([]Block, 168)
 		db.Raw(`
 select 
     live_actions.created_at,
@@ -3191,6 +3299,163 @@ where
 			Text:      content,
 			CreatedAt: time.Now(),
 		})
+	})
+
+	r.GET("/dynamic", func(c *gin.Context) {
+		var oid = toInt64(c.Query("oid"))
+		if oid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data": biliClient.GetDynamicByOID(oid),
+		})
+	})
+
+	r.GET("/highlight", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"data": cachedHighLight,
+		})
+	})
+
+	type ExtendLiveAction struct {
+		LiveAction
+		UserID   int64
+		UserName string
+	}
+	type MysteryBoxInfo struct {
+		LiverUID   int64
+		LiverName  string
+		UID        int64
+		UName      string
+		Spend      float64
+		Got        float64
+		ReturnRate float64
+		Count      int
+		Items      []ExtendLiveAction
+	}
+
+	r.GET("/box/liver", func(c *gin.Context) {
+		var uid = toInt64(c.Query("uid"))
+		if uid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		var room = 0
+		db.Raw("select room_id from lives where user_id = ?", uid).Scan(&room)
+
+		if room <= 0 {
+			c.JSON(http.StatusOK, gin.H{
+				"data": []MysteryBoxInfo{},
+			})
+			return
+		}
+
+		var dst []ExtendLiveAction
+		db.Raw("select live_actions.gift_amount,from_id,gift_price,extra,live_room,lives.user_name,lives.user_id,from_name from live_actions,lives where gift_price >1 and lives.id = live_actions.live and live_room = ? and action_type = 2 and extra != '' and extra like '%盲盒%'", room).Scan(&dst)
+
+		var m = make(map[int64]MysteryBoxInfo)
+
+		var m0 = make(map[int64][]ExtendLiveAction)
+
+		for _, i := range dst {
+			m0[i.FromId] = append(m0[i.FromId], i)
+		}
+
+		for k, v := range m0 {
+			var spend = 0.0
+			var got = 0.0
+			var count = 0
+			for _, i := range v {
+				got = got + i.GiftPrice.Float64
+				split := strings.Split(i.Extra, ",")
+				spend = spend + toFloat64(split[1])*float64(i.GiftAmount.Int16)
+				count = count + int(i.GiftAmount.Int16)
+			}
+
+			m[k] = MysteryBoxInfo{
+				Spend:      spend,
+				Got:        got,
+				ReturnRate: got / spend,
+				UID:        v[0].FromId,
+				UName:      v[len(v)-1].FromName,
+				LiverUID:   v[0].UserID,
+				LiverName:  v[len(v)-1].UserName,
+				Count:      count,
+				Items:      v,
+			}
+		}
+
+		/*	sort.Slice(m, func(i, j int) bool {
+			return m[i].ReturnRate > m[j].ReturnRate
+		})*/
+		var flat = lo.MapToSlice(m, func(key int64, value MysteryBoxInfo) MysteryBoxInfo {
+			return value
+		})
+		sort.Slice(flat, func(i, j int) bool {
+			return flat[i].ReturnRate > flat[j].ReturnRate
+		})
+		c.JSON(http.StatusOK, gin.H{
+			"data": flat,
+		})
+
+	})
+
+	r.GET("/box/user", func(c *gin.Context) {
+		var uid = toInt64(c.Query("uid"))
+		if uid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+
+		var dst []ExtendLiveAction
+		db.Raw("select live_actions.gift_amount,from_id,gift_price,extra,live_room,lives.user_name,lives.user_id,from_name from live_actions,lives where lives.id = live_actions.live and from_id = ? and action_type = 2 and extra like '%盲盒%'", uid).Scan(&dst)
+
+		var m = make(map[int]MysteryBoxInfo)
+
+		var m0 = make(map[int][]ExtendLiveAction)
+
+		for _, i := range dst {
+			m0[i.LiveRoom] = append(m0[i.LiveRoom], i)
+		}
+
+		for k, v := range m0 {
+			var spend = 0.0
+			var got = 0.0
+			var count = 0
+			for _, i := range v {
+				got = got + i.GiftPrice.Float64
+				split := strings.Split(i.Extra, ",")
+				spend = spend + toFloat64(split[1])*float64(i.GiftAmount.Int16)
+				count = count + int(i.GiftAmount.Int16)
+			}
+
+			m[k] = MysteryBoxInfo{
+				Spend:      spend,
+				Got:        got,
+				ReturnRate: got / spend,
+				UID:        uid,
+				UName:      v[len(v)-1].FromName,
+				LiverUID:   v[0].UserID,
+				LiverName:  v[len(v)-1].UserName,
+				Count:      count,
+				Items:      v,
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": lo.MapToSlice(m, func(key int, value MysteryBoxInfo) MysteryBoxInfo {
+				return value
+			}),
+		})
+
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }

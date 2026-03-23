@@ -27,6 +27,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jhump/protoreflect/desc"
 	"github.com/jinzhu/copier"
+	"github.com/nsqio/go-nsq"
 	"github.com/resend/resend-go/v2"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/net/html"
@@ -100,6 +101,17 @@ type Config struct {
 	ClickServer             string
 	BlackAreaLiver          []int64
 	PlaybackRepositories    map[string]PlaybackRepository
+	NSQServer               string
+	RecordLiverInfo         bool
+	ScheduleTask            bool
+	HighLight               []HighLight
+	Role                    string
+}
+
+type HighLight struct {
+	Room    int
+	Keyword string
+	Limit   int
 }
 
 type User struct {
@@ -498,6 +510,9 @@ func main() {
 var lastInsert int64 = 0
 var lastInsertCount = 0
 var INTERACT_WORD_MSG *desc.MessageDescriptor
+var SEND_GIFT_V2 *desc.MessageDescriptor
+
+var productor *nsq.Producer
 
 func loadPb() {
 	fdSet := &descriptorpb.FileDescriptorSet{}
@@ -505,6 +520,14 @@ func loadPb() {
 	files, _ := desc.CreateFileDescriptorsFromSet(fdSet)
 	fileDesc := files["word.proto"]
 	INTERACT_WORD_MSG = fileDesc.FindMessage("InteractWordV2")
+
+	pb, _ := os.ReadFile("gift.desc")
+	fdSet1 := &descriptorpb.FileDescriptorSet{}
+	proto.Unmarshal(pb, fdSet1)
+	files1, _ := desc.CreateFileDescriptorsFromSet(fdSet1)
+	fileDesc1 := files1["gift.proto"]
+	SEND_GIFT_V2 = fileDesc1.FindMessage("bilibili.live.msg.SendGiftMsg")
+
 }
 func main0() {
 
@@ -540,6 +563,9 @@ func main0() {
 		})
 		db.Exec("PRAGMA journal_mode=WAL;")
 	}
+	if config.NSQServer != "" {
+		productor, _ = nsq.NewProducer(config.NSQServer, nsq.NewConfig())
+	}
 	if config.EnableMySQL {
 		var dsl = "#user:#pass@tcp(#server)/#name?charset=utf8mb4&parseTime=True&loc=Local"
 		dsl = strings.Replace(dsl, "#user", config.SQLUser, 1)
@@ -555,13 +581,14 @@ func main0() {
 		s, _ := db.DB()
 		s.SetMaxOpenConns(200)
 		s.SetMaxIdleConns(100)
+		if db == nil || err != nil {
+			log.Println("Fail to connect to database")
+			log.Fatal(err.Error())
+		} else {
+			log.Println("Success to connect to database")
+		}
 	}
-	if db == nil || err != nil {
-		log.Println("Fail to connect to database")
-		log.Fatal(err.Error())
-	} else {
-		log.Println("Success to connect to database")
-	}
+
 	wbi.WithRawCookies(config.Cookie)
 	wbi.initWbi()
 	db.Table("enter_action").AutoMigrate(&LiveAction{})
@@ -576,6 +603,11 @@ func main0() {
 	db.AutoMigrate(&OnlineStatus{})
 	db.AutoMigrate(&Post{})
 	RemoveEmpty()
+	if config.Mode == "API" {
+		config.Port++
+		go InitHTTP()
+		select {}
+	}
 	go InitHTTP()
 
 	c := cron.New()
@@ -699,7 +731,13 @@ func main0() {
 			}
 			actionMutex.Unlock()
 			if len(batch1) > 0 {
-				clickDb.Table("enter_actions").Create(&batch1)
+				if config.NSQServer != "" {
+					marshal, _ := sonic.Marshal(batch1)
+					productor.Publish("enter_actions", marshal)
+				} else {
+					clickDb.Table("enter_actions").Create(&batch1)
+				}
+
 			}
 
 			var batch2 []LiveAction
@@ -712,7 +750,12 @@ func main0() {
 			extraAction.Unlock()
 
 			if len(batch2) > 0 {
-				db.Save(&batch2)
+				if config.NSQServer != "" {
+					marshal, _ := sonic.Marshal(batch2)
+					productor.Publish("live_actions", marshal)
+				} else {
+					db.Save(&batch2)
+				}
 			}
 			lastInsert = time.Now().UnixMilli() - start
 			lastInsertCount = len(batch1) + len(batch2)

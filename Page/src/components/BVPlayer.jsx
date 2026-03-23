@@ -17,8 +17,8 @@ function BVPlayer(props) {
             axios.get("/api/bv/view?bv=" + props.bv).then((res) => {
                 var dash = res.data.data.dash
 
-                setV(`https://stream-proxy.ikun.dev?url=${btoa(dash.video[0].base_url)}`)
-                setA(`https://stream-proxy.ikun.dev?url=${btoa(dash.audio[0].base_url)}`)
+                setV(`https://stream-proxy.vtb.cat?url=${encodeURIComponent(btoa(dash.video[0].base_url))}`)
+                setA(`https://stream-proxy.vtb.cat?url=${encodeURIComponent(btoa(dash.audio[0].base_url))}`)
             })
         }
 

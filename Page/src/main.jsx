@@ -207,6 +207,8 @@ window.prefetch = (url) => {
 window.getSystemTheme = () =>{
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
+
+window.CACHE_HOT = []
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>

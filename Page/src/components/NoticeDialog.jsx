@@ -5,11 +5,14 @@ import axios from "axios";
 import remarkGfm from 'remark-gfm'
 import "github-markdown-css/github-markdown-light.css";
 import rehypeRaw from "rehype-raw";
+import DynamicCard from "./DynamicCard";
+import BVPlayer from "./BVPlayer";
 
 function NoticeDialog(props) {
 
 
-    const [seconds,setSeconds] = useState(7);
+    const [seconds,setSeconds] = useState(0);
+    /*
 
     useEffect(() => {
         var ref = setInterval(()=>{
@@ -24,6 +27,8 @@ function NoticeDialog(props) {
         }
     })
 
+     */
+
     return (
         <div className={'h-[66vh]'} data-nosnippet>
             <Modal onClose={seconds <=0 && props.onClose} isOpen={true} size={isMobile()?'full':'2xl'} className={'max-h-2/3 sm:h-[75vh]'} scrollBehavior={'inside'} backdrop={'blur'} isDismissable={seconds<=0}>
@@ -36,7 +41,17 @@ function NoticeDialog(props) {
                         <div className={'markdown-body  overflow-scroll list-disc' }>
                             <Markdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}
                                       components={{
-                                          ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />
+                                          ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />,
+                                          "bili-dynamic-card": ({ node, ...props }) => {
+
+                                              return <DynamicCard item={{OID:props.oid}} onClick={() => {
+                                                  window.open('https://t.bilibili.com/' + props.oid)
+                                              }}></DynamicCard>;
+
+                                          },
+                                          "bv-player": ({ node, ...props }) => {
+                                              return <BVPlayer bv={props.bv}></BVPlayer>
+                                          }
                                       }}
                             >{props.content}</Markdown>
                         </div>

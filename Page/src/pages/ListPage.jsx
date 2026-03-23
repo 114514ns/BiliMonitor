@@ -190,7 +190,7 @@ function ListPage(props) {
             <div style={{display: "flex"}} className='flex-col sm:flex-row sm:align-items-center' ref={inputRef}>
                 <Select
                     className="max-w-xs mb-4 mr-4"
-                    label="Sort by"
+                    label="排序"
                     placeholder="粉丝"
                     style={{
                         marginLeft: '4px'
@@ -245,12 +245,12 @@ function ListPage(props) {
                         }}>{item.description}</SelectItem>
                     ))}
                 </Select>
-                <Select className="max-w-xs mb-4 mr-4" label="Verify filter" placeholder="">
+                <Select className="max-w-xs mb-4 mr-4" label="认证类型筛选" placeholder="">
                     {verify.map((item) => (
                         <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
                     ))}
                 </Select>
-                <Autocomplete className="max-w-xs mb-4 mr-4" label="Guild filter" defaultItems={guildList} onSelectionChange={e => {
+                <Autocomplete className="max-w-xs mb-4 mr-4" label="公会筛选" defaultItems={guildList} onSelectionChange={e => {
                     if (e === 'Any') {
                         setFiltered(list)
                     } else {
@@ -270,8 +270,8 @@ function ListPage(props) {
                         )
                     }}
                 </Autocomplete>
-                <Input className='max-w-xs mb-4 mr-4' onChange={event => setBioFilter(event.target.value)}
-                       label={'Sign filter'}></Input>
+       {/*         <Input className='max-w-xs mb-4 mr-4' onChange={event => setBioFilter(event.target.value)}
+                       label={'Sign filter'}></Input>*/}
                 <Tooltip content={<Card>
                     <CardHeader>使用方法</CardHeader>
                     <CardBody>
@@ -303,7 +303,7 @@ function ListPage(props) {
                         </div>
                     </CardBody>
                 </Card>}>
-                    <Input className='max-w-xs mb-4 '
+{/*                    <Input className='max-w-xs mb-4 '
                            label={'高级筛选'} ref={rawSQLRef} isClearable onKeyDown={event => {
                         if (event.key === "Enter") {
 
@@ -331,7 +331,7 @@ function ListPage(props) {
                     }} onClear={() => {
                         setFiltered(list)
                     }}
-                    ></Input>
+                    ></Input>*/}
                 </Tooltip>
             </div>
 
@@ -378,8 +378,8 @@ function ListPage(props) {
                             window.open(location.origin + "/liver/" + item.UID)
                         }} key={item.UID}>
 
-                            <LiverCard
-                                Rank={index}
+                            <LiverCard2
+                                Rank={index+((page-1)*PAGE_SIZE)}
                                 Avatar={`${AVATAR_API}${item.UID}`}
                                 UName={item.UName}
                                 Guard={item.Guard}
@@ -476,4 +476,74 @@ const LiverCard = memo(function LiverCard(props) {
         </Card>
     )
 })
+
+const LiverCard2 = (props) => {
+    const up = props.DailyDiff >= 0
+    const mup = props.MonthlyDiff >= 0
+    return (
+        <Card className={'flex flex-col p-4 mt-5 bg-white rounded-2xl shadow-sm gap-4'}>
+            <div className={'flex flex-row justify-between items-start'}>
+                <div className={'flex flex-row flex-1 min-w-0'}>
+                    <Avatar
+                        src={`${AVATAR_API}${props.UID}`}
+                        alt={props.UName}
+                        radius="full"
+                        className={'w-[56px] h-[56px] flex-shrink-0'}
+                    />
+                    <div className={'ml-3 flex flex-col justify-center min-w-0'}>
+                        <p className={'text-lg font-bold text-gray-900 truncate'}>
+                            {props.UName}
+                        </p>
+                        <p className={'text-[13px] text-gray-400 font-normal truncate'}>
+                            {props.Bio}
+                        </p>
+                        <p className={'text-[13px] text-gray-600 font-medium mt-0.5'}>
+                            ID: {props.UID}
+                        </p>
+                    </div>
+                </div>
+                <div className={'flex-shrink-0 pl-2'}>
+                    <p className={'text-lg font-bold text-gray-900'}>
+                        Rank #{props.Rank+1}
+                    </p>
+                </div>
+            </div>
+            <div className={'flex flex-row gap-2 mt-1'}>
+                <div className={'flex-1 flex flex-col items-center justify-center bg-[#def1f8] rounded-xl py-2 px-1'}>
+                    <p className={'font-bold text-gray-900 text-[15px] flex items-center'}>
+                        {props.Fans.toLocaleString()} <span className={'text-green-500 ml-0.5 text-sm'}>↑</span>
+                    </p>
+                    <p className={'text-[11px] text-gray-600 font-medium mt-0.5 text-center leading-tight'}>
+                        Total Fans
+                    </p>
+                </div>
+                <div className={`flex-1 flex flex-col items-center justify-center bg-${mup?'green':'red'}-100 rounded-xl py-2 px-1`}>
+                    <p className={'font-bold text-gray-900 text-[15px] flex items-center'}>
+                        {props.MonthlyDiff.toLocaleString()} <span className={'text-green-500 ml-0.5 text-sm'}>{mup?'↑':'↓'}</span>
+                    </p>
+                    <p className={'text-[11px] text-gray-600 font-medium mt-0.5 text-center leading-tight'}>
+                        Monthly Growth
+                    </p>
+                </div>
+                <div className={`flex-1 flex flex-col items-center justify-center bg-${up?'green':'red'}-100 rounded-xl py-2 px-1`}>
+                    <p className={'font-bold text-gray-900 text-[15px] flex items-center'}>
+                        {props.DailyDiff.toLocaleString()} <span className={'text-green-500 ml-0.5 text-sm'}>{up?'↑':'↓'}</span>
+                    </p>
+                    <p className={'text-[11px] text-gray-600 font-medium mt-0.5 text-center leading-tight font-medium'}>
+                        Daily Growth
+                    </p>
+                </div>
+                <div className={'flex-1 flex flex-col items-center justify-center bg-indigo-100 rounded-xl py-2 px-1'}>
+                    <p className={'font-bold text-gray-900 text-[15px]'}>
+                        {props.Guard}
+                    </p>
+                    <p className={'text-[11px] text-gray-600 font-medium mt-0.5 text-center leading-tight'}>
+                        大航海
+                    </p>
+                </div>
+            </div>
+
+        </Card>
+    );
+};
 export default ListPage;

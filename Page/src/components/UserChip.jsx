@@ -29,7 +29,7 @@ function UserChip(props) {
                                                             {props.props.MedalLevel}
                                                         </span>
                             </Chip>:<></>}
-                            {props.props.Amount&& <span className='ml-auto font-bold'>{parseInt(props.props.Amount).toLocaleString()}</span>}
+                            {!!(props.props.Amount)&& <span className='ml-auto font-bold'>{parseInt(props.props.Amount).toLocaleString()}</span>}
                         </div>
                     )}
                 </div>

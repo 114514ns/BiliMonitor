@@ -1,5 +1,6 @@
-import React, {useState} from "react";
+import React, {useEffect, useState} from "react";
 import {Button, Image, Card} from "@heroui/react";
+import axios from "axios";
 
 
 function ForwardIcon() {
@@ -19,12 +20,31 @@ function  LikeIcon() {
     )
 }
 function DynamicCard(props) {
-    var item = props.item;
+    const [item,setItem] = useState(props.item)
+    useEffect(()=>{
+        if (!item.UID) {
+            axios.get("/api/dynamic?oid=" + item.OID).then(res=>{
+                res.data.data.forEach(item=>{
+                    if (item.Images === null) {
+                        item.Images = ''
+                    } else {
+                        item.Images1 = ''
+                        item.Images.forEach(item0=>{
+                            item.Images1 += item0 + ','
+                        })
+                        item.Images = item.Images1.substring(0,item.Images1.length-1)
+                    }
+                })
+                setItem(res.data.data[0])
+            })
+        }
+
+    },[])
     return (
         <div onClick={() => {
             props.onClick()
         }} className={'mt-6'}>
-            <Card className={`max-w-2xl mx-auto  rounded-lg shadow-sm p-4 pt-2  ${props.forward?'bg-[#F6F7F8]':''}`}  isHoverable>
+            {item.UID &&             <Card className={`max-w-2xl mx-auto  rounded-lg shadow-sm p-4 pt-2  ${props.forward?'bg-[#F6F7F8]':''}`}  isHoverable>
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -98,7 +118,7 @@ function DynamicCard(props) {
                         <span className="text-sm">{item.Like}</span>
                     </button>
                 </div>}
-            </Card>
+            </Card>}
         </div>
 
     )

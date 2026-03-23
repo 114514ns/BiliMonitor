@@ -28,9 +28,9 @@ function ReactionPage(props) {
                     setUid(e.replace('UID:',''))
                 }}></Input>
                 <Button className={'ml-2'} onClick={() => {
-                    axios.get("/api/reaction?mid=" + uid).then(res =>{
-                        setData(res.data.data)
-                        setFiltered(res.data.data)
+                    axios.get(`/api/${props.type === 'feed'?'dynamics':'reaction'}?mid=` + uid).then(res =>{
+
+
                         var map = new Map()
                         if (res.data.data == null) {
                             addToast({
@@ -44,6 +44,8 @@ function ReactionPage(props) {
                         res.data.data.forEach((item,i)=>{
                             map.set(item.TargetName,item.TargetID)
                         })
+                        setData(res.data.data)
+                        setFiltered(res.data.data)
                         var dst = []
                         dst.push({
                             UName:'Any',
@@ -61,7 +63,7 @@ function ReactionPage(props) {
                 }}>Search</Button>
             </div>
             <div className={'flex flex-col mt-4'}>
-                {              <div className="flex flex-row mr-4 max-h-[85vh] overflow-x-auto overflow-y-hidden w-full">
+                { props.type === 'reactions' &&             <div className="flex flex-row mr-4 max-h-[85vh] overflow-x-auto overflow-y-hidden w-full">
                     {(ups).map((key)=>{
                         return (
                             <div className={'flex flex-col items-center  hover:bg-[#F3F4F5] min-w-[64px]'} onClick={(e) => {
@@ -87,10 +89,13 @@ function ReactionPage(props) {
                 </div>}
                 <div className={'overflow-y-auto max-h-[85vh] overflow-x-hidden'} ref={listRef}>
                     {(filtered??[]).slice((page-1)*SIZE,page*SIZE).map((item,i)=>{
+                        if (item.Images.length === 0) {
+                            item.Images = ''
+                        }
                         return (
                             <DynamicCard item={item} onClick={() => {
-                                window.open(`https://t.bilibili.com/${item.OID}`)
-                            }}/>
+                                window.open(`https://t.bilibili.com/${item.IDStr || item.OID || item.ID}`)
+                            }} key={item.OID || item.ID}/>
                         )
                     })}
                     <Pagination initialPage={1} total={Math.ceil((filtered??[]).length/SIZE)} onChange={(e) => {
@@ -98,7 +103,7 @@ function ReactionPage(props) {
                         listRef.current.scrollTo({
                             top: 0,
                             behavior: "smooth"
-                        })}}></Pagination>
+                        })}} className={'mt-2'}></Pagination>
                 </div>
                 <div>
 

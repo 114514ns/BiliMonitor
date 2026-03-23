@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
@@ -15,6 +17,7 @@ import (
 
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
+	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jinzhu/copier"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"gorm.io/driver/clickhouse"
@@ -77,8 +80,8 @@ func TestHttp(test *testing.T) {
 	setupHTTPClient()
 	go func() {
 		for {
-			time.Sleep(120 * time.Minute)
 			//RefreshLivers()
+			time.Sleep(120 * time.Minute)
 
 		}
 	}()
@@ -86,6 +89,12 @@ func TestHttp(test *testing.T) {
 		RefreshWatcher()
 		MockRefreshLivers()
 
+	}()
+	go func() {
+		for {
+			RefreshHighLight()
+			time.Sleep(30 * time.Minute)
+		}
 	}()
 	//clickDb = clickDb.Debug()
 	//config.Port = 8082
@@ -495,4 +504,18 @@ func TestCheckBlack(test *testing.T) {
 	loadConfig()
 	setupHTTPClient()
 
+}
+
+func TestGiftPb(test *testing.T) {
+	loadPb()
+	pb, _ := os.ReadFile("gift.txt")
+	pb, _ = base64.StdEncoding.DecodeString(string(pb))
+	msg := dynamic.NewMessage(SEND_GIFT_V2)
+	err = msg.Unmarshal(pb)
+	if err != nil {
+		panic(err)
+	}
+	jsonBytes, _ := json.MarshalIndent(msg, "", "  ")
+
+	fmt.Println(string(jsonBytes))
 }

@@ -11,6 +11,7 @@ import HoverMedals from "../components/HoverMedals";
 import { HeroUIPieChart } from "../components/PieChart";
 import {HeatContent} from "../components/HeatChart";
 import {useNavigate} from "react-router";
+import MysteryBoxStatistic from "../components/MysteryBoxStatistic";
 
 
 function UserPage(props) {
@@ -49,6 +50,8 @@ function UserPage(props) {
     const [showMedal, setShowMedal] = useState(false)
 
     const [showEnter, setShowEnter] = useState(false)
+
+    const [showBox,setShowBox] = useState(false)
     let page = 1
 
     useEffect(() => {
@@ -68,6 +71,9 @@ function UserPage(props) {
 
     return (
         <div>
+            <MysteryBoxStatistic isOpen={showBox} onClose={() => {
+                setShowBox(false)
+            }} type={'user'} uid={id}/>
             <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="2xl">
                 <ModalContent>
                     {(onClose) => (
@@ -134,6 +140,9 @@ function UserPage(props) {
                             <p>礼物/SC：{space.GiftMoney && space.GiftMoney.toLocaleString()}</p>
                         </div>}>
                             <div
+                                onClick={() => {
+                                    setShowBox(true)
+                                }}
                                 className="rounded-xl bg-orange-100 dark:bg-gray-500 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg ">消费<br />
 
                                 <span
@@ -179,7 +188,11 @@ function UserPage(props) {
                                     {
                                         key: 'sc',
                                         value: "SuperChat"
-                                    }
+                                    },
+                                    {
+                                        key: 'box',
+                                        value: "MysteryBox"
+                                    },
                                 ]}
                                 label="Filter by"
                                 onSelectionChange={e => {
