@@ -10,7 +10,7 @@ import {
     Listbox,
     ListboxItem,
     Select,
-    SelectItem, ToastProvider, Tooltip, Code, Autocomplete, AutocompleteItem, Pagination
+    SelectItem, ToastProvider, Tooltip, Code, Autocomplete, AutocompleteItem, Pagination, Progress
 } from "@heroui/react";
 import axios from "axios";
 
@@ -89,8 +89,17 @@ function ListPage(props) {
 
 
     useEffect(() => {
-        var url = `/api/areaLivers`
-        axios.get(url).then((response) => {
+        axios({
+            url:'/api/areaLivers',
+            method:'get',
+            onDownloadProgress:(event) => {
+                if (event.progress === 1) {
+                    setDownloading(false)
+                } else {
+                    setProgress(event.progress * 100)
+                }
+            }
+        }).then((response) => {
             var memberMap = new Map()
             guildData.forEach((guild) => {
                 memberMap.set(guild.uid, guild.guild_name);
@@ -183,127 +192,133 @@ function ListPage(props) {
 
     var inputRef = React.createRef();
 
+    const [downloading,setDownloading] = React.useState(true);
+
+    const [progress,setProgress] = React.useState(0);
+
 
     return (
 
         <div>
-            <div style={{display: "flex"}} className='flex-col sm:flex-row sm:align-items-center' ref={inputRef}>
-                <Select
-                    className="max-w-xs mb-4 mr-4"
-                    label="排序"
-                    placeholder="粉丝"
-                    style={{
-                        marginLeft: '4px'
+            {downloading && <Progress aria-label="Loading..." className="max-w-md" value={progress} />}
+            { !downloading && <div>
+                <div style={{display: "flex"}} className='flex-col sm:flex-row sm:align-items-center' ref={inputRef}>
+                    <Select
+                        className="max-w-xs mb-4 mr-4"
+                        label="排序"
+                        placeholder="粉丝"
+                        style={{
+                            marginLeft: '4px'
 
-                    }}
-                >
+                        }}
+                    >
 
-                    {sort.map((item) => (
-                        <SelectItem key={item.key} onPress={(e) => {
-                            if (item.key === ("month-diff")) {
-                                setFiltered(prev => [...prev].sort((a, b) => a.MonthlyDiff - b.MonthlyDiff))
-                                return;
-                            }
-                            if (item.key === ("month-diff-desc")) {
-                                setFiltered(prev => [...prev].sort((a, b) => b.MonthlyDiff - a.MonthlyDiff))
-                                return;
-                            }
-                            if (item.key === ("guard")) {
-                                setFiltered(prev => [...prev].sort((a, b) => b.GuardCount - a.GuardCount))
-                                return
-                            }
-                            if (item.key === "l1-guard") {
-                                setFiltered(prev => [...prev].sort((a, b) => parseInt(b.Guard.split(",")[0]) - parseInt(a.Guard.split(",")[0]) ))
-                                return;
-                            }
-                            if (item.key === "guard-equal") {
-                                setFiltered(prev => [...prev].sort((a, b) => (parseInt(b.Guard.split(",")[0])*19998 + parseInt(b.Guard.split(",")[1]) *1998 + parseInt(b.Guard.split(",")[2])*138  )- (parseInt(a.Guard.split(",")[0])*19998 + parseInt(a.Guard.split(",")[1]) *1998 + parseInt(a.Guard.split(",")[2])*138)))
-                                return;
-                            }
-                            if (item.key === ("fans")) {
-                                setFiltered(prev => [...prev].sort((a, b) => b.Fans - a.Fans))
-                                return
-                            }
-                            if (item.key === "diff") {
-                                setFiltered(prev => [...prev].sort((a, b) => b.DailyDiff - a.DailyDiff))
-                                return;
-                            }
-                            if (item.key === "diff-desc") {
-                                setFiltered(prev => [...prev].sort((a, b) => a.DailyDiff - b.DailyDiff))
-                                return;
-                            }
-                            if (item.key === "month-diff-rate") {
-                                setFiltered(prev => [...prev].sort((a, b) => (b.Fans/(b.Fans-b.MonthlyDiff))- a.Fans/(a.Fans-a.MonthlyDiff)))
-                                return;
-                            }
-                            var url = `/api/areaLivers?sort=${item.key}`
-                            axios.get(url).then((response) => {
-                                setList(response.data.list);
-                                setFiltered(response.data.list);
-                            })
-                            console.log(item.key);
-                        }}>{item.description}</SelectItem>
-                    ))}
-                </Select>
-                <Select className="max-w-xs mb-4 mr-4" label="认证类型筛选" placeholder="">
-                    {verify.map((item) => (
-                        <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
-                    ))}
-                </Select>
-                <Autocomplete className="max-w-xs mb-4 mr-4" label="公会筛选" defaultItems={guildList} onSelectionChange={e => {
-                    if (e === 'Any') {
+                        {sort.map((item) => (
+                            <SelectItem key={item.key} onPress={(e) => {
+                                if (item.key === ("month-diff")) {
+                                    setFiltered(prev => [...prev].sort((a, b) => a.MonthlyDiff - b.MonthlyDiff))
+                                    return;
+                                }
+                                if (item.key === ("month-diff-desc")) {
+                                    setFiltered(prev => [...prev].sort((a, b) => b.MonthlyDiff - a.MonthlyDiff))
+                                    return;
+                                }
+                                if (item.key === ("guard")) {
+                                    setFiltered(prev => [...prev].sort((a, b) => b.GuardCount - a.GuardCount))
+                                    return
+                                }
+                                if (item.key === "l1-guard") {
+                                    setFiltered(prev => [...prev].sort((a, b) => parseInt(b.Guard.split(",")[0]) - parseInt(a.Guard.split(",")[0]) ))
+                                    return;
+                                }
+                                if (item.key === "guard-equal") {
+                                    setFiltered(prev => [...prev].sort((a, b) => (parseInt(b.Guard.split(",")[0])*19998 + parseInt(b.Guard.split(",")[1]) *1998 + parseInt(b.Guard.split(",")[2])*138  )- (parseInt(a.Guard.split(",")[0])*19998 + parseInt(a.Guard.split(",")[1]) *1998 + parseInt(a.Guard.split(",")[2])*138)))
+                                    return;
+                                }
+                                if (item.key === ("fans")) {
+                                    setFiltered(prev => [...prev].sort((a, b) => b.Fans - a.Fans))
+                                    return
+                                }
+                                if (item.key === "diff") {
+                                    setFiltered(prev => [...prev].sort((a, b) => b.DailyDiff - a.DailyDiff))
+                                    return;
+                                }
+                                if (item.key === "diff-desc") {
+                                    setFiltered(prev => [...prev].sort((a, b) => a.DailyDiff - b.DailyDiff))
+                                    return;
+                                }
+                                if (item.key === "month-diff-rate") {
+                                    setFiltered(prev => [...prev].sort((a, b) => (b.Fans/(b.Fans-b.MonthlyDiff))- a.Fans/(a.Fans-a.MonthlyDiff)))
+                                    return;
+                                }
+                                var url = `/api/areaLivers?sort=${item.key}`
+                                axios.get(url).then((response) => {
+                                    setList(response.data.list);
+                                    setFiltered(response.data.list);
+                                })
+                                console.log(item.key);
+                            }}>{item.description}</SelectItem>
+                        ))}
+                    </Select>
+                    <Select className="max-w-xs mb-4 mr-4" label="认证类型筛选" placeholder="">
+                        {verify.map((item) => (
+                            <SelectItem key={item} onPress={e => setVerifyFilter(e.target.innerText)}>{item}</SelectItem>
+                        ))}
+                    </Select>
+                    <Autocomplete className="max-w-xs mb-4 mr-4" label="公会筛选" defaultItems={guildList} onSelectionChange={e => {
+                        if (e === 'Any') {
+                            setFiltered(list)
+                        } else {
+                            setFiltered(list.filter(item => item.Guild === e))
+                        }
+                    }} onClear={() => {
                         setFiltered(list)
-                    } else {
-                        setFiltered(list.filter(item => item.Guild === e))
-                    }
-                }} onClear={() => {
-                    setFiltered(list)
-                }}>
-                    {(item) => {
-                        return (
-                            <AutocompleteItem key={item.GuildName} textValue={item.GuildName} >
+                    }}>
+                        {(item) => {
+                            return (
+                                <AutocompleteItem key={item.GuildName} textValue={item.GuildName} >
                                 <span>
                                     {item.GuildName}
                                     {item.Members && <span className={'text-small'}> ({item.Members})  Members </span>}
                                 </span>
-                            </AutocompleteItem>
-                        )
-                    }}
-                </Autocomplete>
-       {/*         <Input className='max-w-xs mb-4 mr-4' onChange={event => setBioFilter(event.target.value)}
+                                </AutocompleteItem>
+                            )
+                        }}
+                    </Autocomplete>
+                    {/*         <Input className='max-w-xs mb-4 mr-4' onChange={event => setBioFilter(event.target.value)}
                        label={'Sign filter'}></Input>*/}
-                <Tooltip content={<Card>
-                    <CardHeader>使用方法</CardHeader>
-                    <CardBody>
-                        <div>
-                            <p className={'mb-4'}>
-                                查询所有粉丝量低于1000的主播
-                                <Code className='ml-2'>`{`select * from ? where Fans < 1000`}`</Code>
-                            </p>
-                            <p className={'mb-4'}>
-                                按粉丝/总督比 排序
-                                <Code className='ml-2'>`{`select * from ? order by SUBSTRING(Guard,1,1)/Fans desc`}`</Code>
-                            </p>
-                            <p className={'mb-4'}>
-                                查找签名包含妖精管理局的主播
-                                <Code className='ml-2'>`{`select * from ? where Bio like '%妖精管理局%'`}`</Code>
-                            </p>
-                            <p className={'mb-4'}>
-                                查找认证信息包含 [高能主播] 的主播，并按粉丝量升序排序
-                                <Code className='ml-2'>`{`select * from ? where Verify like '%高能主播%' order by Fans`}`</Code>
-                            </p>
-                            <p className={'mb-4'}>
-                                查找UID为1265680561的主播
-                                <Code className='ml-2'>`{`select * from ? where UID = 1265680561`}`</Code>
-                            </p>
-                            <p className={'mb-4'}>
-                                查找名字包含[兔]的主播
-                                <Code className='ml-2'>`{`select * from ? where UName like '%兔%'`}`</Code>
-                            </p>
-                        </div>
-                    </CardBody>
-                </Card>}>
-{/*                    <Input className='max-w-xs mb-4 '
+                    <Tooltip content={<Card>
+                        <CardHeader>使用方法</CardHeader>
+                        <CardBody>
+                            <div>
+                                <p className={'mb-4'}>
+                                    查询所有粉丝量低于1000的主播
+                                    <Code className='ml-2'>`{`select * from ? where Fans < 1000`}`</Code>
+                                </p>
+                                <p className={'mb-4'}>
+                                    按粉丝/总督比 排序
+                                    <Code className='ml-2'>`{`select * from ? order by SUBSTRING(Guard,1,1)/Fans desc`}`</Code>
+                                </p>
+                                <p className={'mb-4'}>
+                                    查找签名包含妖精管理局的主播
+                                    <Code className='ml-2'>`{`select * from ? where Bio like '%妖精管理局%'`}`</Code>
+                                </p>
+                                <p className={'mb-4'}>
+                                    查找认证信息包含 [高能主播] 的主播，并按粉丝量升序排序
+                                    <Code className='ml-2'>`{`select * from ? where Verify like '%高能主播%' order by Fans`}`</Code>
+                                </p>
+                                <p className={'mb-4'}>
+                                    查找UID为1265680561的主播
+                                    <Code className='ml-2'>`{`select * from ? where UID = 1265680561`}`</Code>
+                                </p>
+                                <p className={'mb-4'}>
+                                    查找名字包含[兔]的主播
+                                    <Code className='ml-2'>`{`select * from ? where UName like '%兔%'`}`</Code>
+                                </p>
+                            </div>
+                        </CardBody>
+                    </Card>}>
+                        {/*                    <Input className='max-w-xs mb-4 '
                            label={'高级筛选'} ref={rawSQLRef} isClearable onKeyDown={event => {
                         if (event.key === "Enter") {
 
@@ -332,10 +347,10 @@ function ListPage(props) {
                         setFiltered(list)
                     }}
                     ></Input>*/}
-                </Tooltip>
-            </div>
+                    </Tooltip>
+                </div>
 
-{/*            <Listbox
+                {/*            <Listbox
 
                 virtualization={{
                     maxListboxHeight: calcHeight()-120,
@@ -369,58 +384,59 @@ function ListPage(props) {
                     </ListboxItem>))}
             </Listbox>*/}
 
-            <div style={{height:`${calcHeight()-160}px`}} className={'overflow-y-scroll overflow-x-hidden'} ref={listRef}>
-                {filted.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map((item, index) => (
-                    <Tooltip content={<></>/*<Button onClick={() => {
+                <div style={{height:`${calcHeight()-160}px`}} className={'overflow-y-scroll overflow-x-hidden'} ref={listRef}>
+                    {filted.slice((page-1)*PAGE_SIZE,page*PAGE_SIZE).map((item, index) => (
+                        <Tooltip content={<></>/*<Button onClick={() => {
                         axios.post("/api/black/add?mid=" + item.UID)
                     }}>Add BlackList</Button>*/}>
-                        <div onClick={() => {
-                            window.open(location.origin + "/liver/" + item.UID)
-                        }} key={item.UID}>
+                            <div onClick={() => {
+                                window.open(location.origin + "/liver/" + item.UID)
+                            }} key={item.UID}>
 
-                            <LiverCard2
-                                Rank={index+((page-1)*PAGE_SIZE)}
-                                Avatar={`${AVATAR_API}${item.UID}`}
-                                UName={item.UName}
-                                Guard={item.Guard}
-                                DailyDiff={item.DailyDiff}
-                                MonthlyDiff={item.MonthlyDiff}
-                                Fans={item.Fans}
-                                LastActive={(item.LastActive)}
-                                UID={item.UID}
-                                Bio={item.Bio}
-                                Verify={item.Verify}
-                                Guild={item.Guild}
+                                <LiverCard2
+                                    Rank={index+((page-1)*PAGE_SIZE)}
+                                    Avatar={`${AVATAR_API}${item.UID}`}
+                                    UName={item.UName}
+                                    Guard={item.Guard}
+                                    DailyDiff={item.DailyDiff}
+                                    MonthlyDiff={item.MonthlyDiff}
+                                    Fans={item.Fans}
+                                    LastActive={(item.LastActive)}
+                                    UID={item.UID}
+                                    Bio={item.Bio}
+                                    Verify={item.Verify}
+                                    Guild={item.Guild}
 
-                            />
-                        </div>
-                    </Tooltip>
-))
+                                />
+                            </div>
+                        </Tooltip>
+                    ))
 
 
- }
+                    }
 
-            </div>
-            <Pagination page={page} total={filted.length/PAGE_SIZE}  onChange={(e) => {
-                setPage(e)
-                listRef.current.scrollTo({
-                    top: 0,
-                    behavior: "smooth"
-                })
-            }} classNames={'ml-4'}/>;
+                </div>
+                <Pagination page={page} total={filted.length/PAGE_SIZE}  onChange={(e) => {
+                    setPage(e)
+                    listRef.current.scrollTo({
+                        top: 0,
+                        behavior: "smooth"
+                    })
+                }} classNames={'ml-4'}/>;
 
-            <div style={{
-                position: 'fixed',
-                right: '20px',
-                bottom: '20px',
-                width: '180px',
-                height: '60px',
-            }}>
-                <Input label="Search" onValueChange={(e) => {
-                    setNameFilter(e)
+                <div style={{
+                    position: 'fixed',
+                    right: '20px',
+                    bottom: '20px',
+                    width: '180px',
+                    height: '60px',
+                }}>
+                    <Input label="Search" onValueChange={(e) => {
+                        setNameFilter(e)
 
-                }}/>
-            </div>
+                    }}/>
+                </div>
+            </div>}
 
         </div>
     );

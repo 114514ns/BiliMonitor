@@ -23,6 +23,7 @@ import Draggable from "react-draggable";
 import OnlineChart from "../components/OnlineChart";
 import {LiveMessageChart} from "../components/LineChart";
 import PlayBackForm from "../components/PlayBackForm";
+import {eventBus} from "../App";
 
 function PlayIcon() {
     return (
@@ -74,12 +75,7 @@ function LiveDetailPage(props) {
 
     const [name, setName] = useState(null)
     const [order, setOrder] = useState("undefined")
-    const [filters, setFilters] = useState([
-        { text: 'Joe', value: 'Joe' },
-        { text: 'Jim', value: 'Jim' },
-        { text: 'Category 1', value: 'Category 1' },
-        { text: 'Category 2', value: 'Category 2' },
-    ]);
+    const [filters, setFilters] = useState([]);
 
     const [showMinuteChart,setShowMinuteChart] = useState(false)
     const [columns, setColumn] = useState([])
@@ -166,9 +162,12 @@ function LiveDetailPage(props) {
         if (filter != null) {
             url = url + `&type=${filter}`
         }
+        /*
         axios.get(`${protocol}://${host}:${port}/api/live/` + id + "/?" + "page=" + (page+1 )+ "&limit=" + size + "&order=" + order + "&mid=" + mid).then(response => {
             window.LIVE_MSG_CACHE[page+1] = response.data
         })
+
+         */
 
         if (window.LIVE_MSG_CACHE[page]) {
             handleResponse(window.LIVE_MSG_CACHE[page])
@@ -209,12 +208,25 @@ function LiveDetailPage(props) {
     }, [liveInfo]);
 
     useEffect(() => {
-        console.log(stream)
-    }, [stream]);
+        console.log(currentPage)
+    }, [currentPage]);
 
     useEffect(() => {
         refreshData(currentPage, pageSize)
     }, [filter, mid, pageSize])
+
+    useEffect(() => {
+        const handler = () => {
+            refreshData(currentPage, pageSize);
+            axios.get(`/api/liveDetail/${id}/`).then(res => {
+                setLiveInfo(res.data.live);
+            });
+        };
+        eventBus.on("refresh", handler);
+        return () => {
+            eventBus.off("refresh", handler);
+        };
+    }, [currentPage, pageSize]);
 
 
     const handlePageChange = (page, pageSize, sorter) => {
@@ -222,7 +234,6 @@ function LiveDetailPage(props) {
         setCurrentPage(page)
         setPageSize(pageSize)
         console.log(sorter)
-
     }
 
     function formatTimeDiff(startTimestamp, endTimestamp) {
@@ -486,7 +497,7 @@ function LiveDetailPage(props) {
                             <TableCell className={'whitespace-nowrap'}>{new Date(item.CreatedAt).toLocaleTimeString()}</TableCell>
                             <TableCell className={
                                 (item.ActionName !== "msg" ? "font-bold" : "") +
-                                (item.ID === parseInt(highLight )? "bg-yellow-200" : "") + ' whitespace-nowrap'
+                                (item.ID === parseInt(highLight )? " bg-yellow-200" : "") + ' whitespace-nowrap'
                             }>
                                 <div id={item.ID}>
                                     {item.Extra}{item.ActionName !== "msg" && <span>*{item.GiftAmount.Int16 || ''}  ￥{item.GiftPrice}</span>}

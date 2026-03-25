@@ -665,11 +665,14 @@ func main0() {
 			RefreshFollowings()
 			UpdateCommon()
 		}()
-		go func() {
-			if config.TraceArea {
+		if config.TraceArea {
+			go func() {
 				TraceArea(9, true)
-			}
-		}()
+			}()
+			go func() {
+				TraceAreaShortPath(9, true)
+			}()
+		}
 		go func() {
 			time.Sleep(900 * time.Second)
 			RefreshMessagePoints()
@@ -687,7 +690,7 @@ func main0() {
 		c.AddFunc("@every 2m", func() { UpdateSpecial() })
 		c.AddFunc("@every 120m", RefreshFollowings)
 		c.AddFunc("@every 720m", UpdateCommon)
-		c.AddFunc("@every 5m", func() {
+		c.AddFunc("@every 10m", func() {
 			if config.TraceArea {
 				TraceArea(9, true)
 			}

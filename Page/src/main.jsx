@@ -3,10 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import {BrowserRouter} from "react-router-dom";
-import {HeroUIProvider, ToastProvider} from "@heroui/react";
+import {HeroUIProvider} from "@heroui/react";
 import axios from "axios";
 
-import {ThemeProvider as NextThemesProvider, useTheme} from "next-themes";
+import {ThemeProvider as NextThemesProvider} from "next-themes";
 
 window.debug = true
 
@@ -129,10 +129,6 @@ window.inspectGuard = (obj) => {
         return true
     }
 
-
-
-
-
     return false
 
 }
@@ -159,7 +155,10 @@ const fetchMoney = async (force) => {
 window.fetchMoney = fetchMoney
 window.fetchGuild = fetchGuild
 axios.interceptors.request.use(function (config) {
-    config.url = config.url.replaceAll('%20','').replaceAll(' ','') //UserPage的room不知道为啥，第一次请求的时候room会是一个空格而不是空字符串，先这样吧
+    if (typeof config.url === "string") {
+        config.url = config.url.replaceAll('%20','').replaceAll(' ','') //UserPage的room不知道为啥，第一次请求的时候room会是一个空格而不是空字符串，先这样吧
+    }
+
     return config;
   }, function (error) {
     return Promise.reject(error);
@@ -209,6 +208,8 @@ window.getSystemTheme = () =>{
 }
 
 window.CACHE_HOT = []
+
+
 createRoot(document.getElementById('root')).render(
       <HeroUIProvider>
           <BrowserRouter>

@@ -365,9 +365,9 @@ function LiverPage(props) {
                         offset={30}
                         content={
                             <div>
-                                <p>直播收入 {parseInt(space.Amount).toLocaleString()}</p>
+                                <p>直播流水 {parseInt(space.Amount).toLocaleString()}</p>
                                 {space && space.Charge && space.Charge !== 'null' && (
-                                    <p>充电收入：{parseCharge(space.Charge).toLocaleString()}</p>
+                                    <p>充电流水：{parseCharge(space.Charge).toLocaleString()}</p>
                                 )}
                             </div>
                         }

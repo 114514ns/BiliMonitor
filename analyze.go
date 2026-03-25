@@ -348,7 +348,14 @@ WHERE MONTH(t.updated_at) = ?
 }
 
 func RefreshWatcher() {
-	db.Raw("select u_name,uid,medal_name,level,type from fans_clubs group by uid order by level desc ").Scan(&cachedWatcher)
+	db.Raw(`select u_name, uid, medal_name, level, type
+from (
+    select *,
+           row_number() over (partition by uid order by level desc, uid desc) as rn
+    from fans_clubs
+) t
+where rn = 1
+order by uid desc;`).Scan(&cachedWatcher)
 	time.Now()
 }
 func MinuteMessageCount(minute int64) int64 {

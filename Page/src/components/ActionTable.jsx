@@ -16,7 +16,16 @@ import HoverMedals from "./HoverMedals";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
 
+
+function parseGuardNum(e) {
+    var obj = JSON.parse(e.Extra)
+    return obj.data.num
+}
+
+
 function ActionTable(props) {
+
+
 
     const [currentPage, setCurrentPage] = React.useState(window.USER_PAGE ? window.USER_PAGE : 1);
 
@@ -51,13 +60,6 @@ function ActionTable(props) {
             title: 'Time',
             dataIndex: 'CreatedAt',
             key: 'StartAt',
-        },
-        {
-            title: 'Money',
-            dataIndex: 'GiftPrice',
-            key: 'Money',
-            sorter: true,
-
         },
         {
             title: 'Message',
@@ -136,20 +138,19 @@ function ActionTable(props) {
                                 </NavLink>
                             </TableCell>
                             <TableCell>{new Date(item.CreatedAt).toLocaleString()}</TableCell>
-                            <TableCell>{item.GiftPrice.Float64}</TableCell>
                             <TableCell onClick={() => {
                                 axios.get(`${protocol}://${host}:${port}/api/queryPage?id=${item.ID}&live=${item.Live}&size=${pageSize}`).then((response) => {
                                     redirect(`/lives/${item.Live}?page=${response.data.page}&highLight=${item.ID}`);
                                 });
                             }}>
-                                <div className={'transition-transform hover:text-gray-500 whitespace-nowrap'}>
+                                <div className={`transition-transform hover:text-gray-500 whitespace-nowrap ${item.ActionName!=='msg'?'font-bold':''}`}>
                                     <Tooltip content={'点击跳转'} placement='left'>
                                         <span>
                                             {item.GiftName || item.Extra}
                                         </span>
                                     </Tooltip>
 
-                                    {item.ActionName === "gift" && item.GiftAmount.Int16 !== 1 && <span className={'font-bold'}>*{item.GiftAmount.Int16}</span>}
+                                    {item.ActionName !== "msg" && item.GiftAmount.Int16 !== 0 && <span>*{item.GiftAmount.Int16} {item.GiftPrice.Float64?` ￥ ${item.GiftPrice.Float64}`:''}</span>}
                                 </div>
 
                             </TableCell>

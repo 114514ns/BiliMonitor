@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"database/sql"
 	"embed"
 	"encoding/base64"
 	"encoding/hex"
@@ -329,6 +330,20 @@ func InitHTTP() {
 		var liveObj = &Live{}
 
 		db.Model(&Live{}).Where("id = ?", id).Find(&liveObj)
+		for i := range records {
+
+			if records[i].ActionType == Guard {
+				if records[i].GiftName == "舰长" {
+					records[i].GiftAmount = sql.NullInt16{Int16: int16(records[i].GiftPrice.Float64 / 138.0)}
+				}
+				if records[i].GiftName == "舰长" {
+					records[i].GiftAmount = sql.NullInt16{Int16: int16(records[i].GiftPrice.Float64 / 1998.0)}
+				}
+				if records[i].GiftName == "舰长" {
+					records[i].GiftAmount = sql.NullInt16{Int16: int16(records[i].GiftPrice.Float64 / 19998.0)}
+				}
+			}
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"totalPages":   totalPages,
@@ -924,8 +939,19 @@ ORDER BY t.updated_at DESC, t.id DESC
 			}
 		}
 
-		for _, action := range dst {
-			action.ID = action.LiveAction.ID
+		for i := range dst {
+			dst[i].ID = dst[i].LiveAction.ID
+			if dst[i].ActionType == Guard {
+				if dst[i].GiftName == "舰长" {
+					dst[i].GiftAmount = sql.NullInt16{Int16: int16(dst[i].GiftPrice.Float64 / 138.0)}
+				}
+				if dst[i].GiftName == "舰长" {
+					dst[i].GiftAmount = sql.NullInt16{Int16: int16(dst[i].GiftPrice.Float64 / 1998.0)}
+				}
+				if dst[i].GiftName == "舰长" {
+					dst[i].GiftAmount = sql.NullInt16{Int16: int16(dst[i].GiftPrice.Float64 / 19998.0)}
+				}
+			}
 		}
 		context.JSON(http.StatusOK, gin.H{
 			"data":  dst,
@@ -3456,6 +3482,18 @@ where
 			}),
 		})
 
+	})
+	r.GET("/user/card", func(c *gin.Context) {
+		var uid = toInt64(c.Query("uid"))
+		if uid <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"msg": "bad params",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": FetchUser(c.Query("uid"), nil),
+		})
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }

@@ -94,7 +94,7 @@ function ReactionPage(props) {
                         }
                         return (
                             <DynamicCard item={item} onClick={() => {
-                                window.open(`https://t.bilibili.com/${item.IDStr || item.OID || item.ID}`)
+                                window.open(`https://www.bilibili.com/opus/${item.IDStr || item.OID || item.ID}`)
                             }} key={item.OID || item.ID}/>
                         )
                     })}
