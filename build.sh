@@ -5,7 +5,7 @@ APP_NAME="BiliMonitor"
 
 OUTPUT_DIR="build"
 mkdir -p "$OUTPUT_DIR"
-
+go mod tidy
 
 declare -A TARGETS=(
   ["windows_amd64"]="GOOS=windows GOARCH=amd64"
