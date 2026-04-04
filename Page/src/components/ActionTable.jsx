@@ -91,7 +91,7 @@ function ActionTable(props) {
             } isStriped ref={tableRef} classNames={{
                 wrapper: "max-w-full overflow-x-auto",
                 table: "min-w-[600px]"
-            }}>
+            }} isHeaderSticky>
 
                 <TableHeader>
                     {columns.map((col, index) => (

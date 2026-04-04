@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"math/rand"
@@ -26,7 +27,6 @@ import (
 
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
-	"github.com/gin-contrib/gzip"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -35,6 +35,10 @@ import (
 	pool2 "github.com/sourcegraph/conc/pool"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
+
+	http0 "github.com/bogdanfinn/fhttp"
+	tls_client "github.com/bogdanfinn/tls-client"
+	"github.com/bogdanfinn/tls-client/profiles"
 )
 
 var worker = NewWorker(1)
@@ -62,8 +66,6 @@ var distFS embed.FS
 func InitHTTP() {
 	r := gin.Default()
 	r.UseH2C = true
-	//r.Use(gzip.Gzip(gzip.DefaultCompression))
-	r.Use(gzip.Gzip(gzip.BestCompression))
 	r.Use(CORSMiddleware())
 	r.Use(TTLMiddleware())
 
@@ -198,7 +200,7 @@ func InitHTTP() {
 		limitStr := c.DefaultQuery("limit", "10")
 		limit, _ := strconv.Atoi(limitStr)
 		order := c.DefaultQuery("order", "id")
-		//var liverStr = c.DefaultQuery("liver", "")
+		//var liverStr = c.DefaultQuery("liver.md", "")
 		var uidStr = c.DefaultQuery("uid", "-1")
 		var noDM = c.DefaultQuery("no_dm", "false")
 
@@ -610,6 +612,9 @@ func InitHTTP() {
 		if liver != "" {
 			query.Where("liver_id = ? "+s, liver)
 			countQuery.Where("liver_id = ? "+s, liver)
+		} else {
+			query.Where("level > 25")
+			countQuery.Where("level > 25")
 		}
 
 		var count int64
@@ -960,6 +965,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 	})
 
 	r.GET("/user/info", func(c *gin.Context) {
+
 		var uids = c.Query("uids")
 		var split = strings.Split(uids, ",")
 		if len(split) > 5000 {
@@ -1117,19 +1123,19 @@ ORDER BY t.updated_at DESC, t.id DESC
 			"data": result,
 		})
 	})
-	/*
-			r.GET("/chart/guard", func(context *gin.Context) {
-				var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
-				var uidStr = context.DefaultQuery("uid", "")
-				if uidStr == "" || toInt64(uidStr) == 0 {
-					context.JSON(http.StatusOK, gin.H{
-						"message": "invalid uid",
-					})
-					return
-				}
-				var uid = toInt64(uidStr)
-				var dst []AreaLiver
-				db.Raw(`
+
+	r.GET("/chart/guard", func(context *gin.Context) {
+		var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
+		var uidStr = context.DefaultQuery("uid", "")
+		if uidStr == "" || toInt64(uidStr) == 0 {
+			context.JSON(http.StatusOK, gin.H{
+				"message": "invalid uid",
+			})
+			return
+		}
+		var uid = toInt64(uidStr)
+		var dst []AreaLiver
+		db.Raw(`
 		WITH TimeRange AS (
 		    -- 第一步：获取指定时间范围内的最小和最大时间戳
 		    SELECT
@@ -1185,113 +1191,115 @@ ORDER BY t.updated_at DESC, t.id DESC
 		    updated_at;
 
 		`, map[string]interface{}{
-					"user_id":    uid,
-					"start_date": time.Now().AddDate(0, int(month)*-1, 0),
-					"end_date":   time.Now(),
-					"num_points": 30,
-				}).Scan(&dst)
-
-				context.JSON(http.StatusOK, gin.H{
-					"data": dst,
-				})
-
-			})
-
-	*/
-	r.GET("/chart/guard", func(context *gin.Context) {
-		var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
-		if month < 0 {
-			month = -month
-		}
-		var uidStr = context.DefaultQuery("uid", "")
-		if uidStr == "" || toInt64(uidStr) == 0 {
-			context.JSON(http.StatusOK, gin.H{
-				"message": "invalid uid",
-			})
-			return
-		}
-		var uid = toInt64(uidStr)
-		var dst []AreaLiver
-
-		// 计算开始时间
-		startDate := time.Now().AddDate(0, int(month)*-1, 0)
-		endDate := time.Now()
-
-		// 2. SQL 修改：使用 UNION ALL 合并两张表
-		// 注意：为了性能，我们在 UNION 内部就先把 uid 和 时间范围 过滤掉，
-		// 这样能利用索引，避免全表 UNION。
-		sqlQuery := `
-    WITH UnifiedData AS (
-        -- 0. 合并新旧表数据，并预先过滤，利用索引加速
-        SELECT guard, updated_at, id, uid
-        FROM area_livers
-        WHERE uid = @user_id AND updated_at BETWEEN @start_date AND @end_date
-        
-        UNION ALL
-        
-        SELECT guard, updated_at, id, uid
-        FROM vtbs_area_livers
-        WHERE uid = @user_id AND updated_at BETWEEN @start_date AND @end_date
-    ),
-    TimeRange AS (
-        -- 第一步：基于合并后的数据获取最小和最大时间戳
-        SELECT
-            MIN(updated_at) AS min_time,
-            MAX(updated_at) AS max_time
-        FROM
-            UnifiedData
-    ),
-    TimeBuckets AS (
-        -- 第二步：计算时间桶
-        SELECT
-            u.guard,
-            u.updated_at,
-            u.id,
-            FLOOR(
-                TIMESTAMPDIFF(SECOND, tr.min_time, u.updated_at) * @num_points /
-                GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
-            ) AS time_bucket
-        FROM
-            UnifiedData u, -- 这里改为从 UnifiedData 查询
-            TimeRange tr
-        WHERE
-            tr.min_time IS NOT NULL
-    ),
-    RankedByBucket AS (
-        -- 第三步：桶内排序
-        SELECT
-            guard,
-            updated_at,
-            id,
-            time_bucket,
-            ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY updated_at ASC) AS rn
-        FROM
-            TimeBuckets
-    )
-    -- 第四步：取每个桶的第一条
-    SELECT
-        guard,
-        updated_at,
-        id
-    FROM
-        RankedByBucket
-    WHERE
-        rn = 1
-    ORDER BY
-        updated_at;
-    `
-
-		db.Raw(sqlQuery, map[string]interface{}{
 			"user_id":    uid,
-			"start_date": startDate,
-			"end_date":   endDate,
-			"num_points": month * 10,
+			"start_date": time.Now().AddDate(0, int(month)*-1, 0),
+			"end_date":   time.Now(),
+			"num_points": 30,
 		}).Scan(&dst)
 
 		context.JSON(http.StatusOK, gin.H{
 			"data": dst,
 		})
+
 	})
+
+	/*
+			r.GET("/chart/guard", func(context *gin.Context) {
+				var month, _ = strconv.ParseInt(context.DefaultQuery("month", "-3"), 10, 64)
+				if month < 0 {
+					month = -month
+				}
+				var uidStr = context.DefaultQuery("uid", "")
+				if uidStr == "" || toInt64(uidStr) == 0 {
+					context.JSON(http.StatusOK, gin.H{
+						"message": "invalid uid",
+					})
+					return
+				}
+				var uid = toInt64(uidStr)
+				var dst []AreaLiver
+
+				// 计算开始时间
+				startDate := time.Now().AddDate(0, int(month)*-1, 0)
+				endDate := time.Now()
+
+				// 2. SQL 修改：使用 UNION ALL 合并两张表
+				// 注意：为了性能，我们在 UNION 内部就先把 uid 和 时间范围 过滤掉，
+				// 这样能利用索引，避免全表 UNION。
+				sqlQuery := `
+		    WITH UnifiedData AS (
+		        -- 0. 合并新旧表数据，并预先过滤，利用索引加速
+		        SELECT guard, updated_at, id, uid
+		        FROM area_livers
+		        WHERE uid = @user_id AND updated_at BETWEEN @start_date AND @end_date
+
+		        UNION ALL
+
+		        SELECT guard, updated_at, id, uid
+		        FROM vtbs_area_livers
+		        WHERE uid = @user_id AND updated_at BETWEEN @start_date AND @end_date
+		    ),
+		    TimeRange AS (
+		        -- 第一步：基于合并后的数据获取最小和最大时间戳
+		        SELECT
+		            MIN(updated_at) AS min_time,
+		            MAX(updated_at) AS max_time
+		        FROM
+		            UnifiedData
+		    ),
+		    TimeBuckets AS (
+		        -- 第二步：计算时间桶
+		        SELECT
+		            u.guard,
+		            u.updated_at,
+		            u.id,
+		            FLOOR(
+		                TIMESTAMPDIFF(SECOND, tr.min_time, u.updated_at) * @num_points /
+		                GREATEST(TIMESTAMPDIFF(SECOND, tr.min_time, tr.max_time), 1)
+		            ) AS time_bucket
+		        FROM
+		            UnifiedData u, -- 这里改为从 UnifiedData 查询
+		            TimeRange tr
+		        WHERE
+		            tr.min_time IS NOT NULL
+		    ),
+		    RankedByBucket AS (
+		        -- 第三步：桶内排序
+		        SELECT
+		            guard,
+		            updated_at,
+		            id,
+		            time_bucket,
+		            ROW_NUMBER() OVER (PARTITION BY time_bucket ORDER BY updated_at ASC) AS rn
+		        FROM
+		            TimeBuckets
+		    )
+		    -- 第四步：取每个桶的第一条
+		    SELECT
+		        guard,
+		        updated_at,
+		        id
+		    FROM
+		        RankedByBucket
+		    WHERE
+		        rn = 1
+		    ORDER BY
+		        updated_at;
+		    `
+
+				db.Raw(sqlQuery, map[string]interface{}{
+					"user_id":    uid,
+					"start_date": startDate,
+					"end_date":   endDate,
+					"num_points": month * 10,
+				}).Scan(&dst)
+
+				context.JSON(http.StatusOK, gin.H{
+					"data": dst,
+				})
+			})
+
+	*/
 
 	r.GET("/chart/msg", func(context *gin.Context) {
 		context.JSON(http.StatusOK, gin.H{
@@ -2028,6 +2036,10 @@ ORDER BY t.updated_at DESC, t.id DESC
 	r.GET("/pk", func(c *gin.Context) {
 		var guild = toInt64(c.Query("guild"))
 		var month = toInt(c.DefaultQuery("month", time.Now().Month().String()))
+		var year = time.Now().Year()
+		if time.Now().Month() < time.Month(month) {
+			year = year - 1
+		}
 		type Scanned struct {
 			UserName       string
 			Money          float64
@@ -2059,14 +2071,15 @@ SELECT
 FROM
     lives
 WHERE
-    MONTH(lives.created_at) = %d
+    MONTH(lives.created_at) = %d and
+   YEAR(lives.created_at) = %d
     AND end_at != 0
 GROUP BY
     lives.user_name
 ORDER BY money DESC
 LIMIT 400;
 
-`, month)).Scan(&dst)
+`, month, year)).Scan(&dst)
 		} else {
 			db.Raw(fmt.Sprintf(`
 SELECT 
@@ -2086,13 +2099,14 @@ JOIN
 WHERE 
     guild_infos.guild_id = %d
     AND MONTH(lives.created_at) = %d
+	AND YEAR(lives.created_at) = %d
     AND end_at != 0
 GROUP BY 
     lives.user_name
 ORDER BY money DESC;
 
 
-`, guild, month)).Scan(&dst)
+`, guild, month, year)).Scan(&dst)
 		}
 		for i := range dst {
 			dst[i].Money = math.Round(dst[i].Money*100) / 100
@@ -3494,6 +3508,166 @@ where
 		c.JSON(http.StatusOK, gin.H{
 			"data": FetchUser(c.Query("uid"), nil),
 		})
+	})
+	r.GET("/aicu/reply", func(c *gin.Context) {
+		var uid = toInt64(c.Query("uid"))
+		if uid <= 0 {
+			return
+		}
+		var page = toInt(c.Query("page"))
+
+		jar := tls_client.NewCookieJar()
+		options := []tls_client.HttpClientOption{
+			tls_client.WithTimeoutSeconds(30),
+			tls_client.WithClientProfile(profiles.Chrome_144),
+			tls_client.WithNotFollowRedirects(),
+			tls_client.WithCookieJar(jar), // create cookieJar instance and pass it as argument
+		}
+
+		client, err := tls_client.NewHttpClient(tls_client.NewNoopLogger(), options...)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		req, err := http0.NewRequest(http.MethodGet, fmt.Sprintf("https://api.aicu.cc/api/v3/search/getreply?uid=%d&pn=%d&ps=100&mode=0&keyword=", uid, page), nil)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		req.Header = http0.Header{
+			"accept":          {"*/*"},
+			"accept-language": {"de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7"},
+			"user-agent":      {"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"},
+		}
+
+		resp, err := client.Do(req)
+
+		defer resp.Body.Close()
+
+		log.Println(fmt.Sprintf("status code: %d", resp.StatusCode))
+
+		readBytes, _ := io.ReadAll(resp.Body)
+
+		var obj map[string]interface{}
+		json.Unmarshal(readBytes, &obj)
+		var array = getArray(obj, "data.replies")
+
+		type Peer struct {
+			UID int64
+			ID  int64
+		}
+		var peerDst = make([]Peer, 0)
+		var peerDst2 = make([]Peer, 0)
+		var t = lo.Map(lo.Filter(array, func(item interface{}, index int) bool {
+			return getInt64(item, "dyn.type") == 1
+		}), func(item interface{}, index int) int64 {
+			return toInt64(getString(item, "dyn.oid"))
+		})
+
+		var t2 = lo.Map(lo.Filter(array, func(item interface{}, index int) bool {
+			return getInt64(item, "dyn.type") != 1
+		}), func(item interface{}, index int) int64 {
+			return toInt64(getString(item, "dyn.oid"))
+		})
+		var wg1 sync.WaitGroup
+		wg1.Add(2)
+		wg1.Go(func() {
+			clickDb.Raw("select * from dynamics_id where id in (?)", t2).Scan(&peerDst)
+			wg1.Done()
+		})
+		wg1.Go(func() {
+			clickDb.Raw("select * from dynamics_id where comment_id in (?)", t).Scan(&peerDst2)
+			wg1.Done()
+		})
+		wg1.Wait()
+
+		var m = make(map[int64][]int64)
+		for _, i := range peerDst {
+			m[i.UID] = append(m[i.UID], i.ID)
+		}
+
+		var m2 = make(map[int64][]int64)
+		for _, i := range peerDst2 {
+			m2[i.UID] = append(m2[i.UID], i.ID)
+		}
+		var wg sync.WaitGroup
+		type Dynamic struct {
+			Top         bool
+			UName       string
+			UID         int64
+			Face        string
+			Images      string
+			Type        string
+			Title       string
+			Text        string
+			ID          int64
+			BV          string
+			Comments    int
+			Like        int
+			Forward     int
+			CommentID   int64
+			CommentType int
+			CreateAt    time.Time
+			ForwardFrom int64
+			RawResponse string
+			Forwarded   bool
+			IDStr       string
+		}
+		var dyn []Dynamic
+		var mutex sync.Mutex
+		for k, v := range m {
+			wg.Add(1)
+			wg.Go(func() {
+				var t []Dynamic
+				clickDb.Raw("select * from dynamics where uid = ? and comment_id in (?)", k, v).Scan(&t)
+				mutex.Lock()
+				dyn = append(dyn, t...)
+				mutex.Unlock()
+				wg.Done()
+			})
+		}
+		for k, v := range m2 {
+			wg.Add(1)
+			wg.Go(func() {
+				var t []Dynamic
+				clickDb.Raw("select * from dynamics where uid = ? and id in (?)", k, v).Scan(&t)
+				mutex.Lock()
+				dyn = append(dyn, t...)
+				mutex.Unlock()
+				wg.Done()
+			})
+		}
+		var uName = ""
+		wg.Add(1)
+		wg.Go(func() {
+			face := biliClient.BatchGetFace(append([]int64{}, uid))
+			if len(face) > 0 {
+				uName = face[0].UName
+			}
+			wg.Done()
+		})
+		wg.Wait()
+		for i, _ := range array {
+			var item = array[i]
+			var oid = toInt64(getString(item, "dyn.oid"))
+			var d Dynamic
+			for _, dynamic := range dyn {
+				if dynamic.ID == oid || dynamic.CommentID == oid {
+					d = dynamic
+					break
+				}
+			}
+			array[i].(map[string]interface{})["dyn_orig"] = d
+			array[i].(map[string]interface{})["current_name"] = uName
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"data":  array,
+			"pages": getInt(obj, "data.cursor.all_count")/100 + 1,
+		})
+
 	})
 	r.Run(":" + strconv.Itoa(int(config.Port)))
 }

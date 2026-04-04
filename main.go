@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -498,6 +499,7 @@ func main() {
 			defer func() {
 				if r := recover(); r != nil {
 					log.Println("Panic  restarting", r)
+					debug.PrintStack()
 					time.Sleep(time.Second * 10)
 				}
 			}()
@@ -521,9 +523,8 @@ func loadPb() {
 	fileDesc := files["word.proto"]
 	INTERACT_WORD_MSG = fileDesc.FindMessage("InteractWordV2")
 
-	pb, _ := os.ReadFile("gift.desc")
 	fdSet1 := &descriptorpb.FileDescriptorSet{}
-	proto.Unmarshal(pb, fdSet1)
+	proto.Unmarshal(GIFT_PB, fdSet1)
 	files1, _ := desc.CreateFileDescriptorsFromSet(fdSet1)
 	fileDesc1 := files1["gift.proto"]
 	SEND_GIFT_V2 = fileDesc1.FindMessage("bilibili.live.msg.SendGiftMsg")
@@ -591,17 +592,20 @@ func main0() {
 
 	wbi.WithRawCookies(config.Cookie)
 	wbi.initWbi()
-	db.Table("enter_action").AutoMigrate(&LiveAction{})
-	db.AutoMigrate(&Live{})
-	//db.AutoMigrate(&LiveAction{})
-	db.AutoMigrate(&User{})
-	db.AutoMigrate(&Archive{})
-	db.AutoMigrate(&AreaLiver{})
-	db.AutoMigrate(&AreaLive{})
-	db.AutoMigrate(&FansClub{})
-	db.AutoMigrate(&FaceCache{})
-	db.AutoMigrate(&OnlineStatus{})
-	db.AutoMigrate(&Post{})
+	/*
+		db.Table("enter_action").AutoMigrate(&LiveAction{})
+		db.AutoMigrate(&Live{})
+		db.AutoMigrate(&LiveAction{})
+		db.AutoMigrate(&User{})
+		db.AutoMigrate(&Archive{})
+		db.AutoMigrate(&AreaLiver{})
+		db.AutoMigrate(&AreaLive{})
+		db.AutoMigrate(&FansClub{})
+		db.AutoMigrate(&FaceCache{})
+		db.AutoMigrate(&OnlineStatus{})
+		db.AutoMigrate(&Post{})
+
+	*/
 	RemoveEmpty()
 	if config.Mode == "API" {
 		config.Port++
@@ -632,15 +636,22 @@ func main0() {
 	}
 	if config.LoginMode == "mix" {
 		config.Cookie = PickCookie()
+		SyncCookieCache()
 		go func() {
 			for {
 				config.Cookie = PickCookie()
 				time.Sleep(time.Second * 300)
 			}
 		}()
+		go func() {
+			for {
+				SyncCookieCache()
+				time.Sleep(time.Second * 60)
+			}
+		}()
 	}
 	if config.Mode == "Master" {
-		config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
+		//config.Slaves = append(config.Slaves, "http://127.0.0.1:"+strconv.Itoa(int(config.Port)))
 		man = NewSlaverManager(config.Slaves)
 		man.OnErr = func(tasks []string) {
 			log.Println("onError")
@@ -667,10 +678,14 @@ func main0() {
 		}()
 		if config.TraceArea {
 			go func() {
-				TraceArea(9, true)
-			}()
-			go func() {
-				TraceAreaShortPath(9, true)
+				TraceAreaShortPath(9, true, 1)
+				TraceAreaShortPath(9, true, 2)
+				TraceAreaShortPath(9, true, 3)
+				TraceAreaShortPath(9, true, 4)
+				TraceAreaShortPath(9, true, 5)
+				TraceAreaShortPath(9, true, 6)
+				TraceAreaShortPath(9, true, 7)
+				TraceAreaShortPath(9, true, 8)
 			}()
 		}
 		go func() {
@@ -692,12 +707,20 @@ func main0() {
 		c.AddFunc("@every 720m", UpdateCommon)
 		c.AddFunc("@every 10m", func() {
 			if config.TraceArea {
-				TraceArea(9, true)
+				UpdateGuard(9, true)
 			}
 		})
-		c.AddFunc("@every 1m", func() {
+		c.AddFunc("@every 20s", func() {
 			if config.TraceArea {
-				TraceArea(9, false)
+				TraceAreaShortPath(9, false, 1)
+			}
+		})
+
+		c.AddFunc("@every 3m", func() {
+			if config.TraceArea {
+				TraceAreaShortPath(9, true, 1)
+				TraceAreaShortPath(9, true, 2)
+				TraceAreaShortPath(9, true, 3)
 			}
 		})
 
@@ -850,31 +873,35 @@ func RefreshCookie() {
 
 }
 
-var PICK_CACHETIME int64 = 60
-var LAST_PICK int64 = 0
-var PICK_CACHE = ""
-var pickMu sync.Mutex
+var SYNC_COOKIE []string
+
+var syncCookieMutex sync.Mutex
+
+func SyncCookieCache() {
+	res, er := client.R().Get(config.PoolEndPoint + "health")
+	var obj map[string]interface{}
+	json.Unmarshal(res.Body(), &obj)
+
+	if len(getArray(obj, "Accounts")) > 0 {
+		syncCookieMutex.Lock()
+		defer syncCookieMutex.Unlock()
+		SYNC_COOKIE = make([]string, 0)
+	} else {
+		log.Println(er)
+	}
+	for _, i := range getArray(obj, "Accounts") {
+		if getBool(i, "Health") {
+			SYNC_COOKIE = append(SYNC_COOKIE, getString(i, "Cookie"))
+		}
+	}
+
+}
 
 func PickCookie() string {
-	now := time.Now().Unix()
-	pickMu.Lock()
-	defer pickMu.Unlock()
-	if PICK_CACHE != "" && LAST_PICK != 0 && now-LAST_PICK < PICK_CACHETIME {
-		return PICK_CACHE
+	syncCookieMutex.Lock()
+	defer syncCookieMutex.Unlock()
+	if len(SYNC_COOKIE) == 0 {
+		return ""
 	}
-	res, err := client.R().Get(config.PoolEndPoint + "pick")
-	if err != nil {
-		return PICK_CACHE
-	}
-	var obj map[string]interface{}
-	if err := sonic.Unmarshal(res.Body(), &obj); err != nil {
-		return PICK_CACHE
-	}
-	c := getString(obj, "Cookie")
-	if c == "" {
-		return PICK_CACHE
-	}
-	PICK_CACHE = c
-	LAST_PICK = now
-	return PICK_CACHE
+	return SYNC_COOKIE[rand.Intn(len(SYNC_COOKIE))]
 }

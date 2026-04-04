@@ -21,6 +21,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"github.com/bytedance/sonic"
 	_ "github.com/golang/protobuf/proto"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jhump/protoreflect/dynamic"
 	pool2 "github.com/sourcegraph/conc/pool"
@@ -328,14 +329,14 @@ var guardWorkerMap = make(map[int64]time.Time)
 
 var validMap sync.Map
 
-func TraceAreaShortPath(parent int, preheat bool) {
+func TraceAreaShortPath(parent int, preheat bool, page int) {
 	var sort = "live_time"
 	var size = 50
 	if preheat {
 		sort = ""
 		size = 99
 	}
-	res, _ := client.R().Get(fmt.Sprintf("https://api.live.bilibili.com/room/v3/area/getRoomList?parent_area_id=%d&sort_type=%s&page_size=%d", parent, sort, size))
+	res, _ := client.R().Get(fmt.Sprintf("https://api.live.bilibili.com/room/v3/area/getRoomList?parent_area_id=%d&sort_type=%s&page_size=%d&page=%d", parent, sort, size, page))
 	var obj map[string]interface{}
 	sonic.Unmarshal([]byte(res.String()), &obj)
 	for _, i := range getArray(obj, "data.list") {
@@ -382,11 +383,7 @@ func TraceAreaShortPath(parent int, preheat bool) {
 	}
 }
 
-func TraceArea(parent int, full bool) {
-	if !full {
-		TraceAreaShortPath(parent, false)
-		return
-	}
+func UpdateGuard(parent int, full bool) {
 	log.Println("begin TraceArea")
 	var lock sync.Mutex
 	if working && full { //上一个没有爬完，而且不是全的模式，就跳过这次
@@ -413,7 +410,7 @@ func TraceArea(parent int, full bool) {
 		var now = time.Now()
 		s, _ := wbi.SignQuery(u.Query(), now)
 		var ck = config.Cookie
-		if config.LoginMode == "pool" {
+		if config.LoginMode != "cookie" {
 			ck = PickCookie()
 		}
 		res, _ := RandomPick(cPools).R().SetHeader("User-Agent", USER_AGENT).SetHeader("Cookie", ck).Get("https://api.live.bilibili.com/xlive/app-interface/v2/second/getList?" + s.Encode())
@@ -592,6 +589,9 @@ func BuildAuthMessage(room string) string {
 	if config.LoginMode == "cookie" || config.LoginMode == "mix" {
 		ck = config.Cookie
 	}
+	if config.LoginMode == "mix" {
+		ck = PickCookie()
+	}
 
 	var u0 = ""
 	if config.LoginMode == "cookie" || config.LoginMode == "mix" {
@@ -624,7 +624,8 @@ func BuildAuthMessage(room string) string {
 	cer.RoomId = id
 	cer.Type = 2
 	cer.Key = liveInfo.Data.Token
-	cer.Buvid = strings.Replace(PickCookie(), "buvid3=", "", 1)
+	//cer.Buvid = strings.Replace(PickCookie(), "buvid3=", "", 1)
+	cer.Buvid = uuid.NewString() + "infoc"
 	if config.LoginMode == "pool" {
 		cer.Buvid = liveInfo.Data.Buvid
 	}
@@ -695,8 +696,11 @@ var extraAction sync.Mutex
 func TraceLive(roomId string) {
 	defer func() {
 		if r := recover(); r != nil {
-			debug.PrintStack()
-			fmt.Println("Recovered from panic:", r)
+			stack := string(debug.Stack())
+			msg := fmt.Sprintf("Recovered from panic: %v\n%s", r, stack)
+			log.Println(msg)
+			res, _ := client.R().Get("https://test.ipw.cn/")
+			PushDynamic(res.String()+"   RECOVER FROM PANIC", msg)
 		}
 	}()
 
@@ -1097,7 +1101,11 @@ func TraceLive(roomId string) {
 					action.ActionType = Block
 					db.Save(action)
 				} else if text.Cmd == "ANCHOR_LOT_START" {
-					//PushServerHime(liver+"直播间发起了天选抽奖", "")
+					//PushServerHime(liver.md+"直播间发起了天选抽奖", "")
+				} else if text.Cmd == "WARNING" {
+					action.ActionType = Warning
+					action.Extra = text.Msg
+					db.Save(action)
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
@@ -1195,7 +1203,7 @@ func TraceLive(roomId string) {
 			}
 			e, ok := lives[roomId]
 			if status.Data.LiveStatus != 1 && (isLive(roomId) || (ok && e.Live)) {
-				if status.Message != "" {
+				if status.Message == "0" {
 					setLive(roomId, false)
 					var sum float64
 					db.Table("live_actions").Select("SUM(gift_price)").Where("live = ?", dbLiveId).Scan(&sum)
@@ -1406,6 +1414,7 @@ type LiveText struct {
 	Cmd  string        `json:"cmd"`
 	DmV2 string        `json:"dm_v2"`
 	Info []interface{} `json:"info"`
+	Msg  string        `json:"msg"`
 }
 type GiftBox struct {
 	Data struct {
@@ -1424,6 +1433,7 @@ const (
 	SuperChat int = 4
 	Cut       int = 5
 	Block     int = 6
+	Warning       = 7
 )
 
 type LiveAction struct {

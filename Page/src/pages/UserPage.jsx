@@ -100,7 +100,7 @@ function UserPage(props) {
                     data={getPieData(space.Rooms)}
                     onSegmentClick={(data, index) => {
                         console.log(data); // 包含所有字段
-                        setRoom(data.payload.id)
+                        setRoom(data.payload.id + '')
                     }}
                 />
                 <div className={'sm:w-[75vw] lg:overflow-x-hidden '}>
@@ -236,7 +236,7 @@ function UserPage(props) {
                                 selectedKey={room}
                                 items={space.Rooms == null ? [] : space.Rooms.sort((a, b) => { return a.Rate - b.Rate }).filter(e => { return e.Liver.includes(input) !== 0 })}
                             >
-                                {(f) => <AutocompleteItem key={f.LiveRoom} textValue={f.Liver}>
+                                {(f) => <AutocompleteItem key={f.LiveRoom + ''} textValue={f.Liver}>
                                     <div className={'flex flex-row'}>
                                         <Avatar src={`${AVATAR_API}${f.LiverID}`} />
                                         <span className={'font-bold ml-2 mt-2'}>{f.Liver}</span>

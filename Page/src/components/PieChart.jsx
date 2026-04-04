@@ -87,7 +87,7 @@ const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
         const data = payload[0];
         return (
-            <div className="bg-white/95 backdrop-blur-md p-3 rounded-lg shadow-lg border border-default-200">
+            <div className="bg-white/95 dark:bg-black backdrop-blur-md p-3 rounded-lg shadow-lg border border-default-200">
                 <p className="text-sm font-medium text-default-700">{data.name}</p>
                 <p className="text-lg font-semibold" style={{ color: data.payload.fill }}>
                     {data.value.toLocaleString()}

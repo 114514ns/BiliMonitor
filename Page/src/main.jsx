@@ -190,7 +190,11 @@ if (session === null || session === undefined || session === '') {
 }
 
 if (localStorage.getItem("defaultPageSize") === null) {
-    localStorage.setItem("defaultPageSize", "10");
+    localStorage.setItem("defaultPageSize", "100");
+}
+if (localStorage.getItem('flag_page_size_100') === null) {
+    localStorage.setItem('flag_page_size_100', 'true')
+    localStorage.setItem("defaultPageSize", "100");
 }
 
 window.prefetch = (url) => {

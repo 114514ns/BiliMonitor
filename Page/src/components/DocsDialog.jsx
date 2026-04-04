@@ -14,52 +14,15 @@ function DocsDialog(props) {
     const [content,setContent] = React.useState('');
 
     useEffect(() => {
-        var p = loc.pathname
-        var fName = ''
-        if (p === '/') {
-            fName = 'index.md'
-        }
-        if (p === '/list') {
-            fName = 'list.md'
-        }
-
-        if (p === '/raw') {
-            fName = 'raw.md'
-        }
-
-        if (p === '/pk') {
-            fName = 'pk.md'
-        }
-
-        if (p === '/traces') {
-            fName = 'traces.md'
-        }
-
-        if (p === '/reactions') {
-            fName = 'reactions.md'
-        }
-
-        if (p === '/relation') {
-            fName = 'relation.md'
-        }
-
-        if (p === '/fans') {
-            fName = 'fans.md'
-        }
-        if (p === '/feeds') {
-            fName = 'dynamics.md'
-        }
-        if (p === '/highlight') {
-            fName = 'highlight.md'
-        }
-        if (fName !== '') {
-            axios.get(`/docs/${fName}`).then(res => {
+        if (props.fName !== '') {
+            axios.get('/docs/' + props.fName).then((res) => {
                 setContent(res.data)
             })
         } else {
-            setContent('还没有内容......')
+            setContent('还没有内容')
         }
-    }, [loc.pathname]);
+    },[props.fName])
+
     return (
         <div className={'max-h-1/2 sm:h-2/3 '}>
             <Modal isOpen={props.isOpen} onOpenChange={props.onClose} className={'overflow-scroll scrollbar-hide'} >
@@ -72,7 +35,6 @@ function DocsDialog(props) {
                                     ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />,
                                     "bili-dynamic-card": ({ node, ...props }) => {
 
-// props 中包含了 type 属性以及 children
 
                                         return <DynamicCard OID={props.OID}></DynamicCard>;
 

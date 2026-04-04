@@ -363,7 +363,7 @@ function ListPage(props) {
                     <ListboxItem key={index} value={item.value} css={{width: '100%'}} aria-label={item.label}
                                  textValue={''}
                                  onClick={() => {
-                                     window.open(location.origin + "/liver/" + item.UID)
+                                     window.open(location.origin + "/liver.md/" + item.UID)
                                  }}
                     >
                         <LiverCard

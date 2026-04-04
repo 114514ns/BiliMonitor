@@ -4,12 +4,13 @@ import './App.css'
 import LivePage from "./pages/LivePage.jsx";
 import LiveDetailPage from "./pages/LiveDetailPage.jsx";
 import {
+    Alert, Badge,
     Button,
     Dropdown,
     DropdownItem,
     DropdownMenu,
     DropdownTrigger,
-    Link,
+    Link, ModalHeader,
     Navbar,
     NavbarContent,
     NavbarItem
@@ -42,6 +43,9 @@ import {useTheme} from "next-themes";
 import DocsDialog from "./components/DocsDialog";
 
 import mitt from 'mitt';
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import DynamicCard from "./components/DynamicCard";
 
 export const eventBus = mitt();
 
@@ -70,6 +74,14 @@ const RefreshIcon = () => {
     return (
         <svg xmlns="http://www.w3.org/2000/svg" height="32px" viewBox="0 -960 960 960" width="32px" fill="#1f1f1f">
             <path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q69 0 132 28.5T720-690v-110h80v280H520v-80h168q-32-56-87.5-88T480-720q-100 0-170 70t-70 170q0 100 70 170t170 70q77 0 139-44t87-116h84q-28 106-114 173t-196 67Z"/>
+        </svg>
+    )
+}
+
+const AlertIcon = () => {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 -960 960 960" width="24px" fill="#1f1f1f">
+            <path d="M400-380v-440h160v440h-160Zm0 220v-160h160v160h-160Z"/>
         </svg>
     )
 }
@@ -129,10 +141,12 @@ function BasicLayout() {
             if (navigator.userAgent !== 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36') {
                 var last = localStorage.getItem("news")
                 if (last === null || last !== response.data) {
-                    localStorage.setItem("news",response.data)
+
                     fetchMoney(true)
                     fetchGuild(true)
                     setShowNotice(true)
+                    localStorage.setItem("news", response.data)
+
                 }
             }
 
@@ -150,11 +164,86 @@ function BasicLayout() {
             setShowRefresh(false)
         }
     },[loc.pathname])
+
+    const [docName,setDocName] = useState()
+
+    const [showDocPoint,setShowDocPoint] = useState(false)
+
+    useEffect(() => {
+        var p = loc.pathname
+        var fName = ''
+        if (p === '/') {
+            fName = 'index.md'
+        }
+        if (p === '/list') {
+            fName = 'list.md'
+        }
+
+        if (p === '/raw') {
+            fName = 'raw.md'
+        }
+
+        if (p === '/pk') {
+            fName = 'pk.md'
+        }
+
+        if (p === '/traces') {
+            fName = 'traces.md'
+        }
+
+        if (p === '/reactions') {
+            fName = 'reactions.md'
+        }
+
+        if (p === '/relation') {
+            fName = 'relation.md'
+        }
+
+        if (p === '/fans') {
+            fName = 'fans.md'
+        }
+        if (p === '/feeds') {
+            fName = 'dynamics.md'
+        }
+        if (p === '/highlight') {
+            fName = 'highlight.md'
+        }
+        if (p.includes( '/liver/')) {
+            fName = 'liver.md'
+        }
+        if (p.includes( '/user/')) {
+            fName = 'user.md'
+        }
+        if (p.includes( '/lives/')) {
+            fName = 'detail.md'
+        }
+        if (fName !== '') {
+            setDocName(fName)
+            axios.get('/docs/' + fName).then((res) => {
+                var str = localStorage.getItem('docs')
+                var map = null
+                if (str === null || JSON.parse(str) === undefined) {
+                    map = new Map()
+                } else {
+                    map = JSON.parse(str)
+                }
+                if (res.data !== map[fName]) {
+                    map[fName] = res.data
+                    localStorage.setItem('docs', JSON.stringify(map))
+                    setShowDocPoint(true)
+                } else {
+                    setShowDocPoint(false)
+                }
+            })
+        } else {
+            setDocName('')
+        }
+    }, [loc.pathname]);
     return (
 
         <div>
-            <CommentForm isOpen={commentOpen} onChange={() => setCommentOpen(!commentOpen)} onClose={() => setCommentOpen(false)}/>
-            <DocsDialog isOpen={showDoc} onClose={() => setShowDoc(false)}/>
+            <CommentForm isOpen={commentOpen} onChange={() => setCommentOpen(!commentOpen)} onClose={() => setCommentOpen(false)} />
+            <DocsDialog isOpen={showDoc} onClose={() => setShowDoc(false)} fName={docName}/>
             <div className={'fixed right-[3vw] bottom-[3vw] z-40 flex flex-col'}>
                 {showRefresh &&                 <Button
                     isIconOnly
@@ -163,14 +252,18 @@ function BasicLayout() {
                         eventBus.emit("refresh")
                     }}
                 />}
-                <Button
-                    isIconOnly
-                    className={'mt-2'}
-                    startContent={<HelpIcon/>}
-                    onClick={() => {
-                        setShowDoc(true)
-                    }}
-                />
+
+                <Badge color={showDocPoint ? 'danger' : 'default'} size={'sm'} content="" placement="bottom-right" shape={showDocPoint?'circle':undefined}>
+                    <Button
+                        isIconOnly
+                        className={'mt-2'}
+                        startContent={<HelpIcon/>}
+                        onClick={() => {
+                            setShowDoc(true)
+                            setShowDocPoint(false)
+                        }}
+                    />
+                </Badge>
                 <Button
                     isIconOnly
                     className={'mt-2'}
@@ -182,7 +275,6 @@ function BasicLayout() {
             </div>
             {showNotice && <NoticeDialog onClose={() => {
                 setShowNotice(false);
-                setCommentOpen(true)
             }} content={content}></NoticeDialog>}
             {showRank && <RankDialog open={showRank} onClose={() => {
                 setShowRank(false)
@@ -235,14 +327,8 @@ function BasicLayout() {
                                 setShowSettings(true);
                             }}>设置</DropdownItem>
                             <DropdownItem key="reaction" onClick={() => {
-                                redirect("/reactions")
-                            }}>点赞查询</DropdownItem>
-                            <DropdownItem key="reaction" onClick={() => {
                                 redirect("/highlight")
                             }}>管人痴魅力时刻</DropdownItem>
-                            <DropdownItem key="dynamics" onClick={() => {
-                                redirect("/feeds")
-                            }}>动态查询</DropdownItem>
                             <DropdownItem key="geo" onClick={() => {
                                 redirect("/geo")
                             }}>Geo</DropdownItem>

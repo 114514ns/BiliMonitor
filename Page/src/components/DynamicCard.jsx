@@ -38,13 +38,12 @@ function DynamicCard(props) {
                 setItem(res.data.data[0])
             })
         }
-
     },[])
     return (
         <div onClick={() => {
             props.onClick()
         }} className={'mt-6'}>
-            {item.UID &&             <Card className={`max-w-2xl mx-auto  rounded-lg shadow-sm p-4 pt-2  ${props.forward?'bg-[#F6F7F8]':''}`}  isHoverable>
+            {item.UID &&             <Card className={`max-w-2xl mx-auto rounded-lg shadow-sm p-4 pt-2 bg-white dark:bg-[#1f1f1f] ${props.forward?'bg-[#F6F7F8] dark:bg-[#2a2a2a]':''}`}  isHoverable>
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-3">
@@ -56,58 +55,46 @@ function DynamicCard(props) {
                             />
                         </div>
                         <div>
-                            <h3 className="font-bold text-gray-900">{item.TargetName || item.UName}</h3>
-
+                            <h3 className="font-bold text-gray-900 dark:text-gray-100">{item.TargetName || item.UName}</h3>
                             <div className={'flex flex-row items-center'}>
-                                <p className=" mr-2 font-light">{formatTimeAgo(item.CreatedAt || item.CreateAt)}</p>
-
-                                {item.Title && <span className={' text-sm font-light'}>投稿了视频</span>}
-                                {item.ForwardDynamic && <span className={'text-sm font-light'}>转发了动态</span>}
+                                <p className=" mr-2 font-light text-gray-600 dark:text-gray-400">{formatTimeAgo(item.CreatedAt || item.CreateAt)}</p>
+                                {item.Title && <span className={' text-sm font-light text-gray-600 dark:text-gray-400'}>投稿了视频</span>}
+                                {item.ForwardDynamic && <span className={'text-sm font-light text-gray-600 dark:text-gray-400'}>转发了动态</span>}
                             </div>
-
                         </div>
                     </div>
-
                 </div>
-
-
                 <div className="mb-3">
-                    <p className="text-gray-800 leading-relaxed whitespace-pre-line">
+                    <p className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line">
                         {item.Text}
                     </p>
                 </div>
                 {item.ForwardDynamic && <DynamicCard item={item.ForwardDynamic} forward={true}/>}
-
-
-
                 <div className={`${props.forward?'':'mb-4'}  ${item.Images.split(',').length%3===1?'grid grid grid-cols-3':''}`}>
                     {item.Images.split(',').map((item0,i)=>{
                         return (
                             <Image
-                                key={i}
+                                key={item0}
                                 src={item0 + '@.avif'}
                                 className={`mb-4 ${item.Images.split(',').length % 3 === 1 ? '' : ''}`}
                             />
                         );
                     })}
-
                 </div>
-                {item.Title}
+                <div className="text-gray-900 dark:text-gray-100">{item.Title}</div>
                 {/* Action Bar */}
-                {  !props.forward&&        <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <button className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors">
+                {  !props.forward&&        <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <button className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
                         <ForwardIcon size={20} />
                         <span className="text-sm">{item.Forward}</span>
                     </button>
-
-                    <button className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors">
+                    <button className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
                         <CommentIcon size={20} />
                         <span className="text-sm">{item.Comments}</span>
                     </button>
-
                     <button
                         className={`flex items-center gap-2 transition-colors ${
-                            'text-gray-600 hover:text-red-500'
+                            'text-gray-600 dark:text-gray-400 hover:text-red-500'
                         }`}
                     >
                         <LikeIcon
@@ -120,7 +107,6 @@ function DynamicCard(props) {
                 </div>}
             </Card>}
         </div>
-
     )
 }
 function formatTimeAgo(timeStr) {

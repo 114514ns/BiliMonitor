@@ -12,13 +12,16 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	bili "github.com/114514ns/BiliClient"
 	"github.com/bytedance/sonic"
+	"github.com/go-resty/resty/v2"
 	"github.com/jhump/protoreflect/dynamic"
 	"github.com/jinzhu/copier"
+	"github.com/samber/lo"
 	pool2 "github.com/sourcegraph/conc/pool"
 	"gorm.io/driver/clickhouse"
 	"gorm.io/driver/mysql"
@@ -56,7 +59,7 @@ func MockRefreshLivers() {
 	type Response struct {
 		List []FrontAreaLiver
 	}
-	get, _ := client.R().Get("https://api.vtb.cat/areaLivers")
+	get, _ := resty.New().R().Get("https://storage.vtb.cat/d/Local/areaLivers.json")
 	var dst Response
 	sonic.Unmarshal(get.Body(), &dst)
 	var from = dst.List
@@ -65,6 +68,7 @@ func MockRefreshLivers() {
 }
 func TestHttp(test *testing.T) {
 	loadDB()
+	MockRefreshLivers()
 	go func() {
 		http.ListenAndServe("0.0.0.0:8899", nil)
 	}()
@@ -87,7 +91,6 @@ func TestHttp(test *testing.T) {
 	}()
 	go func() {
 		RefreshWatcher()
-		MockRefreshLivers()
 
 	}()
 	go func() {
@@ -97,7 +100,7 @@ func TestHttp(test *testing.T) {
 		}
 	}()
 	//clickDb = clickDb.Debug()
-	//config.Port = 8082
+	//	config.Port = 8082
 	InitHTTP()
 
 }
@@ -215,7 +218,7 @@ func TestTraceArea(t *testing.T) {
 	setupHTTPClient()
 	db, _ = gorm.Open(sqlite.Open("database.db"))
 	man = NewSlaverManager([]string{})
-	TraceArea(9, true)
+	//TraceArea(9, true)
 }
 
 func TestTraceLive(t *testing.T) {
@@ -518,4 +521,54 @@ func TestGiftPb(test *testing.T) {
 	jsonBytes, _ := json.MarshalIndent(msg, "", "  ")
 
 	fmt.Println(string(jsonBytes))
+}
+
+func TestCheckRIP(test *testing.T) {
+	loadConfig()
+	loadDB()
+	var dst []DBGuard
+	db.Raw(`select *
+from (
+    select *,
+           row_number() over (partition by uid order by level desc) as rn
+    from fans_clubs
+    where level > 21
+) t
+where rn = 1
+order by level desc;`).Scan(&dst)
+	biliClient = bili.NewAnonymousClient(bili.ClientOptions{
+		ProxyURL: config.QueryProxy,
+	})
+	var results []DBGuard
+
+	var m = make(map[int64]DBGuard)
+	for _, i := range dst {
+		m[i.UID] = i
+	}
+
+	var pool = pool2.New().WithMaxGoroutines(16)
+
+	var mutex = sync.Mutex{}
+
+	for _, i := range lo.Chunk(dst, 50) {
+		pool.Go(func() {
+			var array = biliClient.BatchGetFace(lo.Map(i, func(item DBGuard, index int) int64 {
+				return item.UID
+			}))
+			for _, i2 := range array {
+				if i2.UName == "账号已注销" {
+					mutex.Lock()
+					results = append(results, m[i2.UID])
+					mutex.Unlock()
+				}
+			}
+		})
+
+	}
+	pool.Wait()
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Level > results[j].Level
+	})
+	marshal, _ := json.Marshal(results)
+	os.WriteFile("rip.json", marshal, os.ModePerm)
 }

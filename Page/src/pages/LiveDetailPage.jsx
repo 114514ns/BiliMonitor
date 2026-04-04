@@ -51,7 +51,7 @@ function LiveDetailPage(props) {
     const [playing, setPlaying] = useState(false);
     const [stream, setStream] = useState('');
     useEffect(() => {
-        refreshData(currentPage, pageSize)
+        refreshData(currentPage, pageSize,null)
         setTimeout(() => {
             if (highLight !== '') {
                 const element = document.getElementById(highLight);
@@ -89,7 +89,7 @@ function LiveDetailPage(props) {
 
     const [user, setUser] = useState([]);
     useEffect(() => {
-        refreshData(currentPage, pageSize)
+        refreshData(currentPage, pageSize,null)
     }, [order])
 
     const [filter, setFilter] = useState('')
@@ -131,7 +131,7 @@ function LiveDetailPage(props) {
 
     const tableRef = React.createRef()
     const protocol = location.protocol.replace(":", "")
-    const refreshData = (page0, size, name) => {
+    const refreshData = (page0, size, name,filter0) => {
 
         var page = parseInt(page0)
 
@@ -144,7 +144,7 @@ function LiveDetailPage(props) {
                 if (item.GiftName != "") {
                     obj.records[index].Extra = item.GiftName
                 }
-                //res.data.records[index].Liver = res.data.liver
+                //res.data.records[index].Liver = res.data.liver.md
                 obj.records[index].GiftPrice = obj.records[index].GiftPrice.Float64
                 obj.records[index].CreatedAt = new Date(obj.records[index].CreatedAt).toLocaleString()
             })
@@ -159,8 +159,8 @@ function LiveDetailPage(props) {
         if (name != null) {
             url = url + `&name=${name}`
         }
-        if (filter != null) {
-            url = url + `&type=${filter}`
+        if (filter0  || filter  ) {
+            url = url + `&type=${filter || filter0}`
         }
         /*
         axios.get(`${protocol}://${host}:${port}/api/live/` + id + "/?" + "page=" + (page+1 )+ "&limit=" + size + "&order=" + order + "&mid=" + mid).then(response => {
@@ -176,8 +176,6 @@ function LiveDetailPage(props) {
                 handleResponse(res.data)
             })
         }
-
-
 
     }
     useEffect(() => {
@@ -212,12 +210,12 @@ function LiveDetailPage(props) {
     }, [currentPage]);
 
     useEffect(() => {
-        refreshData(currentPage, pageSize)
+        refreshData(currentPage, pageSize,null)
     }, [filter, mid, pageSize])
 
     useEffect(() => {
         const handler = () => {
-            refreshData(currentPage, pageSize);
+            refreshData(currentPage, pageSize,null,filter);
             axios.get(`/api/liveDetail/${id}/`).then(res => {
                 setLiveInfo(res.data.live);
             });
@@ -226,11 +224,11 @@ function LiveDetailPage(props) {
         return () => {
             eventBus.off("refresh", handler);
         };
-    }, [currentPage, pageSize]);
+    }, [currentPage, pageSize,filter]);
 
 
     const handlePageChange = (page, pageSize, sorter) => {
-        refreshData(page, pageSize, name)
+        refreshData(page, pageSize, name,null)
         setCurrentPage(page)
         setPageSize(pageSize)
         console.log(sorter)
@@ -361,7 +359,6 @@ function LiveDetailPage(props) {
                 </Select>
                 <Select
                     isClearable
-                    setFilter={() => setFilter('')}
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={[{
                         key: 'msg',
@@ -408,7 +405,7 @@ function LiveDetailPage(props) {
                     setUser={() => setOrder('')}
                     className="max-w-xs mt-4 mb-4 ml-4"
                     items={user}
-                    label="Liver"
+                    label="Watcher"
                     onSelectionChange={e => {
                         setMid(e)
                     }}
@@ -445,11 +442,11 @@ function LiveDetailPage(props) {
                 </div>
             }
                    isStriped
+                   isHeaderSticky={true}
                    classNames={{
-                       // wrapper 是表格的外部卡片容器，开启横向滚动
                        wrapper: "max-w-full overflow-x-auto",
-                       // table 是实际的 <table> 标签，给一个最小宽度（根据你其他列的宽度估算一个值，比如 600px）
-                       table: "min-w-[600px]"
+                       table: "min-w-[600px]",
+                       base:'overflow-scroll max-h-full '
                    }}
             >
 

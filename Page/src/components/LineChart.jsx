@@ -39,7 +39,7 @@ export const FansChart = function FansChart(props) {
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-white p-2 border border-gray-200 rounded shadow">
+                <div className=" p-2 border border-gray-200 rounded shadow">
                     <p className="text-sm">{`Date: ${label}`}</p>
                     <p className="text-sm font-semibold">{`Value: ${payload[0].value.toLocaleString()}`}</p>
                 </div>
@@ -142,7 +142,7 @@ export const GuardChart = function GuardChart(props) {
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
-                <div className="bg-white p-2 border border-gray-200 rounded shadow">
+                <div className=" p-2 border border-gray-200 rounded shadow">
                     <p className="text-sm">{`Date: ${label}`}</p>
                     <p className="text-sm font-semibold">{`Value: ${payload[0].value.toLocaleString()}`}</p>
                 </div>

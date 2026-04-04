@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+    addToast,
     Select,
     SelectItem,
     Table,
@@ -98,6 +99,12 @@ function ComparePage() {
                         {['1','2','3','4','5','6','7','8','9','10',11,'12'].map((item) => {
                             return <SelectItem key={item} onClick={(e) => {
                                 setMonth(e.target.textContent)
+                                if (parseInt(e.target.textContent) > new Date().getMonth() + 1) {
+                                    addToast({
+                                        title: "您正在查看去年的数据",
+                                        color: 'warning',
+                                    })
+                                }
                             }}>{item}</SelectItem>
                         })}
                     </Select>
