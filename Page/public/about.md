@@ -5,21 +5,23 @@
 </div>
 <div style="display: flex ;justify-content: center" class="mt-2">
 <img src="/mail.svg" style="width:24px;height:24px"></img>
-<a classname="ml-2" href="mailto:admin@shiohix.resend.app" target="_blank">邮箱</a>
+<a classname="ml-2" href="mailto:mail@vtb.cat" target="_blank">邮箱</a>
 </div>
 <div style="display: flex ;justify-content: center" class="mt-2">
 <a classname="ml-2" href="https://vtb.fider.io/" target="_blank">bug反馈/追踪</a>
 </div>
 </div>
 
+<br/>
+<br/>
+
+哎哟我操，从来没在直播间说过话 怎么被认出来了，已畏惧。
+
+你是谁？请关注我们好女孩<a href="https://space.bilibili.com/3546757543758795" target="_blank">铃见Suzumi</a>！
 
 
-把每页的默认大小改成了100，如果不习惯可以在Misc -> 设置中修改。
+<bili-dynamic-card OID="1094595685555109908"/>
 
-
-关注<a href="https://space.bilibili.com/3546757543758795" target="_blank">铃见Suzumi</a>谢谢喵
-
-<bili-dynamic-card OID="1112083250515279896"/>
 
 
 

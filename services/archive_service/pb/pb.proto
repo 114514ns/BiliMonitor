@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package models; // Change this to match your project's package
+
+import "google/protobuf/timestamp.proto";
+
+message Reply {
+  int64 ID = 1;
+  string UName = 2;
+  string Face = 3;
+  int64 UID = 4;
+  string Text = 5;
+
+
+  google.protobuf.Timestamp Time = 6;
+
+  int32 Likes = 7;
+  int32 Replies = 8;
+
+  repeated Reply Reply = 9;
+
+  int64 ReplyID = 10;
+  int32 Type = 11;
+  int64 OID = 12;
+  int64 Root = 13;
+  repeated string Images = 14;
+}
+
+message ReplyList {
+  repeated Reply Replies = 1;
+}

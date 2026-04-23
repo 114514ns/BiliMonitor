@@ -34,8 +34,7 @@ function NoticeDialog(props) {
             <Modal onClose={seconds <=0 && props.onClose} isOpen={true} size={isMobile()?'full':'2xl'} className={'max-h-2/3 sm:h-[75vh]'} scrollBehavior={'inside'} backdrop={'blur'} isDismissable={seconds<=0}>
                 <ModalContent>
                     <ModalHeader>
-                        About & Notice
-
+                        更新日志 & 发电厂
                     </ModalHeader>
                     <ModalBody>
                         <div className={'markdown-body  overflow-scroll list-disc' }>

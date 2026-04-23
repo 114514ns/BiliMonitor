@@ -37,7 +37,9 @@
     "recharts": "^3.2.0",
     "rehype-raw": "^7.0.0",
     "rehype-sanitize": "^6.0.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "js-beautify": "^1.15.4",
+    "node-html-parser": "^7.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
@@ -53,6 +55,6 @@
     "postcss": "8.4.49",
     "rollup-plugin-visualizer": "^6.0.3",
     "tailwindcss": "^4.1.11",
-    "vite": "latest"
+    "vite": "7.1.11"
   }
 }

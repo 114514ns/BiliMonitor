@@ -241,6 +241,9 @@ func getInt(obj interface{}, path string) int {
 func getInt64(obj interface{}, path string) int64 {
 	return getObject(obj, path, "int64").i64
 }
+func getFloat64(obj interface{}, path string) float64 {
+	return getObject(obj, path, "float64").f64
+}
 func getString(obj interface{}, path string) string {
 	return getObject(obj, path, "string").s
 }
@@ -283,6 +286,9 @@ func getObject(obj interface{}, path string, typo string) JsonType {
 					}
 					if typo == "int64" {
 						st.i64 = int64(value.(float64))
+					}
+					if typo == "float64" {
+						st.f64 = (value.(float64))
 					}
 				}
 				if t.Kind() == reflect.Slice {

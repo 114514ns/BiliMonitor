@@ -62,6 +62,9 @@ function EyeIcon(props) {
         </svg>
     )
 }
+function BiliAvatar(props) {
+    return <Avatar src={props.src} className={'w-[128px] h-[128px]'} onClick={props.onClick}/>
+}
 import { useRef, useCallback } from 'react'
 const useLongPressWithClick = ({
                                    onLongPress,
@@ -272,7 +275,10 @@ function IndexPage(props) {
     return (
         <div className={'flex items-center justify-center flex-col'}>
             <div className={'w-full sm:w-[50vw] flex justify-center'}>
-                <EyeIcon/>
+                {/*<EyeIcon/>*/}
+                <BiliAvatar src={'https://i2.hdslb.com/bfs/face/cdaa7fefc49de4de2a778896fcbd6c0ec56fb3a8.jpg'} onClick={() => {
+                    window.open('https://space.bilibili.com/1298779265')
+                }}/>
             </div>
             <ScrollShadow className={'w-[80vw] sm:w-[50vw] max-h-[20vh] overflow-scroll scrollbar-hide mt-6'}>
 

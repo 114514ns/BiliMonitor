@@ -318,17 +318,18 @@ function LiveDetailPage(props) {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3  gap-2 text-sm">
-                        <div className="dark:bg-[#18181b] rounded-xl bg-green-100 p-2 text-green-700 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
+                        <div className="dark:bg-[#18181b] rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
                             setShowOnline(true)
-                        }}>观众数<br />{liveInfo.Watch}</div>
-                        <div className="dark:bg-[#18181b] rounded-xl bg-purple-100 p-2 text-fuchsia-600 dark:text-white transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
+                        }}>观众数<br /><span className={'font-semibold'}>{liveInfo.Watch}</span></div>
+                        <div className="dark:bg-[#18181b] rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg" onClick={() => {
                             axios.get("/api/minute?id=" + id).then(res => {
                                 setMsgData(res.data.data)
                                 setShowMinuteChart(true)
                             })
-                        }}>弹幕数<br />{liveInfo.Message}
+                        }}>弹幕数<br /><span className={'font-semibold'}>{liveInfo.Message}</span>
                         </div>
-                        <div className="dark:text-white dark:bg-[#18181b] rounded-xl bg-rose-100 p-2 text-rose-600 transition-transform duration-200 hover:scale-105 hover:shadow-lg">流水<br />{liveInfo.Money}</div>
+                        <div className="dark:bg-[#18181b] rounded-xl bg-gray-50 p-2 transition-transform duration-200 hover:scale-105 hover:shadow-lg">流水<br />
+                        <span className={'font-semibold'}>{liveInfo.Money}</span></div>
                     </div>
                 </div>
             </div>

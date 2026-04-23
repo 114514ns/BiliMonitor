@@ -10,7 +10,7 @@ import {
     DropdownItem,
     DropdownMenu,
     DropdownTrigger,
-    Link, ModalHeader,
+    Link, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader,
     Navbar,
     NavbarContent,
     NavbarItem
@@ -46,6 +46,7 @@ import mitt from 'mitt';
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import DynamicCard from "./components/DynamicCard";
+import Markdown from "react-markdown";
 
 export const eventBus = mitt();
 
@@ -85,6 +86,39 @@ const AlertIcon = () => {
         </svg>
     )
 }
+
+const PlayBackInfo = (props) => {
+    const [content,setContent] = React.useState('')
+    useEffect(() => {
+        axios.get('/docs/playback.md').then(res => {
+            setContent(res.data)
+        })
+    }, []);
+    return (
+        <Modal isOpen={props.isOpen} onOpenChange={props.onClose} className={'overflow-scroll scrollbar-hide'} >
+            <ModalContent>
+                {(onClose) => (
+                    <>
+                        <ModalHeader className="flex flex-col gap-1">🦌</ModalHeader>
+                        <ModalBody className={'markdown-body list-disc'}>
+                            <Markdown remarkPlugins={[remarkGfm]}  components={{
+                                ul: ({node, ...props}) => <ul style={{listStyleType: 'disc', paddingLeft: '2em'}} {...props} />,
+                            }}>
+                                {content}
+                            </Markdown>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button color="danger" variant="light" onPress={props.onClose}>
+                                Close
+                            </Button>
+                        </ModalFooter>
+                    </>
+                )}
+            </ModalContent>
+        </Modal>
+    )
+}
+
 function BasicLayout() {
 
 
@@ -169,6 +203,8 @@ function BasicLayout() {
 
     const [showDocPoint,setShowDocPoint] = useState(false)
 
+    const [showPlayback,setShowPlayBack] =useState(false)
+
     useEffect(() => {
         var p = loc.pathname
         var fName = ''
@@ -242,6 +278,7 @@ function BasicLayout() {
     return (
 
         <div>
+            <PlayBackInfo isOpen={showPlayback} onClose={() => {setShowPlayBack(false)}}/>
             <CommentForm isOpen={commentOpen} onChange={() => setCommentOpen(!commentOpen)} onClose={() => setCommentOpen(false)} />
             <DocsDialog isOpen={showDoc} onClose={() => setShowDoc(false)} fName={docName}/>
             <div className={'fixed right-[3vw] bottom-[3vw] z-40 flex flex-col'}>
@@ -329,6 +366,9 @@ function BasicLayout() {
                             <DropdownItem key="reaction" onClick={() => {
                                 redirect("/highlight")
                             }}>管人痴魅力时刻</DropdownItem>
+                            <DropdownItem key="playback" onClick={() => {
+                                setShowPlayBack(true)
+                            }}>录播</DropdownItem>
                             <DropdownItem key="geo" onClick={() => {
                                 redirect("/geo")
                             }}>Geo</DropdownItem>

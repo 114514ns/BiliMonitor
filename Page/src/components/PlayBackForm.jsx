@@ -58,6 +58,10 @@ function PlayBackForm(props) {
         videoRef.current.pause();
         videoRef.current.removeAttribute('src');
     }
+
+    const listRef = React.useRef(HTMLElement)
+
+
     useEffect(() => {
         if (link !== "") {
             console.log("useEffect")
@@ -207,7 +211,22 @@ function PlayBackForm(props) {
                                                     className=""
                                                     style={{backgroundColor:color}}
                                                     onPress={() => {
-
+                                                        if (listRef.current) {
+                                                            var start = new Date(meta.ChunkRecord[index])
+                                                            var end = false
+                                                            var i = 0
+                                                            listRef.current.childNodes.forEach((e,index) => {
+                                                                var now = new Date(e.dataset.time)
+                                                                if (now.getTime()>start.getTime() && !end) {
+                                                                    end = true
+                                                                    i = index
+                                                                }
+                                                            })
+                                                            if (i>4) {
+                                                                i = i-4
+                                                            }
+                                                            listRef.current.childNodes[i].scrollIntoView({ behavior: "smooth", block: "end", inline: "nearest" });
+                                                        }
                                                     }}
                                                 >
                                                     <span className="text-sm">{i.FileName}</span>
@@ -219,10 +238,10 @@ function PlayBackForm(props) {
                                     <div className={'flex flex-row'}>
                                         <video ref={videoRef} controls autoPlay playsInline
                                                className={'w-[100%] lg:w-[84%] h-auto'}></video>
-                                        <div className={'flex flex-col overflow-scroll max-h-[85vh] ml-4'}>
+                                        <div className={'flex flex-col overflow-scroll max-h-[85vh] ml-4'} ref={listRef}>
                                             {msg.map((e,index) => {
                                                 return (
-                                                    <div>
+                                                    <div data-time={e.CreatedAt}>
                                                         {(index === 0?true:(e.FromId !== msg[index-1].FromId) )&& <UserChip props={e}/>}
                                                         <span
                                                             className={'hover:text-[#0AA5D8]'}

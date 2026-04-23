@@ -1,6 +1,7 @@
 import {defineConfig} from "vite";
 import react from "@vitejs/plugin-react";
 import {visualizer} from 'rollup-plugin-visualizer';
+import {viteBiliCdnPlugin} from "./vite-bili-cdn-plugin";
 // https://vitejs.dev/config/
 const ReactCompilerConfig = { /* ... */};
 export default defineConfig({
@@ -19,13 +20,13 @@ export default defineConfig({
             brotliSize: true,
             emitFile: false,
             filename: "stat.html",
-        })
+        },   ),
     ],
     server: {
         proxy: {
 
             "/api": {
-                target: "http://127.0.0.1:8083",
+                target: "http://127.0.0.1:8081",
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api/, ''),
                 configure: (proxy, options) => {
@@ -80,30 +81,8 @@ export default defineConfig({
 
 
             output: {
-
-                manualChunks(id) {
-
-                    //console.log(id)
-                    // 按依赖路径分组
-
-                    if (id.includes('node_modules')) {
-                        if (id.includes('heroui')) {
-                            return "heroui"
-                        }
-                        /*
-                        if (   id.includes('recharts') ||            id .includes( "motion") ||
-                            id .includes( "parse5") ||
-                            id .includes( "axios" )) {
-                            return "deps"
-                        }
-
-                         */
-                        //return 'vendor'
-
-                    }
-                },
-
-
+                manualChunks: undefined,
+                inlineDynamicImports: true
             }
         }
 

@@ -36,6 +36,8 @@ function TracePage(props) {
         refresh()
     }, [])
     const uname = React.createRef()
+    const fans = React.createRef()
+    const [obj,setObj] = React.useState({})
     const [uid, setUid] = React.useState('')
     const {isOpen, onOpen, onOpenChange} = useDisclosure();
     return (
@@ -53,7 +55,15 @@ function TracePage(props) {
                                         />
                                         <p>{uname.current}</p>
                                     </div>
-                                <Alert color={'warning'} title={'现在已经可以比较快地开始记录，所以这里仅用于添加粉丝数量较少的主播。详情见右下角的文档'} />
+                                <Alert color={obj.Fans > 1000?'warning':'danger'} >
+                                    {obj.Fans>1000?
+                                        obj.Fans>4000?<p>4000粉丝以上的虚拟直播已经可以稳定记录，请先<a href={`/liver/${uid}`} className={'text-blue-500'}>确认</a>是否需要添加</p>:<p></p>:
+                                        <div className={'flex flex-row items-center'}>
+                                            不接受臭底边喵<img src={
+                                            'https://i0.hdslb.com/bfs/new_dyn/f5d72fdaa70520847381b8bb7ef531941995486878.png'} className={'ml-3 w-[60px] h-[60px]'}></img>
+                                        </div>
+                                    }
+                                </Alert>
                             </ModalBody>
                             <ModalFooter>
                                 <Button color="danger" variant="light" onPress={onClose}>
@@ -66,7 +76,7 @@ function TracePage(props) {
                                         refresh()
                                         onClose()
                                     })
-                                }}>
+                                }} isDisabled ={obj.Fans < 1000}>
                                     Confirm
                                 </Button>
                             </ModalFooter>
@@ -78,7 +88,9 @@ function TracePage(props) {
                 <Input label="Input UID" className={'max-w-xs'} value={uid} onValueChange={(e) => {setUid(e.replace('UID:',''))}}/>
                 <Button className={'ml-4'} onClick={() => {
                     axios.get(`/api/trace_srv/info?mid=${uid}`).then(res => {
+                        setObj(res.data)
                         uname.current = res.data.UName
+                        fans.current = res.data.Fans
                         onOpen()
                     })
                 }}>Submit</Button>

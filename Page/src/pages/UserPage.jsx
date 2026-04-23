@@ -4,7 +4,7 @@ import axios from "axios";
 import {
     Autocomplete, AutocompleteItem, Avatar,
     Tooltip, Button, Checkbox, Modal, useDisclosure, ModalContent, ModalBody, ModalHeader, ModalFooter, Select,
-    SelectItem
+    SelectItem, addToast
 } from "@heroui/react";
 import ActionTable from "../components/ActionTable";
 import HoverMedals from "../components/HoverMedals";
@@ -58,6 +58,16 @@ function UserPage(props) {
         axios.get(`${protocol}://${host}:${port}/api/user/action?uid=${id}&page=${page}&pageSize=${localStorage.getItem("defaultPageSize")}&order=${order}&type=${filter}&room=${room === null ? "" : room} &enter=${showEnter ? '1' : ''} `).then((response) => {
             setData(response.data.data);
             setTotal(response.data.total);
+
+            if (response.data.total === 0) {
+                if (filter === '' ) {
+                    setNoFound(response.data.total === 0)
+                    addToast({
+                        title:'没有数据喵',
+                        color:'danger'
+                    })
+                }
+            }
         })
     }, [order, filter, room, showEnter])
 
@@ -67,6 +77,8 @@ function UserPage(props) {
     const chartWidth = useMemo(() => {
         return isMobile() ? vwToPx(90) : vhToPx(80);
     }, []); // 窗口尺寸在组件生命周期内一般不变，空依赖即可
+
+    const [noFound,setNoFound] = useState(false)
 
 
     return (
@@ -94,7 +106,7 @@ function UserPage(props) {
                     )}
                 </ModalContent>
             </Modal>
-            <div className={'flex flex-col sm:flex-row  h-[88vh] '}>
+            {!noFound &&             <div className={'flex flex-col sm:flex-row  h-[88vh] '}>
                 <HeroUIPieChart
                     width={chartWidth}
                     data={getPieData(space.Rooms)}
@@ -261,7 +273,10 @@ function UserPage(props) {
                         }} total={total} />
                     </div>
                 </div>
-            </div>
+            </div>}
+            {noFound && <div className={'flex items-center flex-col'}>
+                <img src={'https://i0.hdslb.com/bfs/new_dyn/cabcfbb4745084bec654860c582e4f491995486878.png'}/>
+            </div>}
         </div>
     );
 }

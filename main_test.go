@@ -100,7 +100,7 @@ func TestHttp(test *testing.T) {
 		}
 	}()
 	//clickDb = clickDb.Debug()
-	//	config.Port = 8082
+	//config.Port = 8082
 	InitHTTP()
 
 }
@@ -571,4 +571,36 @@ order by level desc;`).Scan(&dst)
 	})
 	marshal, _ := json.Marshal(results)
 	os.WriteFile("rip.json", marshal, os.ModePerm)
+}
+
+func TestClearDirty(test *testing.T) {
+	var restyClient = resty.New()
+	res, _ := resty.New().R().Get("https://api.vtb.cat/trace_srv/list")
+
+	var obj map[string]interface{}
+	json.Unmarshal(res.Body(), &obj)
+
+	for _, i := range getArray(obj, "list") {
+		if !getBool(i, "Allow") {
+			var uid = getInt64(i, "UID")
+
+			res0, _ := restyClient.R().Get(fmt.Sprintf("https://api.live.bilibili.com/live_user/v1/Master/info?uid=%d", uid))
+			var obj map[string]interface{}
+			if res0 != nil {
+				_ = json.Unmarshal(res0.Body(), &obj)
+			}
+			var fans = getInt(obj, "data.follower_num")
+			if fans < 1000 {
+				restyClient.R().SetFormData(map[string]string{
+					"room": toString(int64(getFloat64(i, "Room"))),
+				}).Post("http://127.0.0.1:8074/trace_srv/del")
+			}
+		}
+	}
+}
+
+func TestCheckDuplicate(test *testing.T) {
+	loadConfig()
+	loadDB()
+	CheckDuplicate(800981)
 }

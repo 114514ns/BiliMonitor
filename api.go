@@ -764,7 +764,7 @@ func InitHTTP() {
 		var guardSum = 0.0
 		go func() {
 			var livers []int64
-			db.Raw("select liver_id from fans_clubs where uid = ? and level >= 21", uid).Scan(&livers)
+			db.Raw("select liver_id from fans_clubs where uid = ? and level >= 21", uid).Scan(&livers) //先查出21级以上的粉丝牌
 
 			var areas []AreaLiver
 			db.Raw("SELECT id,updated_at FROM area_livers WHERE  uid IN ?", livers).Scan(&areas)
@@ -1386,6 +1386,12 @@ ORDER BY t.updated_at DESC, t.id DESC
 		wg.Wait()
 		var area = ""
 		db.Raw("select guard from area_livers where uid = ? order by id desc limit 1", mid).Scan(&area)
+		var data time.Time
+		db.Raw("select updated_at from area_livers where uid = ? order by id desc limit 1 ", mid).Scan(&data)
+		if time.Now().Sub(data).Hours() > 15*24 {
+			area = ""
+			//log.Println(data)
+		}
 		var index = 0
 		for _, i := range strings.Split(area, ",") {
 			if index == 0 {
@@ -2815,7 +2821,7 @@ ORDER BY money DESC;
 		wg1.Add(2)
 		if len(vd) == 0 {
 			go func() {
-				f1 = ListFile(fmt.Sprintf("/Microsoft365/%s/%s", live.UserName, strings.Replace(time.Unix(live.StartAt-3600*8, 0).Format(time.DateTime), ":", "-", 1145)))
+				f1 = ListFile(fmt.Sprintf("/Live/%s/%s", live.UserName, strings.Replace(time.Unix(live.StartAt-3600*8, 0).Format(time.DateTime), ":", "-", 1145)))
 				wg1.Done()
 			}()
 
@@ -3351,7 +3357,7 @@ where
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"data": biliClient.GetDynamicByOID(oid),
+			"data": biliClient.GetDynamicDetail(oid),
 		})
 	})
 

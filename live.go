@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jhump/protoreflect/dynamic"
+	"github.com/samber/lo"
 	pool2 "github.com/sourcegraph/conc/pool"
 	_ "google.golang.org/protobuf/types/descriptorpb"
 	"gorm.io/datatypes"
@@ -700,7 +701,7 @@ func TraceLive(roomId string) {
 			msg := fmt.Sprintf("Recovered from panic: %v\n%s", r, stack)
 			log.Println(msg)
 			res, _ := client.R().Get("https://test.ipw.cn/")
-			PushDynamic(res.String()+"   RECOVER FROM PANIC", msg)
+			PushDynamic(res.String()+"   RECOVER FROM PANIC   "+roomId, msg)
 		}
 	}()
 
@@ -1091,7 +1092,7 @@ func TraceLive(roomId string) {
 					var o = make(map[string]interface{})
 					sonic.Unmarshal(msgData, &o)
 					action.Extra = o["msg"].(string)
-					db.Save(action)
+					db.Save(&action)
 				} else if text.Cmd == "ROOM_BLOCK_MSG" {
 					action.ActionName = "mute"
 					var o = make(map[string]interface{})
@@ -1099,13 +1100,13 @@ func TraceLive(roomId string) {
 					action.FromId = toInt64(o["uid"].(string))
 					action.FromName = o["uname"].(string)
 					action.ActionType = Block
-					db.Save(action)
+					db.Save(&action)
 				} else if text.Cmd == "ANCHOR_LOT_START" {
 					//PushServerHime(liver.md+"直播间发起了天选抽奖", "")
 				} else if text.Cmd == "WARNING" {
 					action.ActionType = Warning
 					action.Extra = text.Msg
-					db.Save(action)
+					db.Save(&action)
 				}
 				front.LiveAction = action
 				if action.ActionName != "" {
@@ -1618,4 +1619,26 @@ func RefreshLiver(room int) {
 	liver.Guard = fmt.Sprintf("%d,%d,%d", l1, l2, l3)
 	db.Save(&liver)
 
+}
+
+func CheckDuplicate(id int) {
+	var dst []LiveAction
+	var byUid map[int64][]LiveAction
+	db.Raw("select * from live_actions where live = ?", id).Scan(&dst)
+	byUid = lo.GroupBy(dst, func(item LiveAction) int64 {
+		return item.FromId
+	})
+
+	//var newMap map[int64][]LiveAction
+
+	for i := range byUid {
+		var items = lo.Filter(byUid[i], func(item LiveAction, index int) bool {
+			return item.ActionType != Gift
+		})
+		for i2 := range items {
+
+		}
+
+	}
+	fmt.Println(byUid)
 }
