@@ -15,6 +15,7 @@ import { CheckIcon } from "../pages/ChatPage";
 import HoverMedals from "./HoverMedals";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
+import {parseMessage} from "./ChatArea";
 
 
 function parseGuardNum(e) {
@@ -36,6 +37,9 @@ function ActionTable(props) {
 
     useEffect(() => {
         props.handlePageChange(currentPage)
+        return (() => {
+            window.USER_PAGE = 1
+        })
     }, [])
 
     const columns = [
@@ -145,8 +149,8 @@ function ActionTable(props) {
                             }}>
                                 <div className={`transition-transform hover:text-gray-500 whitespace-nowrap ${item.ActionName!=='msg'?'font-bold':''}`}>
                                     <Tooltip content={'点击跳转'} placement='left'>
-                                        <span>
-                                            {item.GiftName || item.Extra}
+                                        <span dangerouslySetInnerHTML={{ __html: item.GiftName || parseMessage(item.Extra,item.EmotesContent?JSON.parse(item.EmotesContent):new Map())} }>
+
                                         </span>
                                     </Tooltip>
 

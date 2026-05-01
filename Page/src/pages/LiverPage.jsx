@@ -417,7 +417,7 @@ function LiverPage(props) {
             <div className="grid 3xl:grid-cols-5 2xl:grid-cols-4">
 
                 {lives.map((live, index) => (
-                    <LiveStatisticCard item={live} showUser={false} key={live.ID}/>
+                    <LiveStatisticCard item={live} showUser={false} key={live.ID} allowClick={!noDM}/>
                 ))}
             </div>
         </div>

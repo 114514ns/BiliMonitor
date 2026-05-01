@@ -22,7 +22,7 @@ function calcHeight() {
     const result = vh - 4 * rem;
     return result*0.9; // 返回的是 px 数值
 }
-function parseMessage(message, emojiMap) {
+export function parseMessage(message, emojiMap) {
     const regex = /\[([^\[\]]+)\]/g;
     const parts = [];
     let lastIndex = 0;
@@ -38,7 +38,7 @@ function parseMessage(message, emojiMap) {
 
         if (emojiMap[emojiKey]) {
             parts.push(
-                `<img src="${emojiMap[emojiKey]}" alt="${emojiKey}" style="width: 20px; height: 20px; vertical-align: text-bottom; display: inline-block;">`
+                `<img src="${emojiMap[emojiKey]}" alt="${emojiKey}" style="width: 20px; height: 20px; vertical-align: text-bottom; display: inline-block;" title="${emojiKey}">`
             );
         } else {
             parts.push(emojiKey);

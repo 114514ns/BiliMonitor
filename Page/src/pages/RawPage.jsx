@@ -14,16 +14,16 @@ function RawPage(props) {
 
     const [order, setOrder] = React.useState("");
 
-    const [data,setData] = React.useState([]);
+    const [data, setData] = React.useState([]);
 
-    const [total,setTotal] = React.useState(0);
+    const [total, setTotal] = React.useState(0);
 
     const [pageSize, setPageSize] = React.useState(parseInt(localStorage.getItem("defaultPageSize")));
     useEffect(() => {
         axios.get("/api/searchLiver?key=" + input).then((response) => {
-            setRoomList(response.data.result??[])
+            setRoomList(response.data.result ?? [])
         })
-    },[input])
+    }, [input])
     useEffect(() => {
         console.log(roomList);
     }, [roomList]);
@@ -31,99 +31,119 @@ function RawPage(props) {
         axios.get(`/api/raw?room=${room}&type=${filter}&page=${page}&order=${order}&size=${pageSize}`).then((response) => {
             setData(response.data.data);
             setTotal(response.data.total);
-        }).catch((err,res) => {
+        }).catch((err, res) => {
             addToast({
                 title: "Error",
                 description: err.data.message,
                 hideIcon: true,
             });
         })
-    },[order,filter,room,pageSize])
+    }, [order, filter, room, pageSize])
     return (<div>
         <ToastProvider/>
-            <div className={'mt-4'}>
-                <div>
-                    <Select
-                        className="w-full sm:max-w-xs mt-4 mb-4"
-                        items={[{
-                            key: '1', value: "Message"
+        <div className={'mt-4'}>
+            <div>
+                <Select
+                    className="w-full sm:max-w-xs mt-4 mb-4"
+                    items = {
+                        [{
+                            key: '1',
+                            value: "Message"
                         }, {
-                            key: '2', value: "Gift"
+                            key: '2',
+                            value: "Gift"
 
                         }, {
-                            key: '3', value: "Membership"
+                            key: '3',
+                            value: "Membership"
                         }, {
-                            key: '4', value: "SuperChat"
+                            key: '4',
+                            value: "SuperChat"
+                        }, {
+                            'key': '5',
+                            value: 'Cut'
                         },{
-                            'key': '5', value: 'MysteryBox'
-                        }]}
-                        label="Filter by"
-                        onSelectionChange={e => {
-                            setFilter(e.currentKey)
-                        }}
-                    >
-                        {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
-                    </Select>
-                    <Select
-                        className="mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
-                        items={[{
-                            key: 'money_desc', value: "Money"
-                        }, {
-                            key: 'created_at_desc', value: "Time Desc"
-
-                        },]}
-                        label="Sort by"
-                        onSelectionChange={e => {
-                            setOrder(e.currentKey)
-                        }}
-                    >
-                        {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
-                    </Select>
-                    <Autocomplete
-                        className=" mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
-                        label="Liver"
-                        onSelectionChange={e => {
-                            setRoom(e)
-                        }}
-                        onInputChange={e => {
-                            setInput(e)
-                        }}
-                        items={roomList}
-                    >
-                        {(f) => <AutocompleteItem key={f.Room} textValue={f.UName} className={''}>
-                            <div className={'flex flex-row '}>
-                                <Avatar src={`${AVATAR_API}${f.UID}`}/>
-                                <span className={'font-bold ml-2 mt-2'}>{f.UName}</span>
-                            </div>
-                        </AutocompleteItem>}
-                    </Autocomplete>
-                    <Select className="sm:max-w-xs mt-4 mb-4 sm:ml-4" label={'Page Size'} defaultSelectedKeys={[(localStorage.getItem("defaultPageSize"))]}>
-                        <SelectItem onClick={e => { setPageSize(10) }} key={'10'}>
-                            10
-                        </SelectItem>
-                        <SelectItem onClick={e => { setPageSize(50)}} key={'50'}>
-                            50
-                        </SelectItem>
-                        <SelectItem onClick={e => { setPageSize(200)}} key={'200'}>
-                            200
-                        </SelectItem>
-                        <SelectItem onClick={e => { setPageSize(500)}} key={'500'}>
-                            500
-                        </SelectItem>
-                    </Select>
-                </div>
-                <ActionTable dataSource={data} handlePageChange={(page0, pageSiz) => {
-                    page = page0
-                    axios.get(`/api/raw?room=${room}&type=${filter}&page=${page0}&order=${order}&size=${pageSize}`).then((response) => {
-                        setData(response.data.data);
-                        setTotal(response.data.total);
-                    })
-                    if (page >= 2) {
-                        window.USER_PAGE = page0
+                            key:'7',
+                            value: 'Warning'
+                        }
+                        ]
                     }
-                }} total={total}/>
+                    label="Filter by"
+                    onSelectionChange={e => {
+                        setFilter(e.currentKey)
+                    }}
+                >
+                    {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                </Select>
+                <Select
+                    className="mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
+                    items={[{
+                        key: 'money_desc', value: "Money"
+                    }, {
+                        key: 'created_at_desc', value: "Time Desc"
+
+                    },]}
+                    label="Sort by"
+                    onSelectionChange={e => {
+                        setOrder(e.currentKey)
+                    }}
+                >
+                    {(f) => <SelectItem key={f.key}>{f.value}</SelectItem>}
+                </Select>
+                <Autocomplete
+                    className=" mt-4 mb-4 sm:ml-4 w-full sm:max-w-xs"
+                    label="Liver"
+                    onSelectionChange={e => {
+                        setRoom(e)
+                    }}
+                    onInputChange={e => {
+                        setInput(e)
+                    }}
+                    items={roomList}
+                >
+                    {(f) => <AutocompleteItem key={f.Room} textValue={f.UName} className={''}>
+                        <div className={'flex flex-row '}>
+                            <Avatar src={`${AVATAR_API}${f.UID}`}/>
+                            <span className={'font-bold ml-2 mt-2'}>{f.UName}</span>
+                        </div>
+                    </AutocompleteItem>}
+                </Autocomplete>
+                <Select className="sm:max-w-xs mt-4 mb-4 sm:ml-4" label={'Page Size'}
+                        defaultSelectedKeys={[(localStorage.getItem("defaultPageSize"))]}>
+                    <SelectItem onClick={e => {
+                        setPageSize(10)
+                    }} key={'10'}>
+                        10
+                    </SelectItem>
+                    <SelectItem onClick={e => {
+                        setPageSize(50)
+                    }} key={'50'}>
+                        50
+                    </SelectItem>
+                    <SelectItem onClick={e => {
+                        setPageSize(200)
+                    }} key={'200'}>
+                        200
+                    </SelectItem>
+                    <SelectItem onClick={e => {
+                        setPageSize(500)
+                    }} key={'500'}>
+                        500
+                    </SelectItem>
+                </Select>
             </div>
-        </div>);
+            <ActionTable dataSource={data} handlePageChange={(page0, pageSiz) => {
+                page = page0
+                axios.get(`/api/raw?room=${room}&type=${filter}&page=${page0}&order=${order}&size=${pageSize}`).then((response) => {
+                    setData(response.data.data);
+                    setTotal(response.data.total);
+                })
+                if (page >= 2) {
+                    window.USER_PAGE = page0
+                }
+            }} total={total}/>
+        </div>
+    </div>);
 }
 
 export default RawPage;

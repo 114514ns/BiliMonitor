@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-contrib/cache"
+	"github.com/gin-contrib/cache/persistence"
 	"github.com/samber/lo"
 
 	bili "github.com/114514ns/BiliClient"
@@ -68,6 +70,8 @@ func InitHTTP() {
 	r.UseH2C = true
 	r.Use(CORSMiddleware())
 	r.Use(TTLMiddleware())
+
+	store := persistence.NewInMemoryStore(time.Second)
 
 	if ENV == "BUILD" {
 		r.Use(static.Serve("/", static.EmbedFolder(distFS, "Page/dist")))
@@ -309,7 +313,12 @@ func InitHTTP() {
 			orderQuery = "id asc"
 		}
 
-		var records []LiveAction
+		type ExtendLiveAction struct {
+			LiveAction
+			EmotesContent string
+		}
+
+		var records []ExtendLiveAction
 		query = db.Model(&LiveAction{}).Where("live = ? ", id)
 
 		if Type != "" {
@@ -324,7 +333,7 @@ func InitHTTP() {
 			return
 		}
 		totalPages := int((totalRecords + int64(limit) - 1) / int64(limit))
-		if err := query.Order(orderQuery).Offset(offset).Limit(limit).Find(&records).Error; err != nil {
+		if err := query.Order(orderQuery).Offset(offset).Limit(limit).Omit("emotes_content").Find(&records).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "database query error"})
 			return
 		}
@@ -346,6 +355,18 @@ func InitHTTP() {
 				}
 			}
 		}
+
+		var pool = pool2.New().WithMaxGoroutines(16)
+		for i := range records {
+			pool.Go(func() {
+				if records[i].Emotes.Valid {
+					var e Emotes
+					db.Raw("select * from emotes where hash = ?", records[i].Emotes.Int32).Scan(&e)
+					records[i].EmotesContent = e.Content
+				}
+			})
+		}
+		pool.Wait()
 
 		c.JSON(http.StatusOK, gin.H{
 			"totalPages":   totalPages,
@@ -553,9 +574,7 @@ func InitHTTP() {
 	//获取直播流
 	r.GET("/stream", func(c *gin.Context) {
 		var room = c.Query("room")
-		c.JSON(http.StatusOK, gin.H{
-			"Stream": GetLiveStream(room),
-		})
+		c.Redirect(http.StatusTemporaryRedirect, GetLiveStream(room))
 	})
 
 	//Trace直播间
@@ -563,6 +582,15 @@ func InitHTTP() {
 	r.GET("/trace", func(c *gin.Context) {
 		var room = c.Query("room")
 		livesMutex.Lock()
+		if lives[room] != nil {
+			livesMutex.Unlock()
+			c.JSON(http.StatusOK, gin.H{
+				"message": "already tracing",
+			})
+			log.Printf("拒绝从[%s]重复接收任务：%s", c.RemoteIP(), room)
+			//PushDynamic("拒绝从[%s]重复接收任务", room)
+			return
+		}
 		lives[room] = &Status{RemainTrying: 40}
 		lives[room].LiveRoom = room
 		livesMutex.Unlock()
@@ -822,8 +850,9 @@ ORDER BY t.updated_at DESC, t.id DESC
 	r.GET("/user/action", func(context *gin.Context) {
 		type CustomLiveAction struct {
 			LiveAction
-			UserName string
-			UserID   string
+			UserName      string
+			UserID        string
+			EmotesContent string
 		}
 
 		var uidStr = context.DefaultQuery("uid", "")
@@ -904,27 +933,64 @@ ORDER BY t.updated_at DESC, t.id DESC
 		offset := (page - 1) * pageSize
 		var m = make(map[int]AreaLiver)
 		var dst []CustomLiveAction
-		if showEnter == "" {
-			err = db0.Raw(
-				fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
-				uid, pageSize, offset,
-			).Scan(&dst).Error
-		} else {
-			err = db0.Raw("select * from enter_actions where from_id = ? order by created_at limit ? offset ?", uid, pageSize, (page-1)*pageSize).Scan(&dst).Error
+		var wg sync.WaitGroup
 
-			for _, i := range lo.UniqBy(dst, func(item CustomLiveAction) int {
-				return item.LiveRoom
-			}) {
+		wg.Add(2)
+		wg.Go(func() {
+			if showEnter == "" {
+				var start = time.Now()
+				err = db0.Raw(
+					fmt.Sprintf("select *,%s.id,%s.created_at from %s,lives where  from_id = ? and lives.id = %s.live %s %s limit ? offset ?", tableName, tableName, tableName, tableName, typeQuery, queryOrder),
+					uid, pageSize, offset,
+				).Scan(&dst).Error
+				log.Println(time.Since(start))
+				var pool = pool2.New().WithMaxGoroutines(16)
+				for i := range dst {
+					pool.Go(func() {
+						if dst[i].Emotes.Valid {
+							var e Emotes
+							db.Raw("select * from emotes where hash = ?", dst[i].Emotes.Int32).Scan(&e)
+							dst[i].EmotesContent = e.Content
+						}
+					})
+				}
+				pool.Wait()
+				log.Println(time.Since(start))
+			} else {
+				err = db0.Raw("select * from enter_actions where from_id = ? order by created_at limit ? offset ?", uid, pageSize, (page-1)*pageSize).Scan(&dst).Error
 
-				var a AreaLiver
-				db.Raw("select uid,u_name from area_livers where room = ? order by id desc limit 1", i.LiveRoom).Scan(&a)
-				m[i.LiveRoom] = a
+				for _, i := range lo.UniqBy(dst, func(item CustomLiveAction) int {
+					return item.LiveRoom
+				}) {
+
+					var a AreaLiver
+					db.Raw("select uid,u_name from area_livers where room = ? order by id desc limit 1", i.LiveRoom).Scan(&a)
+					m[i.LiveRoom] = a
+				}
+				for i := range dst {
+					dst[i].UserID = strconv.FormatInt(m[dst[i].LiveRoom].UID, 10)
+					dst[i].UserName = m[dst[i].LiveRoom].UName
+				}
 			}
-			for i := range dst {
-				dst[i].UserID = strconv.FormatInt(m[dst[i].LiveRoom].UID, 10)
-				dst[i].UserName = m[dst[i].LiveRoom].UName
+
+			wg.Done()
+		})
+
+		wg.Go(func() {
+			if showEnter != "" {
+				db0.Raw("select count(*) from enter_actions where from_id = ?", uid).Scan(&total)
+			} else {
+				if room != "" {
+					db0.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
+						uid, room).Scan(&total)
+				} else {
+					db0.Raw("select count(*) from live_actions where from_id = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery, uid).Scan(&total)
+				}
 			}
-		}
+			wg.Done()
+		})
+
+		wg.Wait()
 
 		if err != nil {
 			context.JSON(http.StatusInternalServerError, gin.H{
@@ -932,16 +998,6 @@ ORDER BY t.updated_at DESC, t.id DESC
 				"error":   err.Error(),
 			})
 			return
-		}
-		if showEnter != "" {
-			db0.Raw("select count(*) from enter_actions where from_id = ?", uid).Scan(&total)
-		} else {
-			if room != "" {
-				db0.Raw("select count(*) from live_actions where from_id = ? and live_room = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery,
-					uid, room).Scan(&total)
-			} else {
-				db0.Raw("select count(*) from live_actions where from_id = ? and  (select lives.id from lives where live_actions.live = lives.id ) != 0 "+typeQuery, uid).Scan(&total)
-			}
 		}
 
 		for i := range dst {
@@ -1728,12 +1784,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 		}
 		if typo != "" {
 			query += " AND la.action_type = ?"
-			if typo != "5" {
-				args = append(args, typo)
-			} else {
-				args = append(args, "2 ")
-				query += " and gift_price >1 and extra like '%盲盒%'"
-			}
+			args = append(args, typo)
 
 		}
 
@@ -1840,13 +1891,7 @@ ORDER BY t.updated_at DESC, t.id DESC
 				}
 				if typo != "" {
 					countQuery += " AND action_type = ?"
-					if typo != "5" {
-						countArgs = append(countArgs, typo)
-					} else {
-						countArgs = append(countArgs, 2)
-						countQuery = countQuery + " and extra like '%盲盒%'"
-					}
-
+					countArgs = append(countArgs, typo)
 				}
 
 				ctx, cancel := context.WithTimeout(rootCtx, CountTimeout)
@@ -2079,11 +2124,11 @@ FROM
 WHERE
     MONTH(lives.created_at) = %d and
    YEAR(lives.created_at) = %d
-    AND end_at != 0
+    AND end_at != 0 and parent_area_id = 9
 GROUP BY
     lives.user_name
 ORDER BY money DESC
-LIMIT 400;
+LIMIT 1500;
 
 `, month, year)).Scan(&dst)
 		} else {
@@ -2123,15 +2168,18 @@ ORDER BY money DESC;
 		}
 
 		var currentMonth = int(time.Now().Month())
-		var pool = pool2.New().WithMaxGoroutines(6)
+		var pool = pool2.New().WithMaxGoroutines(32)
 		for j, scanned := range dst {
 			var id = scanned.UserID
 			pool.Go(func() {
 				var obj AreaLiver
 				if month == currentMonth {
-					db.Raw("select guard,fans from area_livers where uid = ? order by id desc limit 1", id).Scan(&obj)
+					//db.Raw("select guard,fans from area_livers where uid = ? and year(updated_at) = ? order by id desc limit 1", id, year).Scan(&obj)
+					obj.Guard = liverMap[id].Guard
+					obj.Fans = liverMap[id].Fans
+
 				} else {
-					db.Raw("select guard,fans from area_livers where uid = ? and MONTH(updated_at) = ? order by id desc limit 1", id, month).Scan(&obj)
+					db.Raw("select guard,fans from area_livers where uid = ? and MONTH(updated_at) = ? and year(updated_at) = ? order by id desc limit 1", id, month, year).Scan(&obj)
 				}
 				db.Raw("select guild_name from guild_infos where uid = ?", id).Scan(&dst[j].Guild)
 				dst[j].Fans = obj.Fans
@@ -2139,6 +2187,14 @@ ORDER BY money DESC;
 			})
 		}
 		pool.Wait()
+
+		for i := range dst {
+			dst[i].Money -= dst[i].GuardLiveMoney
+			for i2, v := range strings.Split(dst[i].Guard, ",") {
+				var arr = []float64{15998, 1598, 138}
+				dst[i].Money += arr[i2] * toFloat64(v)
+			}
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"data": dst,
@@ -2442,7 +2498,7 @@ ORDER BY money DESC;
 		})
 	})
 
-	r.GET("/hot", func(c *gin.Context) {
+	r.GET("/hot", cache.CachePage(store, time.Minute*5, func(c *gin.Context) {
 		type Select struct {
 			ID       int
 			UserName string
@@ -2453,7 +2509,14 @@ ORDER BY money DESC;
 		c.JSON(http.StatusOK, gin.H{
 			"data": dst,
 		})
-	})
+	}))
+
+	go func() {
+		for {
+			localClient.R().Get("http://127.0.0.1:" + toString(int64(config.Port)) + "/hot")
+			time.Sleep(time.Minute * 3)
+		}
+	}()
 
 	r.GET("/stress", func(c *gin.Context) {
 

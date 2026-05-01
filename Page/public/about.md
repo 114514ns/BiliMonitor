@@ -15,12 +15,14 @@
 <br/>
 <br/>
 
-哎哟我操，从来没在直播间说过话 怎么被认出来了，已畏惧。
+更新：
+- 支持解析弹幕中包含的表情包
+- Raw页面支持超管警告和直播切断的事件类型
 
 你是谁？请关注我们好女孩<a href="https://space.bilibili.com/3546757543758795" target="_blank">铃见Suzumi</a>！
 
 
-<bili-dynamic-card OID="1094595685555109908"/>
+![](https://storage.vtb.cat/d/Local/suzumi.avif)
 
 
 

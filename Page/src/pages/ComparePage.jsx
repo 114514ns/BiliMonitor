@@ -64,15 +64,6 @@ function ComparePage() {
     return (
         <div>
             <div className="flex gap-4 items-center flex-col lg:flex-row">
-                <Select
-                    className="max-w-xs lg:ml-4 sm:mt-2"
-                    label="Dimension"
-                    selectedKeys={[mode]}
-                    onSelectionChange={(keys) => setMode(Array.from(keys)[0])}
-                >
-                    <SelectItem key="range">By Range</SelectItem>
-                    <SelectItem key="pk">PK</SelectItem>
-                </Select>
 
                 {mode === "range" && (
                     <Select
@@ -189,15 +180,7 @@ function ComparePage() {
 }
 const calc = (item) => {
     var init = item.Money
-    init = init-item.GuardLiveMoney
-    var sum = 0
-    var index = 0
-    var m = [19998,1998,138]
-    item.Guard.split(",").forEach((item) => {
-        sum = sum + parseInt(item)*m[index]
-        index++
-    })
 
-    return sum + init
+    return item.Money
 }
 export default ComparePage;

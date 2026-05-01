@@ -65,14 +65,6 @@ function CommentForm(props) {
         refresh();
     },[page,pageSize,props.isOpen])
 
-    useEffect(() => {
-        const ref = setInterval(() => {
-            refresh();
-        },1000*90)
-        return () => {
-            clearInterval(ref);
-        }
-    },[])
     const { theme } = useTheme();
 
     const resolvedTheme = theme === "dark" ? "dark" : "light";
@@ -136,7 +128,9 @@ function CommentForm(props) {
                                             session: localStorage.getItem('session')
                                         })
                                     ).then(() => {
-                                        refresh();
+                                        setTimeout(() => {
+                                            refresh();
+                                        },1000)
                                     })
                                 }
                                 setText('')

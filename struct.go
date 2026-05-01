@@ -358,3 +358,8 @@ type Post struct {
 	Title     string
 	Text      string
 }
+
+type Emotes struct {
+	Hash    int32 `gorm:"primaryKey"`
+	Content string
+}

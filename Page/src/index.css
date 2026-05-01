@@ -39,4 +39,13 @@ body {
   display: inline-block;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 赋予动画效果，2秒转一圈，匀速，无限循环 */
+.spinning {
+  animation: spin 2s linear infinite;
+}
 

@@ -1,5 +1,5 @@
 import LiverPage from "../pages/LiverPage";
-import { Avatar, Card, CardBody, CardHeader, Image } from "@heroui/react";
+import {addToast, Avatar, Card, CardBody, CardHeader, Image} from "@heroui/react";
 import { NavLink, useNavigate } from "react-router-dom";
 import React from "react";
 
@@ -9,6 +9,18 @@ export default function LiveStatisticCard(props) {
     return (
         <NavLink to={`/lives/${item.ID}`} onMouseEnter={() => {
             prefetch("/api/liver/space?uid=" + item.UserID)
+        }} onClick={(e) => {
+            if (!props.allowClick) {
+                e.preventDefault()
+                addToast({
+                    title: 'Alert',
+                    description: '这只是让你知道有这场直播，里面并没有数据',
+                    color: 'danger',
+                })
+            }
+
+
+
         }}>
             <Card className={'my-4 mx-2'} isHoverable >
                 <CardHeader className="flex-col items-start">

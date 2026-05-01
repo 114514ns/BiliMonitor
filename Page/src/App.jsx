@@ -392,7 +392,7 @@ function BasicLayout() {
                 </NavbarContent>
             </Navbar>}
             <div className={`site-layout-background`}
-                 style={{padding: 24, width: '100%', height: `${calcHeight()}px`, opacity: parseInt(opacity) / 100}}>
+                 style={{padding: 24, width: '100%', height: `${calcHeight()}px`, backgroundColor:`(255,255,255,${parseInt(opacity) / 100})`}}>
                 <AnimatePresence mode="wait">
                     <Routes location={location} key={location.pathname}>
                         <Route path="/" element={<PageWrapper><IndexPage/></PageWrapper>}/>
@@ -438,5 +438,7 @@ function PageWrapper({children}) {
         </motion.div>
     );
 }
+
+
 
 export default BasicLayout;

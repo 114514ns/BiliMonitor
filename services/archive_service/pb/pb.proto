@@ -24,8 +24,21 @@ message Reply {
   int64 OID = 12;
   int64 Root = 13;
   repeated string Images = 14;
+  bool Alive = 15;
+  repeated  google.protobuf.Timestamp Seens =16;
 }
 
 message ReplyList {
-  repeated Reply Replies = 1;
+  repeated Reply replies = 1;
 }
+
+message Reaction {
+  int64 UID = 1;
+  string UName = 2;
+}
+
+message ReactionList {
+  int64 OID = 1;
+  repeated Reaction Items = 2;
+}
+

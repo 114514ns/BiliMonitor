@@ -24,6 +24,7 @@ import OnlineChart from "../components/OnlineChart";
 import {LiveMessageChart} from "../components/LineChart";
 import PlayBackForm from "../components/PlayBackForm";
 import {eventBus} from "../App";
+import {parseMessage} from "../components/ChatArea";
 
 function PlayIcon() {
     return (
@@ -497,8 +498,11 @@ function LiveDetailPage(props) {
                                 (item.ActionName !== "msg" ? "font-bold" : "") +
                                 (item.ID === parseInt(highLight )? " bg-yellow-200" : "") + ' whitespace-nowrap'
                             }>
-                                <div id={item.ID}>
-                                    {item.Extra}{item.ActionName !== "msg" && <span>*{item.GiftAmount.Int16 || ''}  ￥{item.GiftPrice}</span>}
+                                <div id={item.ID} dangerouslySetInnerHTML={{
+                                    __html:
+                                        parseMessage(item.Extra, item.EmotesContent ? JSON.parse(item.EmotesContent) : new Map()) +
+                                        (item.ActionName !== "msg" ? `<span>*${item.GiftAmount?.Int16 || ''}  ￥${item.GiftPrice}</span>` : "")
+                                }}>
                                 </div>
                             </TableCell>
                         </TableRow>

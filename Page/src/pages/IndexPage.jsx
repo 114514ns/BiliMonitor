@@ -63,7 +63,21 @@ function EyeIcon(props) {
     )
 }
 function BiliAvatar(props) {
-    return <Avatar src={props.src} className={'w-[128px] h-[128px]'} onClick={props.onClick}/>
+    var [spin,setSpin] = React.useState(false)
+    var ref = React.createRef()
+    const isFirstRender = useRef(true);
+    useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
+        ref.current.classList.toggle('spinning');
+    },[spin])
+    return <Avatar src={props.src} className={'w-[128px] h-[128px]'} onClick={props.onClick} onMouseEnter={() => {
+        setSpin(true)
+    }} onMouseLeave={() => {
+        setSpin(false)
+    }} ref={ref}/>
 }
 import { useRef, useCallback } from 'react'
 const useLongPressWithClick = ({

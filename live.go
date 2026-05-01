@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -20,11 +21,11 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/bytedance/sonic"
+	"github.com/cespare/xxhash/v2"
 	_ "github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jhump/protoreflect/dynamic"
-	"github.com/samber/lo"
 	pool2 "github.com/sourcegraph/conc/pool"
 	_ "google.golang.org/protobuf/types/descriptorpb"
 	"gorm.io/datatypes"
@@ -666,6 +667,9 @@ var (
 )
 
 func RandomHost(room string) string {
+	if len(config.ForceWebsocketHost) != 0 {
+		return config.ForceWebsocketHost[rand.Intn(len(config.ForceWebsocketHost))]
+	}
 	var u0 = ""
 	url0 := "https://api.live.bilibili.com/xlive/web-room/v1/index/getDanmuInfo?type=0&id=" + room + "&web_location=444.8&isGaiaAvoided=true"
 	query, _ := url.Parse(url0)
@@ -694,8 +698,15 @@ var extraList []LiveAction
 
 var extraAction sync.Mutex
 
+var cachedEmotes = make(map[int32]bool)
+
+var emoteMutex sync.Mutex
+
 func TraceLive(roomId string) {
 	defer func() {
+		livesMutex.Lock()
+		delete(lives, roomId)
+		livesMutex.Unlock()
 		if r := recover(); r != nil {
 			stack := string(debug.Stack())
 			msg := fmt.Sprintf("Recovered from panic: %v\n%s", r, stack)
@@ -947,6 +958,26 @@ func TraceLive(roomId string) {
 							}
 						}
 					}
+
+					if len(front.Emoji) != 0 {
+						marshal, _ := json.Marshal(front.Emoji)
+						hash64 := xxhash.Sum64(marshal)
+						hash32 := int32(hash64)
+						emoteMutex.Lock()
+						_, ok := cachedEmotes[hash32]
+						if !ok {
+							cachedEmotes[hash32] = true
+							emoteMutex.Unlock()
+							db.Create(&Emotes{
+								Hash:    hash32,
+								Content: string(marshal),
+							})
+						} else {
+							emoteMutex.Unlock()
+						}
+						action.Emotes.Int32 = hash32
+						action.Emotes.Valid = true
+					}
 					if ok {
 						user, exists := value["user"].(map[string]interface{})
 						if exists {
@@ -984,7 +1015,10 @@ func TraceLive(roomId string) {
 						}
 					}
 					extraAction.Lock()
-					extraList = append(extraList, action)
+					var mirror = getBool(o, "is_mirror")
+					if !mirror {
+						extraList = append(extraList, action)
+					}
 					extraAction.Unlock()
 					consoleLogger.Println("[" + liver + "]  " + text.Info[2].([]interface{})[1].(string) + "  " + text.Info[1].(string))
 
@@ -1455,6 +1489,7 @@ type LiveAction struct {
 	GuardLevel int8
 	HonorLevel int8
 	MedalLiver int64
+	Emotes     sql.NullInt32
 }
 type FrontLiveAction struct {
 	LiveAction
@@ -1622,23 +1657,26 @@ func RefreshLiver(room int) {
 }
 
 func CheckDuplicate(id int) {
-	var dst []LiveAction
-	var byUid map[int64][]LiveAction
-	db.Raw("select * from live_actions where live = ?", id).Scan(&dst)
-	byUid = lo.GroupBy(dst, func(item LiveAction) int64 {
-		return item.FromId
-	})
-
-	//var newMap map[int64][]LiveAction
-
-	for i := range byUid {
-		var items = lo.Filter(byUid[i], func(item LiveAction, index int) bool {
-			return item.ActionType != Gift
+	/*
+		var dst []LiveAction
+		var byUid map[int64][]LiveAction
+		db.Raw("select * from live_actions where live = ?", id).Scan(&dst)
+		byUid = lo.GroupBy(dst, func(item LiveAction) int64 {
+			return item.FromId
 		})
-		for i2 := range items {
+
+		//var newMap map[int64][]LiveAction
+
+		for i := range byUid {
+			var items = lo.Filter(byUid[i], func(item LiveAction, index int) bool {
+				return item.ActionType != Gift
+			})
+			for i2 := range items {
+
+			}
 
 		}
+		fmt.Println(byUid)
 
-	}
-	fmt.Println(byUid)
+	*/
 }

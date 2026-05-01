@@ -38,11 +38,14 @@ func loadPb() {
 	parser := protoparse.Parser{}
 	var fds, _ = parser.ParseFiles("pb/pb.proto")
 	protoMap["REPLY_LIST"] = fds[0].FindMessage("models.ReplyList")
+	protoMap["REACTION"] = fds[0].FindMessage("models.Reaction")
+	protoMap["REACTION_LIST"] = fds[0].FindMessage("models.ReactionList")
 
 	fds, _ = parser.ParseFiles("pb/danmaku.proto")
-
 	protoMap["DANMAKU_LIST"] = fds[0].FindMessage("models.DmSegMobileReply")
 }
+
+//UpdateCollections 判断之前是否记录过，如果纪录过只会更新新增加的
 
 func main() {
 	loadConfig()
@@ -55,12 +58,20 @@ func main() {
 	clickDb = clickDb0
 
 	clickDb.AutoMigrate(&Danmaku{})
+	clickDb.AutoMigrate(&ReplyList{})
+	clickDb.AutoMigrate(&Collection{})
+
+	clickDb.Table("reactions").AutoMigrate(&struct {
+		OID int64
+		Pb  string
+	}{})
 
 	clickDb0.Exec("SET max_query_size = 67108864")
-
 	UpdateClients()
-	UpdateDanmaku(37200069038, 0)
-	InitHttp()
+	UpdateUserVideo(3546757543758795)
+	//UpdateVideo("BV1M2YqzpENF")
+	UpdateCollections(1160346, 504140200, "season")
+	//UpdateFeedDetails(RandomM(clients).GetDynamicDetail(1177090080201768985)[0])
 
 	select {}
 }

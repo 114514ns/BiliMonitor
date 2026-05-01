@@ -64,6 +64,9 @@ func MockRefreshLivers() {
 	sonic.Unmarshal(get.Body(), &dst)
 	var from = dst.List
 	cachedLivers = append(cachedLivers, from...)
+	for i := range cachedLivers {
+		liverMap[cachedLivers[i].UID] = cachedLivers[i]
+	}
 
 }
 func TestHttp(test *testing.T) {

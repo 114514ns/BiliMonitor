@@ -25,10 +25,7 @@ function SettingDialog(props) {
         'https://storage.ikun.dev/d/Microsoft365/static/133487584_p0_master1200.avif?sign=gqjurkYhTQwdT_i2Z-MfmrDKXOc3INkqlUYQj1L--Vg=:0', //犬戎
         'https://storage.ikun.dev/d/Microsoft365/static/83307417_p0.avif?sign=wxmZ7R-4WVEy1ils1yK5fyeLYEFlSEwJZvI_luSoL3s=:0', //白神遥Haruka
     ]:[
-
-        //'https://storage.ikun.dev/d/Microsoft365/static/109780395_p0.avif?sign=fagwpdupRN5rGXmaqNIPLByxNPT08KFJ6XHcLYFVcG4=:0', //嘉然
-        'https://storage.ikun.dev/d/Microsoft365/static/136963002_p8.avif?sign=7lxaLKnSTkTgi8PYe5wnTgxXHqYx89jW6yhL9WGVblI=:0', //折原鹿鹿
-        'https://storage.ikun.dev/d/Microsoft365/static/videoframe_3241.avif?sign=HleQqGXynCxyCyAe4yQM1e6G9X0JvGFjO0habFV2GLA=:0', //KUN
+        'https://storage.vtb.cat/d/Local/hazel.avif' //满区
     ]
     const ref = React.useRef()
     return (

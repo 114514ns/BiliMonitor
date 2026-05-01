@@ -107,6 +107,7 @@ type Config struct {
 	ScheduleTask            bool
 	HighLight               []HighLight
 	Role                    string
+	ForceWebsocketHost      []string
 }
 
 type HighLight struct {
@@ -606,6 +607,7 @@ func main0() {
 		db.AutoMigrate(&Post{})
 
 	*/
+	db.AutoMigrate(&Emotes{})
 	RemoveEmpty()
 	if config.Mode == "API" {
 		config.Port++
